@@ -26,6 +26,12 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
             },
         });
 
+        // Broadcast the update to all connected clients
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('scoreUpdate', updatedMatch);
+        }
+
         res.status(200).json(updatedMatch);
     } catch (error) {
         if (error instanceof z.ZodError) {

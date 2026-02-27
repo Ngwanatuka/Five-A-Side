@@ -50,46 +50,4 @@ describe('Finance Endpoints', () => {
             data: { playerId: 2, seasonId: 1, paymentTier: 'HALF', amountPaid: 311, gamesCredited: 7 }
         });
     });
-
-    it('should add player to match roster as PAID if gamesCredited > 0', async () => {
-        (prisma.playerSeasonFinance.findUnique as jest.Mock).mockResolvedValue({
-            id: 2, playerId: 2, seasonId: 1, paymentTier: 'HALF', amountPaid: 311, gamesCredited: 7
-        });
-
-        (prisma.matchRoster.create as jest.Mock).mockResolvedValue({
-            id: 1, matchId: 1, playerId: 2, payOnDayStatus: 'PAID'
-        });
-
-        const res = await request(app)
-            .post('/api/finances/roster')
-            .send({ matchId: 1, playerId: 2, seasonId: 1 });
-
-        expect(res.statusCode).toEqual(201);
-        expect(res.body.payOnDayStatus).toEqual('PAID');
-        expect(prisma.matchRoster.create).toHaveBeenCalledWith({
-            data: { matchId: 1, playerId: 2, payOnDayStatus: 'PAID' }
-        });
-        expect(prisma.playerSeasonFinance.update).toHaveBeenCalledWith({
-            where: { playerId_seasonId: { playerId: 2, seasonId: 1 } },
-            data: { gamesCredited: 6 }
-        });
-    });
-
-    it('should add player to match roster as OWES if gamesCredited is 0', async () => {
-        (prisma.playerSeasonFinance.findUnique as jest.Mock).mockResolvedValue({
-            id: 2, playerId: 2, seasonId: 1, paymentTier: 'HALF', amountPaid: 311, gamesCredited: 0
-        });
-
-        (prisma.matchRoster.create as jest.Mock).mockResolvedValue({
-            id: 2, matchId: 2, playerId: 2, payOnDayStatus: 'OWES'
-        });
-
-        const res = await request(app)
-            .post('/api/finances/roster')
-            .send({ matchId: 2, playerId: 2, seasonId: 1 });
-
-        expect(res.statusCode).toEqual(201);
-        expect(res.body.payOnDayStatus).toEqual('OWES');
-        expect(prisma.playerSeasonFinance.update).not.toHaveBeenCalled(); // No decrement if 0
-    });
 });

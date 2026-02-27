@@ -43,8 +43,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
 };
 
 const addPlayerSchema = z.object({
-    playerId: z.number().int().positive(),
-    payOnDayStatus: z.enum(['PAID', 'OWES']),
+    playerId: z.number().int().positive()
 });
 
 export const addPlayerToRoster = async (req: Request, res: Response): Promise<void> => {
@@ -55,7 +54,7 @@ export const addPlayerToRoster = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        const { playerId, payOnDayStatus } = addPlayerSchema.parse(req.body);
+        const { playerId } = addPlayerSchema.parse(req.body);
 
         // 1. Fetch the match
         const match = await prisma.match.findUnique({
@@ -99,7 +98,25 @@ export const addPlayerToRoster = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        // 6. Create the roster record
+        // 6. Integrate Payment Tier Logic
+        const finance = await prisma.playerSeasonFinance.findUnique({
+            where: {
+                playerId_seasonId: { playerId, seasonId: match.seasonId }
+            }
+        });
+
+        const isPrePaid = finance && finance.gamesCredited > 0;
+        const payOnDayStatus = isPrePaid ? 'PAID' : 'OWES';
+
+        if (isPrePaid) {
+            // Deduct one game credit since they are playing today
+            await prisma.playerSeasonFinance.update({
+                where: { playerId_seasonId: { playerId, seasonId: match.seasonId } },
+                data: { gamesCredited: finance!.gamesCredited - 1 }
+            });
+        }
+
+        // 7. Create the roster record
         const rosterRecord = await prisma.matchRoster.create({
             data: {
                 matchId,

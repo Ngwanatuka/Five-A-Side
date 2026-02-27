@@ -24,12 +24,22 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
     try {
         const { seasonId, divisionId } = getStandingsSchema.parse(req.query);
 
-        // Fetch all teams (in a real app you might want to fetch teams directly registered to this season/division)
-        const teams = await prisma.team.findMany();
+        // Fetch teams officially registered and approved for this season/division
+        const registrations = await prisma.teamSeasonRegistration.findMany({
+            where: {
+                seasonId,
+                divisionId,
+                status: 'APPROVED'
+            },
+            include: {
+                team: true
+            }
+        });
         const teamMap = new Map<number, StandingsRow>();
 
         // Initialize map
-        teams.forEach(t => {
+        registrations.forEach(reg => {
+            const t = reg.team;
             teamMap.set(t.id, {
                 teamId: t.id,
                 teamName: t.name,

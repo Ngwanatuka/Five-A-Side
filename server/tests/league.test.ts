@@ -8,7 +8,7 @@ jest.mock('../src/prisma', () => ({
         match: {
             findMany: jest.fn(),
         },
-        team: {
+        teamSeasonRegistration: {
             findMany: jest.fn(),
         },
     },
@@ -19,14 +19,14 @@ describe('League Log Algorithm', () => {
         jest.clearAllMocks();
     });
 
-    const mockTeams = [
-        { id: 1, name: 'Team A' },
-        { id: 2, name: 'Team B' },
-        { id: 3, name: 'Team C' },
+    const mockRegisteredTeams = [
+        { team: { id: 1, name: 'Team A' } },
+        { team: { id: 2, name: 'Team B' } },
+        { team: { id: 3, name: 'Team C' } },
     ];
 
-    it('should calculate standings correctly considering win/draw/loss', async () => {
-        (prisma.team.findMany as jest.Mock).mockResolvedValue(mockTeams);
+    it('should calculate standings correctly considering win/draw/loss for registered teams', async () => {
+        (prisma.teamSeasonRegistration.findMany as jest.Mock).mockResolvedValue(mockRegisteredTeams);
 
         // Context:
         // Team A vs Team B: 2-0 (A wins 3pts, +2GD, 2GF | B 0pts, -2GD, 0GF)
@@ -68,7 +68,7 @@ describe('League Log Algorithm', () => {
     });
 
     it('should resolve tie-breakers by Goal Difference and then Goals For', async () => {
-        (prisma.team.findMany as jest.Mock).mockResolvedValue(mockTeams);
+        (prisma.teamSeasonRegistration.findMany as jest.Mock).mockResolvedValue(mockRegisteredTeams);
 
         // Team A vs Team B: 2-0 (A 3pts, +2GD, 2GF)
         // Team C vs Team B: 4-3 (C 3pts, +1GD, 4GF)

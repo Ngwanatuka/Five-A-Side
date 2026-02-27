@@ -105,3 +105,99 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
+const generateFixturesSchema = z.object({
+    startDate: z.string(),
+    pitches: z.array(z.number()),
+});
+
+export const generateFixtures = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const seasonId = parseInt(req.params.seasonId, 10);
+        const divisionId = parseInt(req.params.divisionId, 10);
+
+        if (isNaN(seasonId) || isNaN(divisionId)) {
+            res.status(400).json({ error: 'Invalid season or division ID' });
+            return;
+        }
+
+        const parsedData = generateFixturesSchema.parse(req.body);
+
+        // Fetch registered teams for this division
+        const registeredTeams = await prisma.teamSeasonRegistration.findMany({
+            where: {
+                seasonId,
+                divisionId,
+                status: 'APPROVED' // Need to be approved into the division
+            },
+            select: { teamId: true }
+        });
+
+        if (registeredTeams.length !== 8) {
+            res.status(400).json({ error: 'Division must have exactly 8 approved teams to generate fixtures.' });
+            return;
+        }
+
+        const teamIds = registeredTeams.map(rt => rt.teamId);
+
+        // Round Robin Algorithm (Double)
+        const matchesToInsert: any[] = [];
+        let currentDate = new Date(parsedData.startDate);
+        const numTeams = teamIds.length;
+        const totalRounds = (numTeams - 1) * 2; // 14 weeks
+        const matchesPerRound = numTeams / 2;   // 4 matches
+
+        // Teams array for round robin rotation
+        const rotatingTeams = [...teamIds];
+
+        for (let round = 0; round < totalRounds; round++) {
+            // Half way through, we flip home/away (double round robin)
+            const isSecondLeg = round >= (numTeams - 1);
+
+            for (let matchIdx = 0; matchIdx < matchesPerRound; matchIdx++) {
+                const homeIdx = (round + matchIdx) % (numTeams - 1);
+                let awayIdx = (numTeams - 1 - matchIdx + round) % (numTeams - 1);
+
+                // Last team stays stationary
+                if (matchIdx === 0) {
+                    awayIdx = numTeams - 1;
+                }
+
+                let homeTeam = rotatingTeams[homeIdx];
+                let awayTeam = rotatingTeams[awayIdx];
+
+                if (isSecondLeg) {
+                    const temp = homeTeam;
+                    homeTeam = awayTeam;
+                    awayTeam = temp;
+                }
+
+                matchesToInsert.push({
+                    seasonId,
+                    divisionId,
+                    homeTeamId: homeTeam,
+                    awayTeamId: awayTeam,
+                    date: new Date(currentDate),
+                    time: '19:00', // Default time, could be distributed
+                    pitchNumber: parsedData.pitches[matchIdx % parsedData.pitches.length],
+                    status: 'UPCOMING'
+                });
+            }
+
+            // Move to next week
+            currentDate.setDate(currentDate.getDate() + 7);
+        }
+
+        await prisma.match.createMany({
+            data: matchesToInsert
+        });
+
+        res.status(201).json({ message: `${matchesToInsert.length} matches generated successfully.` });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            res.status(400).json({ errors: error.errors });
+            return;
+        }
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};

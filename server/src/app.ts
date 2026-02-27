@@ -41,3 +41,4 @@ app.use('/api/league', leagueRoutes);
 app.use('/api/matches', matchRoutes);
 
 export { app, httpServer, io };
+export default app;

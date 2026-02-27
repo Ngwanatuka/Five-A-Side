@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SeasonStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model Season {
+  id        Int      @id @default(autoincrement())
+  name      String
+  status    SeasonStatus @default(ACTIVE)
+
+  registrations TeamSeasonRegistration[]
+  matches       Match[]
+  finances      PlayerSeasonFinance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Division {
+  id        Int      @id @default(autoincrement())
+  name      String
+  tierLevel Int
+
+  registrations TeamSeasonRegistration[]
+  matches       Match[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Team {
+  id             Int      @id @default(autoincrement())
+  name           String
+  logoUrl        String?
+  managerContact String
+
+  players       Player[]
+  registrations TeamSeasonRegistration[]
+  homeMatches   Match[] @relation("HomeTeam")
+  awayMatches   Match[] @relation("AwayTeam")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Player {
+  id        Int      @id @default(autoincrement())
+  teamId    Int
+  firstName String
+  lastName  String
+
+  team      Team     @relation(fields: [teamId], references: [id])
+  finances  PlayerSeasonFinance[]
+  rosters   MatchRoster[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamSeasonRegistration {
+  id         Int      @id @default(autoincrement())
+  teamId     Int
+  seasonId   Int
+  divisionId Int
+
+  team     Team     @relation(fields: [teamId], references: [id])
+  season   Season   @relation(fields: [seasonId], references: [id])
+  division Division @relation(fields: [divisionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, seasonId]) // A team can only register once per season
+}
+
+enum MatchStatus {
+  UPCOMING
+  LIVE
+  COMPLETED
+}
+
+model Match {
+  id          Int      @id @default(autoincrement())
+  seasonId    Int
+  divisionId  Int
+  homeTeamId  Int
+  awayTeamId  Int
+  date        DateTime
+  time        String
+  pitchNumber Int
+  homeScore   Int?
+  awayScore   Int?
+  status      MatchStatus @default(UPCOMING)
+
+  season   Season   @relation(fields: [seasonId], references: [id])
+  division Division @relation(fields: [divisionId], references: [id])
+  homeTeam Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  rosters MatchRoster[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PaymentTier {
+  FULL
+  HALF
+  PAY_ON_DAY
+}
+
+model PlayerSeasonFinance {
+  id            Int      @id @default(autoincrement())
+  playerId      Int
+  seasonId      Int
+  paymentTier   PaymentTier
+  amountPaid    Float
+  gamesCredited Int      @default(0)
+
+  player Player @relation(fields: [playerId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, seasonId]) // A player has one finance record per season
+}
+
+enum PayOnDayStatus {
+  PAID
+  OWES
+}
+
+model MatchRoster {
+  id             Int      @id @default(autoincrement())
+  matchId        Int
+  playerId       Int
+  payOnDayStatus PayOnDayStatus
+
+  match  Match  @relation(fields: [matchId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, playerId]) // A player can only be on a roster once per match
+}

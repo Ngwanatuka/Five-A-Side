@@ -16,6 +16,7 @@ export type Season = {
   start_date: string
   end_date: string | null
   is_active: boolean
+  fee_per_game: number
   created_at: string
 }
 
@@ -125,4 +126,16 @@ export type PlayerFinanceWithDetails = PlayerSeasonFinance & {
   first_name: string
   last_name: string
   team_name: string | null
+  team_id: number | null
+}
+
+export type TeamFinanceSummary = {
+  team_id: number
+  team_name: string
+  primary_color: string
+  secondary_color: string
+  total_players: number
+  total_due: number
+  total_paid: number
+  balance: number
 }

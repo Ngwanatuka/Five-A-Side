@@ -30,7 +30,7 @@ export const registerPlayerFinance = async (req: Request, res: Response): Promis
         res.status(201).json(finance);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });
@@ -39,11 +39,11 @@ export const registerPlayerFinance = async (req: Request, res: Response): Promis
 
 export const getAllFinances = async (req: Request, res: Response) => {
     try {
-        const seasonIdStr = req.query.seasonId as string | undefined;
-        const seasonId = seasonIdStr ? parseInt(seasonIdStr, 10) : undefined;
+        const params = req.query as { seasonId?: string };
+        const seasonId = params.seasonId ? parseInt(params.seasonId, 10) : undefined;
 
         const finances = await prisma.playerSeasonFinance.findMany({
-            where: seasonId ? { seasonId } : undefined,
+            where: seasonId ? { seasonId } : {},
             include: {
                 player: {
                     include: {
@@ -80,15 +80,16 @@ export const processPublicPayment = async (req: Request, res: Response): Promise
             return;
         }
 
-        const [firstName, ...lastNameParts] = data.playerName.trim().split(' ');
-        const lastName = lastNameParts.join(' ') || '';
+        const parts = data.playerName.trim().split(' ');
+        const firstName = parts[0] || '';
+        const lastName = parts.slice(1).join(' ') || '';
 
         // Find or create player
         let player = await prisma.player.findFirst({
             where: {
                 teamId: team.id,
-                firstName: { equals: firstName, mode: 'insensitive' },
-                lastName: { equals: lastName, mode: 'insensitive' }
+                firstName: { equals: firstName },
+                lastName: { equals: lastName }
             }
         });
 
@@ -139,7 +140,7 @@ export const processPublicPayment = async (req: Request, res: Response): Promise
         res.status(200).json(finance);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });

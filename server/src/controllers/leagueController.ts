@@ -109,7 +109,7 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
         res.status(200).json(standings);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });
@@ -123,8 +123,8 @@ const generateFixturesSchema = z.object({
 
 export const generateFixtures = async (req: Request, res: Response): Promise<void> => {
     try {
-        const seasonId = parseInt(req.params.seasonId, 10);
-        const divisionId = parseInt(req.params.divisionId, 10);
+        const seasonId = parseInt(req.params.seasonId as string, 10);
+        const divisionId = parseInt(req.params.divisionId as string, 10);
 
         if (isNaN(seasonId) || isNaN(divisionId)) {
             res.status(400).json({ error: 'Invalid season or division ID' });
@@ -212,7 +212,7 @@ export const generateFixtures = async (req: Request, res: Response): Promise<voi
         res.status(201).json({ message: `${matchesToInsert.length} matches generated successfully.` });
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });

@@ -14,3 +14,38 @@ User disconnected: HPJ8LUFDX0JNJHIdAAAH
 User connected to WebSocket: JssJSO1qctsxG46XAAAJ
 User disconnected: JssJSO1qctsxG46XAAAJ
 User connected to WebSocket: -dvvVRIR88AeSH20AAAL
+User connected to WebSocket: V9MMftVDA1zzliK3AAAN
+User disconnected: -dvvVRIR88AeSH20AAAL
+User disconnected: V9MMftVDA1zzliK3AAAN
+User connected to WebSocket: zTPSo0H4jlhG0uqNAAAP
+User disconnected: zTPSo0H4jlhG0uqNAAAP
+User connected to WebSocket: S_iFz5_4RB9sGVJWAAAR
+prisma:error 
+Invalid `prisma.match.update()` invocation in
+/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
+
+  66 
+  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
+  68 
+→ 69 const updatedMatch = await prisma.match.update(
+An operation failed because it depends on one or more records that were required but not found. Record to update not found.
+prisma:error 
+Invalid `prisma.match.update()` invocation in
+/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
+
+  66 
+  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
+  68 
+→ 69 const updatedMatch = await prisma.match.update(
+An operation failed because it depends on one or more records that were required but not found. Record to update not found.
+prisma:error 
+Invalid `prisma.match.update()` invocation in
+/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
+
+  66 
+  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
+  68 
+→ 69 const updatedMatch = await prisma.match.update(
+An operation failed because it depends on one or more records that were required but not found. Record to update not found.
+User disconnected: S_iFz5_4RB9sGVJWAAAR
+User connected to WebSocket: EY_5yOFvYBgFwpTpAAAT

@@ -16,14 +16,14 @@ export const createTeam = async (req: Request, res: Response) => {
             data: {
                 name: parsedData.name,
                 managerContact: parsedData.managerContact,
-                logoUrl: parsedData.logoUrl,
+                logoUrl: parsedData.logoUrl || null,
             }
         });
 
         res.status(201).json(newTeam);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal server error' });
@@ -51,7 +51,7 @@ export const registerTeam = async (req: Request, res: Response) => {
         res.status(201).json(newRegistration);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal server error' });
@@ -64,7 +64,7 @@ const approveRegistrationSchema = z.object({
 
 export const approveRegistration = async (req: Request, res: Response) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parseInt(req.params.id as string, 10);
         if (isNaN(id)) {
             res.status(400).json({ error: 'Invalid registration ID' });
             return;
@@ -96,7 +96,7 @@ export const approveRegistration = async (req: Request, res: Response) => {
         res.status(200).json(approvedRegistration);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal server error' });

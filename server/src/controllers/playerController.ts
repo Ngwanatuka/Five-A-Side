@@ -41,7 +41,7 @@ export const addPlayerToTeam = async (req: Request, res: Response): Promise<void
         res.status(201).json(newPlayer);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return; // Added return to prevent further execution (though express types might complain without it)
         }
         res.status(500).json({ error: 'Internal server error' });

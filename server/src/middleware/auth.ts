@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
+const JWT_SECRET = (process.env.JWT_SECRET as string) || 'super-secret-key-fallback';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -22,8 +22,12 @@ export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunct
 
     const token = authHeader.split(' ')[1];
 
+    if (!token) {
+        return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    }
+
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { id: number; email: string; role: Role };
+        const decoded = jwt.verify(token, JWT_SECRET) as unknown as { id: number; email: string; role: Role };
         req.user = decoded;
         next();
     } catch (error) {

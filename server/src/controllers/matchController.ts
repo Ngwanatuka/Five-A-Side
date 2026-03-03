@@ -135,3 +135,41 @@ export const addPlayerToRoster = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
+const getMatchesSchema = z.object({
+    seasonId: z.string().optional(),
+    divisionId: z.string().optional(),
+    status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED']).optional()
+});
+
+export const getMatches = async (req: Request, res: Response) => {
+    try {
+        const query = getMatchesSchema.parse(req.query);
+        const whereClause: any = {};
+
+        if (query.seasonId) whereClause.seasonId = parseInt(query.seasonId, 10);
+        if (query.divisionId) whereClause.divisionId = parseInt(query.divisionId, 10);
+        if (query.status) whereClause.status = query.status;
+
+        const matches = await prisma.match.findMany({
+            where: whereClause,
+            include: {
+                homeTeam: { select: { id: true, name: true, logoUrl: true } },
+                awayTeam: { select: { id: true, name: true, logoUrl: true } },
+                division: { select: { id: true, name: true } }
+            },
+            orderBy: [
+                { date: 'asc' },
+                { time: 'asc' }
+            ]
+        });
+
+        res.status(200).json(matches);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            res.status(400).json({ errors: error.errors });
+            return;
+        }
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};

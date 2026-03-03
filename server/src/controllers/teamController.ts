@@ -101,3 +101,18 @@ export const approveRegistration = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const getTeams = async (req: Request, res: Response) => {
+    try {
+        const teams = await prisma.team.findMany({
+            include: {
+                TeamSeasonRegistration: {
+                    where: { status: 'APPROVED' }
+                }
+            }
+        });
+        res.status(200).json(teams);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

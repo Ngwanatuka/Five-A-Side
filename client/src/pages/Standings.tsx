@@ -38,11 +38,16 @@ export const Standings = () => {
     };
 
     const renderFormIcon = (form: string) => {
-        // Mocking form for now
         if (form === 'W') return <TrendingUp size={16} className="text-green" />;
         if (form === 'D') return <Minus size={16} style={{ color: 'var(--color-text-muted)' }} />;
         return <TrendingDown size={16} className="text-red" />;
     };
+
+    const totalGoals = standings.reduce((sum, row) => sum + row.goalsFor, 0);
+    const totalMatchesPlayed = standings.reduce((sum, row) => sum + row.played, 0) / 2;
+    const avgGoalsPerMatch = totalMatchesPlayed > 0 ? (totalGoals / totalMatchesPlayed).toFixed(1) : '0.0';
+    const leaderName = standings.length > 0 ? standings[0].teamName : '-';
+    const mostGoals = standings.length > 0 ? Math.max(...standings.map(r => r.goalsFor)) : 0;
 
     return (
         <div className="app-container">
@@ -153,19 +158,19 @@ export const Standings = () => {
                 {/* Stat Cards for Standings Page */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1.5rem', marginTop: '2rem' }}>
                     <div className="glass-card flex-center" style={{ flexDirection: 'column', padding: '2rem 1.5rem' }}>
-                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--color-primary)', lineHeight: 1 }}>64</div>
+                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--color-primary)', lineHeight: 1 }}>{totalGoals}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Total Goals Scored</div>
                     </div>
                     <div className="glass-card flex-center" style={{ flexDirection: 'column', padding: '2rem 1.5rem' }}>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>FC Thunder</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'white', lineHeight: 1, textAlign: 'center' }}>{leaderName}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Current Leader</div>
                     </div>
                     <div className="glass-card flex-center" style={{ flexDirection: 'column', padding: '2rem 1.5rem' }}>
-                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>14</div>
+                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>{mostGoals}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Most Goals (Team)</div>
                     </div>
                     <div className="glass-card flex-center" style={{ flexDirection: 'column', padding: '2rem 1.5rem' }}>
-                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>3.2</div>
+                        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>{avgGoalsPerMatch}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Avg Goals/Match</div>
                     </div>
                 </div>

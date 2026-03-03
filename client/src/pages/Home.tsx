@@ -1,8 +1,62 @@
+import { useState, useEffect } from 'react';
 import { Trophy, Calendar as CalendarIcon, MapPin, ChevronRight, Users, Clock } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { NavLink } from 'react-router-dom';
+import { getStandings, getMatches, getTeams } from '../services/api';
 
 export const Home = () => {
+    const [standings, setStandings] = useState<any[]>([]);
+    const [matches, setMatches] = useState<any[]>([]);
+    const [teamsCount, setTeamsCount] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+    useEffect(() => {
+        const fetchHomeData = async () => {
+            try {
+                // Fetch Standings
+                const standingsData = await getStandings(1, 1);
+                setStandings(standingsData);
+
+                // Fetch Upcoming Matches
+                const matchesData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+                // Sort by date/time ascending
+                matchesData.sort((a: any, b: any) => {
+                    const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                    const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                    return dateA.getTime() - dateB.getTime();
+                });
+                setMatches(matchesData.slice(0, 4)); // Get next 4
+
+                // Fetch Teams Count
+                const teamsData = await getTeams();
+                setTeamsCount(teamsData.length);
+            } catch (error) {
+                console.error("Error fetching home data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchHomeData();
+
+        // Setup auto-refresh
+        const interval = setInterval(() => {
+            fetchHomeData();
+            setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const leader = standings.length > 0 ? standings[0] : null;
+    const nextMatch = matches.length > 0 ? matches[0] : null;
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
+    const getTeamAbbr = (name: string) => name.substring(0, 3).toUpperCase();
     return (
         <div className="app-container">
             <Navbar />
@@ -45,8 +99,8 @@ export const Home = () => {
                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 500 }}>
                             <Trophy size={16} /> League Leader
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>FC Thunder</h2>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>13 points</p>
+                        <h2 style={{ margin: 0, fontSize: '1.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leader ? leader.teamName : '-'}</h2>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>{leader ? `${leader.points} points` : '-'}</p>
                     </div>
 
                     <div className="glass-card" style={{ padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
@@ -54,8 +108,10 @@ export const Home = () => {
                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 500 }}>
                             <CalendarIcon size={16} /> Next Match
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>THU vs RST</h2>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Sun 1 Mar</p>
+                        <h2 style={{ margin: 0, fontSize: '1.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {nextMatch ? `${getTeamAbbr(nextMatch.homeTeam?.name || '')} vs ${getTeamAbbr(nextMatch.awayTeam?.name || '')}` : '-'}
+                        </h2>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>{nextMatch ? formatDate(nextMatch.date) : '-'}</p>
                     </div>
 
                     <div className="glass-card" style={{ padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
@@ -63,7 +119,7 @@ export const Home = () => {
                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 500 }}>
                             <Users size={16} /> Teams
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>8</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{teamsCount}</h2>
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Registered</p>
                     </div>
 
@@ -72,7 +128,7 @@ export const Home = () => {
                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 500 }}>
                             <Clock size={16} /> Last Updated
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>15:33</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{lastUpdated}</h2>
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Auto-refresh: 30s</p>
                     </div>
                 </div>
@@ -101,25 +157,24 @@ export const Home = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[
-                                        { pos: 1, name: 'FC Thunder', p: 5, gd: '+10', pts: 13, isLeader: true },
-                                        { pos: 2, name: 'Real Strikers', p: 5, gd: '+5', pts: 10 },
-                                        { pos: 3, name: 'United FC', p: 5, gd: '+2', pts: 9 },
-                                        { pos: 4, name: 'City Warriors', p: 5, gd: '+2', pts: 8 },
-                                        { pos: 5, name: 'Phoenix Rising', p: 5, gd: '-1', pts: 7 }
-                                    ].map((row, i) => (
-                                        <tr key={i}>
+                                    {standings.length === 0 && (
+                                        <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>No standings available.</td></tr>
+                                    )}
+                                    {standings.slice(0, 5).map((row, i) => (
+                                        <tr key={row.teamId}>
                                             <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)' }}>
-                                                {row.isLeader ? (
-                                                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{row.pos}</span>
+                                                {i === 0 ? (
+                                                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{i + 1}</span>
                                                 ) : (
-                                                    <span style={{ color: 'white', fontWeight: 600 }}>{row.pos}</span>
+                                                    <span style={{ color: 'white', fontWeight: 600 }}>{i + 1}</span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'white' }}>{row.name}</td>
-                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', color: 'var(--color-text-muted)' }}>{row.p}</td>
-                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', color: row.gd.startsWith('+') ? 'var(--color-text-muted)' : 'var(--color-text-muted)' }}>{row.gd}</td>
-                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', fontWeight: 700, color: 'white' }}>{row.pts}</td>
+                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'white' }}>{row.teamName}</td>
+                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', color: 'var(--color-text-muted)' }}>{row.played}</td>
+                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', color: row.goalDifference > 0 ? 'var(--color-primary)' : (row.goalDifference < 0 ? '#ef4444' : 'inherit') }}>
+                                                {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                                            </td>
+                                            <td style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'center', fontWeight: 700, color: 'white' }}>{row.points}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -137,24 +192,22 @@ export const Home = () => {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {[
-                                { home: 'THU', away: 'RST', date: 'Sun 1 Mar', time: '18:00', location: 'Central Arena' },
-                                { home: 'UFC', away: 'CTW', date: 'Sun 1 Mar', time: '19:30', location: 'City Stadium' },
-                                { home: 'PHX', away: 'DYN', date: 'Mon 2 Mar', time: '17:00', location: 'Phoenix Park' },
-                                { home: 'BLU', away: 'RDV', date: 'Mon 2 Mar', time: '18:30', location: 'Lions Den' },
-                            ].map((fixture, i) => (
-                                <div key={i} style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            {matches.length === 0 && (
+                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No upcoming fixtures.</div>
+                            )}
+                            {matches.map((fixture, i) => (
+                                <div key={fixture.id} style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'white', marginBottom: '0.4rem' }}>
-                                            {fixture.home} <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: '0 0.5rem', fontWeight: 400 }}>vs</span> {fixture.away}
+                                            {getTeamAbbr(fixture.homeTeam?.name || '')} <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: '0 0.5rem', fontWeight: 400 }}>vs</span> {getTeamAbbr(fixture.awayTeam?.name || '')}
                                         </div>
                                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CalendarIcon size={12} /> {fixture.date}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CalendarIcon size={12} /> {formatDate(fixture.date)}</span>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>⏱ {fixture.time}</span>
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                        <MapPin size={14} /> {fixture.location}
+                                        <MapPin size={14} /> Pitch {fixture.pitchNumber}
                                     </div>
                                 </div>
                             ))}

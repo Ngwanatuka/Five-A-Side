@@ -1,10 +1,45 @@
 import { useState } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Lock, LogOut, ChevronDown } from 'lucide-react';
+import { Shield, Lock, LogOut, ChevronDown, Users, BadgeCheck, XCircle } from 'lucide-react';
 
 export const AdminDashboard = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [activeTab, setActiveTab] = useState('Update Scores');
+
+    // Mock Data for Payments
+    const players = [
+        { name: 'Marcus Johnson', team: 'FC Thunder', status: 'Full Season', amount: 'R622' },
+        { name: 'Kevin Smith', team: 'FC Thunder', status: 'Full Season', amount: 'R622' },
+        { name: 'Andre Williams', team: 'FC Thunder', status: 'Half Season', amount: 'R311' },
+        { name: 'Brian Lee', team: 'FC Thunder', status: 'Per Game (5/14)', amount: 'R225' },
+        { name: 'Chris Brown', team: 'FC Thunder', status: 'Per Game (6/14)', amount: 'R270' },
+        { name: 'Daniel White', team: 'FC Thunder', status: 'Unpaid', amount: 'R0' },
+        { name: 'David Silva', team: 'Real Strikers', status: 'Full Season', amount: 'R622' },
+        { name: 'Eric Garcia', team: 'Real Strikers', status: 'Full Season', amount: 'R622' },
+        { name: 'Frank Torres', team: 'Real Strikers', status: 'Half Season', amount: 'R311' },
+        { name: 'George Martinez', team: 'Real Strikers', status: 'Half Season', amount: 'R311' },
+        { name: 'Henry Lopez', team: 'Real Strikers', status: 'Per Game (3/14)', amount: 'R135' },
+        { name: 'Ivan Rodriguez', team: 'Real Strikers', status: 'Per Game (5/14)', amount: 'R225' },
+        { name: 'Xavier Quinn', team: 'Dynamo Stars', status: 'Per Game (4/14)', amount: 'R180' },
+        { name: 'Yusuf Reed', team: 'Dynamo Stars', status: 'Per Game (4/14)', amount: 'R180' },
+        { name: 'Tom Anderson', team: 'Blue Lions', status: 'Full Season', amount: 'R622' },
+        { name: 'Zack Scott', team: 'Blue Lions', status: 'Half Season', amount: 'R311' },
+        { name: 'Adam Taylor', team: 'Blue Lions', status: 'Per Game (5/14)', amount: 'R225' },
+        { name: 'Ben Thomas', team: 'Blue Lions', status: 'Per Game (3/14)', amount: 'R135' },
+        { name: 'Cole Walker', team: 'Blue Lions', status: 'Unpaid', amount: 'R0' },
+        { name: 'Ryan Murphy', team: 'Red Devils', status: 'Full Season', amount: 'R622' },
+        { name: 'Derek Wilson', team: 'Red Devils', status: 'Half Season', amount: 'R311' },
+        { name: 'Ethan Young', team: 'Red Devils', status: 'Per Game (6/14)', amount: 'R270' },
+        { name: 'Felix Zimmerman', team: 'Red Devils', status: 'Per Game (2/14)', amount: 'R90' },
+        { name: 'Grant Hill', team: 'Red Devils', status: 'Unpaid', amount: 'R0' },
+    ];
+
+    const getStatusStyle = (status: string) => {
+        if (status === 'Full Season') return { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)' };
+        if (status === 'Half Season') return { color: '#ca8a04', bg: 'rgba(202, 138, 4, 0.1)', border: '1px solid rgba(202, 138, 4, 0.2)' };
+        if (status === 'Unpaid') return { color: 'white', bg: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-sm)', fontWeight: 600 };
+        return { color: 'var(--color-text-muted)', bg: 'transparent', border: '1px solid var(--color-border)' }; // Per Game
+    };
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -110,7 +145,7 @@ export const AdminDashboard = () => {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: 'var(--radius-sm)', padding: '0.25rem', marginBottom: '2rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    {['Update Scores', 'Match Status', 'Add Fixture'].map(tab => (
+                    {['Update Scores', 'Match Status', 'Add Fixture', 'Player Payments'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -198,6 +233,102 @@ export const AdminDashboard = () => {
                 {activeTab === 'Add Fixture' && (
                     <div className="glass-card" style={{ padding: '2rem' }}>
                         <p style={{ color: 'var(--color-text-muted)' }}>Fixture addition form will appear here.</p>
+                    </div>
+                )}
+
+                {activeTab === 'Player Payments' && (
+                    <div>
+                        {/* Top Stats Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                    <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>$</span>
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Revenue</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>R12,877</div>
+                                </div>
+                            </div>
+
+                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-sm)' }}>
+                                    <Users size={20} color="var(--color-primary)" />
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Players</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>42</div>
+                                </div>
+                            </div>
+
+                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                    <BadgeCheck size={20} color="var(--color-primary)" />
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Paid</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>36</div>
+                                </div>
+                            </div>
+
+                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                    <XCircle size={20} color="#ef4444" />
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Unpaid</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>6</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Players Table Section */}
+                        <div className="glass-panel" style={{ padding: '2rem' }}>
+                            <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.25rem', margin: '0 0 0.5rem 0' }}>Player Payments Dashboard</h2>
+                                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>Review financial status across all registered teams.</p>
+                                </div>
+                                <div className="glass-card flex-center" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', gap: '0.5rem', cursor: 'pointer' }}>
+                                    <span style={{ color: 'white', fontWeight: 500 }}>All Teams</span> <ChevronDown size={14} color="var(--color-text-muted)" />
+                                </div>
+                            </div>
+
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Player</th>
+                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Team</th>
+                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Payment Status</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {players.map((p, i) => {
+                                        const style = getStatusStyle(p.status);
+                                        return (
+                                            <tr key={i}>
+                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'white', fontWeight: 500 }}>{p.name}</td>
+                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>{p.team}</td>
+                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                                                    <span style={{
+                                                        color: style.color,
+                                                        backgroundColor: style.bg,
+                                                        border: style.border,
+                                                        padding: style.padding || '0.2rem 0.6rem',
+                                                        borderRadius: style.borderRadius || '2rem',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: style.fontWeight || 500
+                                                    }}>
+                                                        {p.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'right', color: 'white', fontWeight: 600 }}>{p.amount}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </main>

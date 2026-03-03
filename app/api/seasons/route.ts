@@ -1,8 +1,9 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
+    const sql = getDb()
     const seasons = await sql`
       SELECT * FROM seasons ORDER BY start_date DESC
     `
@@ -15,6 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const sql = getDb()
     const body = await request.json()
     const { name, start_date, end_date, is_active } = body
 

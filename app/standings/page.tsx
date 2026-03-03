@@ -1,9 +1,10 @@
 import { Trophy } from "lucide-react"
-import { sql } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import type { StandingRow } from "@/lib/db"
 
 async function getStandings(): Promise<StandingRow[]> {
   try {
+    const sql = getDb()
     const standings = await sql`
       SELECT 
         tsr.*,
@@ -25,6 +26,7 @@ async function getStandings(): Promise<StandingRow[]> {
 
 async function getActiveSeason() {
   try {
+    const sql = getDb()
     const seasons = await sql`SELECT * FROM seasons WHERE is_active = true LIMIT 1`
     return seasons[0] || null
   } catch {

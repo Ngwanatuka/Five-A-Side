@@ -1,10 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set')
+// Create a function that returns the sql client - this way we don't throw at build time
+export function getDb() {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(connectionString)
 }
-
-export const sql = neon(process.env.DATABASE_URL)
 
 // Type definitions based on database schema
 export type Season = {

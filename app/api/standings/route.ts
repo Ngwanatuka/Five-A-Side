@@ -1,8 +1,9 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   try {
+    const sql = getDb()
     const { searchParams } = new URL(request.url)
     const seasonId = searchParams.get('seasonId')
 

@@ -1,4 +1,4 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function PATCH(
@@ -6,6 +6,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sql = getDb()
     const { id } = await params
     const body = await request.json()
     const { amount_paid } = body

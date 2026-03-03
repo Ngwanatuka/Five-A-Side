@@ -1,10 +1,11 @@
 import { CheckCircle2, MapPin } from "lucide-react"
-import { sql } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { formatDate } from "@/lib/utils"
 import type { MatchWithTeams } from "@/lib/db"
 
 async function getResults(): Promise<MatchWithTeams[]> {
   try {
+    const sql = getDb()
     const matches = await sql`
       SELECT 
         m.*,
@@ -26,6 +27,7 @@ async function getResults(): Promise<MatchWithTeams[]> {
 
 async function getActiveSeason() {
   try {
+    const sql = getDb()
     const seasons = await sql`SELECT * FROM seasons WHERE is_active = true LIMIT 1`
     return seasons[0] || null
   } catch {

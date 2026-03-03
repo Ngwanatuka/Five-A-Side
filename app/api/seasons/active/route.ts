@@ -1,8 +1,9 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
+    const sql = getDb()
     const seasons = await sql`
       SELECT * FROM seasons WHERE is_active = true LIMIT 1
     `

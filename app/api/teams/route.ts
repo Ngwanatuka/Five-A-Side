@@ -1,8 +1,9 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
+    const sql = getDb()
     const teams = await sql`
       SELECT * FROM teams ORDER BY name ASC
     `
@@ -15,6 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const sql = getDb()
     const body = await request.json()
     const { name, logo_url, primary_color, secondary_color } = body
 

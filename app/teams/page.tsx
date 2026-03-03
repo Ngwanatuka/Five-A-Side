@@ -1,5 +1,5 @@
 import { Users } from "lucide-react"
-import { sql } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import type { Team, Player } from "@/lib/db"
 import { TeamCard } from "@/components/team-card"
 
@@ -9,6 +9,7 @@ type TeamWithPlayers = Team & {
 
 async function getTeamsWithPlayers(): Promise<TeamWithPlayers[]> {
   try {
+    const sql = getDb()
     const teams = await sql`SELECT * FROM teams ORDER BY name ASC`
     const players = await sql`SELECT * FROM players ORDER BY last_name ASC, first_name ASC`
     

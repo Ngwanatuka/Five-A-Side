@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { Trophy, Calendar, CheckCircle2, Users, CreditCard, ArrowRight } from "lucide-react"
-import { sql } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 async function getStats() {
   try {
+    const sql = getDb()
     const [teamsResult, playersResult, matchesResult, seasonsResult] = await Promise.all([
       sql`SELECT COUNT(*) as count FROM teams`,
       sql`SELECT COUNT(*) as count FROM players`,
@@ -24,6 +25,7 @@ async function getStats() {
 
 async function getUpcomingMatches() {
   try {
+    const sql = getDb()
     const matches = await sql`
       SELECT 
         m.*,
@@ -46,6 +48,7 @@ async function getUpcomingMatches() {
 
 async function getRecentResults() {
   try {
+    const sql = getDb()
     const matches = await sql`
       SELECT 
         m.*,

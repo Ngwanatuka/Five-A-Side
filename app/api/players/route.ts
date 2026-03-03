@@ -1,8 +1,9 @@
-import { sql } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   try {
+    const sql = getDb()
     const { searchParams } = new URL(request.url)
     const teamId = searchParams.get('teamId')
 
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const sql = getDb()
     const body = await request.json()
     const { first_name, last_name, email, phone, team_id, jersey_number, position } = body
 

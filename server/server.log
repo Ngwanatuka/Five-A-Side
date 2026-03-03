@@ -49,3 +49,5 @@ Invalid `prisma.match.update()` invocation in
 An operation failed because it depends on one or more records that were required but not found. Record to update not found.
 User disconnected: S_iFz5_4RB9sGVJWAAAR
 User connected to WebSocket: EY_5yOFvYBgFwpTpAAAT
+User connected to WebSocket: RVjXv7X3ue627E-KAAAV
+User connected to WebSocket: H351LEa7Hq7dGas0AAAX

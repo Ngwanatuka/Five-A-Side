@@ -182,13 +182,20 @@ export const generateFixtures = async (req: Request, res: Response): Promise<voi
                     awayTeam = temp;
                 }
 
+                // Stagger match times: 40-minute slots starting at 18:00
+                const slotIndex = Math.floor(matchIdx / parsedData.pitches.length);
+                const totalMinutes = 18 * 60 + (slotIndex * 40);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
                 matchesToInsert.push({
                     seasonId,
                     divisionId,
                     homeTeamId: homeTeam,
                     awayTeamId: awayTeam,
                     date: new Date(currentDate),
-                    time: '19:00', // Default time, could be distributed
+                    time: timeStr,
                     pitchNumber: parsedData.pitches[matchIdx % parsedData.pitches.length],
                     status: 'UPCOMING'
                 });

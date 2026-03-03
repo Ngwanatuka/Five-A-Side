@@ -9,6 +9,8 @@ import { Payments } from './pages/Payments';
 import { Register } from './pages/Register';
 import { MatchDayConsole } from './pages/MatchDayConsole';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { Login } from './pages/Login';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -21,9 +23,20 @@ function App() {
         <Route path="/teams" element={<Teams />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
 
-        <Route path="/referee" element={<MatchDayConsole />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['REFEREE', 'ADMIN']} />}>
+          <Route path="/referee" element={<MatchDayConsole />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['CASHIER', 'ADMIN']} />}>
+          <Route path="/payments" element={<Payments />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
       </Routes>
     </Router>
   );

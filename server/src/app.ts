@@ -8,6 +8,7 @@ import playerRoutes from './routes/playerRoutes';
 import financeRoutes from './routes/financeRoutes';
 import leagueRoutes from './routes/leagueRoutes';
 import matchRoutes from './routes/matchRoutes';
+import authRoutes from './routes/authRoutes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +40,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/finances', financeRoutes);
 app.use('/api/league', leagueRoutes);
 app.use('/api/matches', matchRoutes);
+app.use('/api/auth', authRoutes);
 
 export { app, httpServer, io };
 export default app;

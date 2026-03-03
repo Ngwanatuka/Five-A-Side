@@ -7,9 +7,58 @@ const updateScoreSchema = z.object({
     awayScore: z.number().int().nonnegative(),
 });
 
+const createMatchSchema = z.object({
+    seasonId: z.number().int().positive(),
+    divisionId: z.number().int().positive(),
+    homeTeamId: z.number().int().positive(),
+    awayTeamId: z.number().int().positive(),
+    date: z.string().datetime(), // ISO 8601
+    time: z.string(), // "18:00"
+    pitchNumber: z.number().int().min(1).max(3) // Pitch Limit Constraint
+});
+
+export const createMatch = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const body = createMatchSchema.parse(req.body);
+        const matchDate = new Date(body.date);
+        const dayOfWeek = matchDate.getDay();
+
+        // Enforce Tuesday (2) or Thursday (4) constraint
+        if (dayOfWeek !== 2 && dayOfWeek !== 4) {
+            res.status(400).json({ error: 'Matches can only be scheduled on Tuesdays and Thursdays' });
+            return;
+        }
+
+        // Enforce 3 Pitches Constraint
+        const concurrentMatches = await prisma.match.count({
+            where: {
+                date: matchDate,
+                time: body.time
+            }
+        });
+
+        if (concurrentMatches >= 3) {
+            res.status(400).json({ error: 'All 3 pitches are booked for this time slot' });
+            return;
+        }
+
+        const newMatch = await prisma.match.create({
+            data: body
+        });
+
+        res.status(201).json(newMatch);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            res.status(400).json({ errors: error.issues });
+            return;
+        }
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
 export const updateMatchScore = async (req: Request, res: Response): Promise<void> => {
     try {
-        const matchId = parseInt(req.params.id, 10);
+        const matchId = parseInt(req.params.id as string, 10);
         if (isNaN(matchId)) {
             res.status(400).json({ error: 'Invalid match ID' });
             return;
@@ -35,7 +84,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
         res.status(200).json(updatedMatch);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });
@@ -48,7 +97,7 @@ const addPlayerSchema = z.object({
 
 export const addPlayerToRoster = async (req: Request, res: Response): Promise<void> => {
     try {
-        const matchId = parseInt(req.params.id, 10);
+        const matchId = parseInt(req.params.id as string, 10);
         if (isNaN(matchId)) {
             res.status(400).json({ error: 'Invalid match ID' });
             return;
@@ -129,7 +178,7 @@ export const addPlayerToRoster = async (req: Request, res: Response): Promise<vo
 
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });
@@ -167,7 +216,7 @@ export const getMatches = async (req: Request, res: Response) => {
         res.status(200).json(matches);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            res.status(400).json({ errors: error.errors });
+            res.status(400).json({ errors: error.issues });
             return;
         }
         res.status(500).json({ error: 'Internal Server Error' });

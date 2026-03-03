@@ -1,0 +1,16 @@
+
+> server@1.0.0 dev
+> ts-node -T src/index.ts
+
+Server is running with WebSockets on port 5000
+User connected to WebSocket: V5zdiEmqkvVjKpO8AAAD
+User connected to WebSocket: yEhH6OkC1LdlE_ARAAAE
+User connected to WebSocket: qx1uLuiMbUaSYplqAAAF
+User disconnected: qx1uLuiMbUaSYplqAAAF
+User disconnected: V5zdiEmqkvVjKpO8AAAD
+User disconnected: yEhH6OkC1LdlE_ARAAAE
+User connected to WebSocket: HPJ8LUFDX0JNJHIdAAAH
+User disconnected: HPJ8LUFDX0JNJHIdAAAH
+User connected to WebSocket: JssJSO1qctsxG46XAAAJ
+User disconnected: JssJSO1qctsxG46XAAAJ
+User connected to WebSocket: -dvvVRIR88AeSH20AAAL

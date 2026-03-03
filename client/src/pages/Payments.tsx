@@ -1,13 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { BadgeCheck, Calendar as CalendarIcon, Wallet, ChevronDown, User, Shield } from 'lucide-react';
+import { getTeams, processPublicPayment } from '../services/api';
 
 export const Payments = () => {
     const [selectedTeam, setSelectedTeam] = useState('');
     const [selectedOption, setSelectedOption] = useState('');
+    const [playerName, setPlayerName] = useState('');
 
-    // Mock teams for dropdown
-    const teams = ['FC Thunder', 'Real Strikers', 'Dynamo Stars', 'Blue Lions', 'Red Devils'];
+    const [teams, setTeams] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        const fetchTeams = async () => {
+            try {
+                const data = await getTeams();
+                setTeams(data);
+            } catch (error) {
+                console.error("Failed to fetch teams", error);
+            }
+        };
+        fetchTeams();
+    }, []);
+
+    const handlePayment = async () => {
+        if (!selectedTeam || !selectedOption || !playerName) return;
+
+        setLoading(true);
+        setError('');
+        setSuccess(false);
+
+        let amountPaid = 0;
+        if (selectedOption === 'Per Game') amountPaid = 45;
+        if (selectedOption === 'Half Season') amountPaid = 311;
+        if (selectedOption === 'Full Season') amountPaid = 622;
+
+        try {
+            await processPublicPayment({
+                teamName: selectedTeam,
+                playerName: playerName,
+                seasonId: 1, // Assuming season 1
+                paymentTier: selectedOption,
+                amountPaid: amountPaid
+            });
+
+            setSuccess(true);
+            // Reset form
+            setSelectedTeam('');
+            setSelectedOption('');
+            setPlayerName('');
+        } catch (err: any) {
+            setError(err.message || 'Failed to process payment');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="app-container">
@@ -24,6 +73,18 @@ export const Payments = () => {
                 </div>
 
                 <div style={{ width: '100%', maxWidth: '800px' }}>
+
+                    {error && (
+                        <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', padding: '1rem', marginBottom: '1.5rem', borderRadius: 'var(--radius-sm)' }}>
+                            <p style={{ color: '#ef4444', margin: 0, fontSize: '0.9rem' }}>{error}</p>
+                        </div>
+                    )}
+
+                    {success && (
+                        <div style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', borderLeft: '4px solid #22c55e', padding: '1rem', marginBottom: '1.5rem', borderRadius: 'var(--radius-sm)' }}>
+                            <p style={{ color: '#22c55e', margin: 0, fontSize: '0.9rem' }}>Payment successfully processed!</p>
+                        </div>
+                    )}
 
                     {/* Step 1: Player Details */}
                     <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
@@ -44,6 +105,7 @@ export const Payments = () => {
                                     <select
                                         value={selectedTeam}
                                         onChange={(e) => setSelectedTeam(e.target.value)}
+                                        disabled={loading || success}
                                         style={{
                                             width: '100%',
                                             padding: '0.8rem 1rem 0.8rem 2.8rem',
@@ -54,11 +116,12 @@ export const Payments = () => {
                                             fontSize: '1rem',
                                             appearance: 'none',
                                             outline: 'none',
-                                            cursor: 'pointer'
+                                            cursor: (loading || success) ? 'not-allowed' : 'pointer',
+                                            opacity: (loading || success) ? 0.6 : 1
                                         }}
                                     >
                                         <option value="" disabled>Select your team...</option>
-                                        {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                                        {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                                     </select>
                                     <ChevronDown size={18} color="var(--color-text-muted)" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                                 </div>
@@ -74,7 +137,10 @@ export const Payments = () => {
                                     </div>
                                     <input
                                         type="text"
+                                        value={playerName}
+                                        onChange={(e) => setPlayerName(e.target.value)}
                                         placeholder="Enter your full name"
+                                        disabled={loading || success}
                                         style={{
                                             width: '100%',
                                             padding: '0.8rem 1rem 0.8rem 2.8rem',
@@ -83,7 +149,8 @@ export const Payments = () => {
                                             borderRadius: 'var(--radius-sm)',
                                             color: 'white',
                                             fontSize: '1rem',
-                                            outline: 'none'
+                                            outline: 'none',
+                                            opacity: (loading || success) ? 0.6 : 1
                                         }}
                                     />
                                 </div>
@@ -102,14 +169,15 @@ export const Payments = () => {
                             {/* Per Game - Clickable */}
                             <div
                                 className="glass-card"
-                                onClick={() => setSelectedOption('Per Game')}
+                                onClick={() => { if (!loading && !success) setSelectedOption('Per Game'); }}
                                 style={{
                                     padding: '1.5rem',
                                     backgroundColor: selectedOption === 'Per Game' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
                                     borderColor: selectedOption === 'Per Game' ? 'rgba(255, 255, 255, 0.5)' : 'var(--color-border)',
-                                    cursor: 'pointer',
+                                    cursor: (loading || success) ? 'not-allowed' : 'pointer',
                                     transition: 'all 0.2s',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    opacity: (loading || success) ? 0.6 : 1
                                 }}
                             >
                                 <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
@@ -127,14 +195,15 @@ export const Payments = () => {
                             {/* Half Season */}
                             <div
                                 className="glass-card"
-                                onClick={() => setSelectedOption('Half Season')}
+                                onClick={() => { if (!loading && !success) setSelectedOption('Half Season'); }}
                                 style={{
                                     padding: '1.5rem',
                                     backgroundColor: selectedOption === 'Half Season' ? 'rgba(202, 138, 4, 0.15)' : 'rgba(202, 138, 4, 0.05)',
                                     borderColor: selectedOption === 'Half Season' ? '#ca8a04' : 'rgba(202, 138, 4, 0.2)',
-                                    cursor: 'pointer',
+                                    cursor: (loading || success) ? 'not-allowed' : 'pointer',
                                     transition: 'all 0.2s',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    opacity: (loading || success) ? 0.6 : 1
                                 }}
                             >
                                 <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', color: '#ca8a04', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 500 }}>
@@ -152,15 +221,16 @@ export const Payments = () => {
                             {/* Full Season */}
                             <div
                                 className="glass-card"
-                                onClick={() => setSelectedOption('Full Season')}
+                                onClick={() => { if (!loading && !success) setSelectedOption('Full Season'); }}
                                 style={{
                                     padding: '1.5rem',
                                     backgroundColor: selectedOption === 'Full Season' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.05)',
                                     borderColor: selectedOption === 'Full Season' ? 'var(--color-primary)' : 'rgba(34, 197, 94, 0.3)',
-                                    cursor: 'pointer',
+                                    cursor: (loading || success) ? 'not-allowed' : 'pointer',
                                     transition: 'all 0.2s',
                                     position: 'relative',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    opacity: (loading || success) ? 0.6 : 1
                                 }}
                             >
                                 <div style={{ position: 'absolute', top: '15px', right: '15px', backgroundColor: 'var(--color-primary)', color: '#050505', fontSize: '0.7rem', fontWeight: 700, padding: '0.25rem 0.75rem', borderRadius: '1rem', display: selectedOption === 'Full Season' ? 'none' : 'block' }}>
@@ -184,16 +254,17 @@ export const Payments = () => {
                     <div style={{ textAlign: 'center' }}>
                         <button
                             className="btn btn-primary"
-                            disabled={!selectedTeam || !selectedOption}
+                            onClick={handlePayment}
+                            disabled={!selectedTeam || !selectedOption || !playerName || loading || success}
                             style={{
                                 padding: '1rem 3rem',
                                 fontSize: '1.1rem',
                                 fontWeight: 600,
-                                opacity: (!selectedTeam || !selectedOption) ? 0.5 : 1,
-                                cursor: (!selectedTeam || !selectedOption) ? 'not-allowed' : 'pointer'
+                                opacity: (!selectedTeam || !selectedOption || !playerName || loading || success) ? 0.5 : 1,
+                                cursor: (!selectedTeam || !selectedOption || !playerName || loading || success) ? 'not-allowed' : 'pointer'
                             }}
                         >
-                            Proceed to Payment
+                            {loading ? 'Processing...' : 'Proceed to Payment'}
                         </button>
                     </div>
 

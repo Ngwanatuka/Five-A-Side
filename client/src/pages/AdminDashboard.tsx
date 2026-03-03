@@ -1,44 +1,97 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Shield, Lock, LogOut, ChevronDown, Users, BadgeCheck, XCircle } from 'lucide-react';
+import { getAllFinances, getMatches, updateMatchScore } from '../services/api';
 
 export const AdminDashboard = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [activeTab, setActiveTab] = useState('Update Scores');
 
-    // Mock Data for Payments
-    const players = [
-        { name: 'Marcus Johnson', team: 'FC Thunder', status: 'Full Season', amount: 'R622' },
-        { name: 'Kevin Smith', team: 'FC Thunder', status: 'Full Season', amount: 'R622' },
-        { name: 'Andre Williams', team: 'FC Thunder', status: 'Half Season', amount: 'R311' },
-        { name: 'Brian Lee', team: 'FC Thunder', status: 'Per Game (5/14)', amount: 'R225' },
-        { name: 'Chris Brown', team: 'FC Thunder', status: 'Per Game (6/14)', amount: 'R270' },
-        { name: 'Daniel White', team: 'FC Thunder', status: 'Unpaid', amount: 'R0' },
-        { name: 'David Silva', team: 'Real Strikers', status: 'Full Season', amount: 'R622' },
-        { name: 'Eric Garcia', team: 'Real Strikers', status: 'Full Season', amount: 'R622' },
-        { name: 'Frank Torres', team: 'Real Strikers', status: 'Half Season', amount: 'R311' },
-        { name: 'George Martinez', team: 'Real Strikers', status: 'Half Season', amount: 'R311' },
-        { name: 'Henry Lopez', team: 'Real Strikers', status: 'Per Game (3/14)', amount: 'R135' },
-        { name: 'Ivan Rodriguez', team: 'Real Strikers', status: 'Per Game (5/14)', amount: 'R225' },
-        { name: 'Xavier Quinn', team: 'Dynamo Stars', status: 'Per Game (4/14)', amount: 'R180' },
-        { name: 'Yusuf Reed', team: 'Dynamo Stars', status: 'Per Game (4/14)', amount: 'R180' },
-        { name: 'Tom Anderson', team: 'Blue Lions', status: 'Full Season', amount: 'R622' },
-        { name: 'Zack Scott', team: 'Blue Lions', status: 'Half Season', amount: 'R311' },
-        { name: 'Adam Taylor', team: 'Blue Lions', status: 'Per Game (5/14)', amount: 'R225' },
-        { name: 'Ben Thomas', team: 'Blue Lions', status: 'Per Game (3/14)', amount: 'R135' },
-        { name: 'Cole Walker', team: 'Blue Lions', status: 'Unpaid', amount: 'R0' },
-        { name: 'Ryan Murphy', team: 'Red Devils', status: 'Full Season', amount: 'R622' },
-        { name: 'Derek Wilson', team: 'Red Devils', status: 'Half Season', amount: 'R311' },
-        { name: 'Ethan Young', team: 'Red Devils', status: 'Per Game (6/14)', amount: 'R270' },
-        { name: 'Felix Zimmerman', team: 'Red Devils', status: 'Per Game (2/14)', amount: 'R90' },
-        { name: 'Grant Hill', team: 'Red Devils', status: 'Unpaid', amount: 'R0' },
-    ];
+    // Data states
+    const [finances, setFinances] = useState<any[]>([]);
+    const [matches, setMatches] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+
+    // Score update form state
+    const [selectedMatchId, setSelectedMatchId] = useState('');
+    const [homeScore, setHomeScore] = useState('');
+    const [awayScore, setAwayScore] = useState('');
+    const [scoreMessage, setScoreMessage] = useState({ text: '', type: '' });
+
+    const fetchAdminData = async () => {
+        setLoading(true);
+        try {
+            // Fetch finances for current season (assuming 1)
+            const finData = await getAllFinances(1);
+            setFinances(finData);
+
+            // Fetch upcoming matches for score update
+            const matchData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+            // Sort matches so most relevant are first (earliest dates)
+            matchData.sort((a: any, b: any) => {
+                const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                return dateA.getTime() - dateB.getTime();
+            });
+            setMatches(matchData);
+        } catch (error) {
+            console.error("Failed to fetch admin data", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchAdminData();
+        }
+    }, [isLoggedIn]);
+
+    const handleUpdateScore = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedMatchId || homeScore === '' || awayScore === '') {
+            setScoreMessage({ text: 'Please fill all fields', type: 'error' });
+            return;
+        }
+
+        setActionLoading(true);
+        try {
+            await updateMatchScore(Number(selectedMatchId), Number(homeScore), Number(awayScore));
+            setScoreMessage({ text: 'Score updated successfully', type: 'success' });
+            setHomeScore('');
+            setAwayScore('');
+            setSelectedMatchId('');
+            // Refresh matches list as the matched just moved to COMPLETED
+            const matchData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+            setMatches(matchData);
+        } catch (error: any) {
+            setScoreMessage({ text: error.message || 'Failed to update score', type: 'error' });
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    // Calculate Finance Stats
+    const totalRevenue = finances.reduce((sum, f) => sum + f.amountPaid, 0);
+    const totalPlayers = finances.length;
+    let paidCount = 0;
+    let unpaidCount = 0;
+
+    finances.forEach(f => {
+        if (f.status === 'UNPAID') unpaidCount++;
+        else paidCount++; // FULL_SEASON, HALF_SEASON, PER_GAME
+    });
+
+    // Formatting currency
+    const formatCurrency = (amount: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 0 }).format(amount);
+
 
     const getStatusStyle = (status: string) => {
-        if (status === 'Full Season') return { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)' };
-        if (status === 'Half Season') return { color: '#ca8a04', bg: 'rgba(202, 138, 4, 0.1)', border: '1px solid rgba(202, 138, 4, 0.2)' };
-        if (status === 'Unpaid') return { color: 'white', bg: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-sm)', fontWeight: 600 };
-        return { color: 'var(--color-text-muted)', bg: 'transparent', border: '1px solid var(--color-border)' }; // Per Game
+        if (status === 'FULL_SEASON') return { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)' };
+        if (status === 'HALF_SEASON') return { color: '#ca8a04', bg: 'rgba(202, 138, 4, 0.1)', border: '1px solid rgba(202, 138, 4, 0.2)' };
+        if (status === 'UNPAID') return { color: 'white', bg: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-sm)', fontWeight: 600 };
+        return { color: 'var(--color-text-muted)', bg: 'transparent', border: '1px solid var(--color-border)' }; // PER_GAME
     };
 
     const handleLogin = (e: React.FormEvent) => {
@@ -176,38 +229,103 @@ export const AdminDashboard = () => {
                             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Select a match and enter the final or current score.</p>
                         </div>
 
-                        <form style={{ maxWidth: '600px' }}>
+                        <form style={{ maxWidth: '600px' }} onSubmit={handleUpdateScore}>
+                            {scoreMessage.text && (
+                                <div style={{
+                                    padding: '1rem',
+                                    marginBottom: '1.5rem',
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: scoreMessage.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                                    borderLeft: `4px solid ${scoreMessage.type === 'error' ? '#ef4444' : '#22c55e'}`,
+                                    color: scoreMessage.type === 'error' ? '#ef4444' : '#22c55e',
+                                    fontWeight: 500
+                                }}>
+                                    {scoreMessage.text}
+                                </div>
+                            )}
                             <div style={{ marginBottom: '2rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
                                     Select Match
                                 </label>
                                 <div style={{ position: 'relative' }}>
                                     <select
+                                        value={selectedMatchId}
+                                        onChange={(e) => setSelectedMatchId(e.target.value)}
                                         style={{
                                             width: '100%',
                                             padding: '1rem',
                                             backgroundColor: 'rgba(0,0,0,0.2)',
                                             border: '1px solid var(--color-border)',
                                             borderRadius: 'var(--radius-sm)',
-                                            color: 'var(--color-text-muted)',
+                                            color: selectedMatchId ? 'white' : 'var(--color-text-muted)',
                                             fontSize: '0.95rem',
                                             appearance: 'none',
                                             outline: 'none',
                                             cursor: 'pointer'
                                         }}
-                                        defaultValue=""
                                     >
                                         <option value="" disabled>Choose a fixture...</option>
-                                        <option value="1">FC Thunder vs Real Strikers (19:00)</option>
-                                        <option value="2">Dynamo Stars vs Blue Lions (20:00)</option>
+                                        {matches.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.homeTeam?.name || 'TBD'} vs {m.awayTeam?.name || 'TBD'} - {new Date(m.date).toLocaleDateString('en-GB')} {m.time}
+                                            </option>
+                                        ))}
                                     </select>
                                     <ChevronDown size={18} color="var(--color-text-muted)" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                                 </div>
                             </div>
 
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
+                                        Home Score
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={homeScore}
+                                        onChange={(e) => setHomeScore(e.target.value)}
+                                        placeholder="0"
+                                        style={{
+                                            width: '100%',
+                                            padding: '1rem',
+                                            backgroundColor: 'rgba(0,0,0,0.2)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            color: 'white',
+                                            fontSize: '1rem',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
+                                        Away Score
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={awayScore}
+                                        onChange={(e) => setAwayScore(e.target.value)}
+                                        placeholder="0"
+                                        style={{
+                                            width: '100%',
+                                            padding: '1rem',
+                                            backgroundColor: 'rgba(0,0,0,0.2)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            color: 'white',
+                                            fontSize: '1rem',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
                             <button
-                                type="button"
+                                type="submit"
                                 className="btn btn-primary"
+                                disabled={actionLoading || loading}
                                 style={{
                                     width: '100%',
                                     padding: '0.85rem',
@@ -215,10 +333,12 @@ export const AdminDashboard = () => {
                                     borderRadius: 'var(--radius-sm)',
                                     border: 'none',
                                     fontWeight: 600,
-                                    backgroundColor: 'rgba(21, 128, 61, 0.8)' // slightly darker/semi transparent green per wireframe
+                                    backgroundColor: 'rgba(21, 128, 61, 0.8)', // slightly darker/semi transparent green per wireframe
+                                    opacity: actionLoading ? 0.6 : 1,
+                                    cursor: actionLoading ? 'not-allowed' : 'pointer'
                                 }}
                             >
-                                Update Score
+                                {actionLoading ? 'Updating...' : 'Update Score'}
                             </button>
                         </form>
                     </div>
@@ -238,97 +358,105 @@ export const AdminDashboard = () => {
 
                 {activeTab === 'Player Payments' && (
                     <div>
-                        {/* Top Stats Cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
-                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
-                                    <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>$</span>
-                                </div>
-                                <div>
-                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Revenue</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>R12,877</div>
-                                </div>
-                            </div>
+                        {loading ? (
+                            <div style={{ padding: '3rem', textAlign: 'center' }}>Loading finance data...</div>
+                        ) : (
+                            <>
+                                {/* Top Stats Cards */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                                    <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                        <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                            <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>$</span>
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Revenue</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>{formatCurrency(totalRevenue)}</div>
+                                        </div>
+                                    </div>
 
-                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
-                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-sm)' }}>
-                                    <Users size={20} color="var(--color-primary)" />
-                                </div>
-                                <div>
-                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Players</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>42</div>
-                                </div>
-                            </div>
+                                    <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                        <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-sm)' }}>
+                                            <Users size={20} color="var(--color-primary)" />
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Players</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>{totalPlayers}</div>
+                                        </div>
+                                    </div>
 
-                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
-                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
-                                    <BadgeCheck size={20} color="var(--color-primary)" />
-                                </div>
-                                <div>
-                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Paid</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>36</div>
-                                </div>
-                            </div>
+                                    <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                        <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                            <BadgeCheck size={20} color="var(--color-primary)" />
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Paid</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>{paidCount}</div>
+                                        </div>
+                                    </div>
 
-                            <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
-                                <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)' }}>
-                                    <XCircle size={20} color="#ef4444" />
+                                    <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
+                                        <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                            <XCircle size={20} color="#ef4444" />
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Unpaid</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>{unpaidCount}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Unpaid</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', lineHeight: 1 }}>6</div>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Players Table Section */}
-                        <div className="glass-panel" style={{ padding: '2rem' }}>
-                            <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
-                                <div>
-                                    <h2 style={{ fontSize: '1.25rem', margin: '0 0 0.5rem 0' }}>Player Payments Dashboard</h2>
-                                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>Review financial status across all registered teams.</p>
-                                </div>
-                                <div className="glass-card flex-center" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', gap: '0.5rem', cursor: 'pointer' }}>
-                                    <span style={{ color: 'white', fontWeight: 500 }}>All Teams</span> <ChevronDown size={14} color="var(--color-text-muted)" />
-                                </div>
-                            </div>
+                                {/* Players Table Section */}
+                                <div className="glass-panel" style={{ padding: '2rem' }}>
+                                    <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '2rem' }}>
+                                        <div>
+                                            <h2 style={{ fontSize: '1.25rem', margin: '0 0 0.5rem 0' }}>Player Payments Dashboard</h2>
+                                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>Review financial status across all registered teams.</p>
+                                        </div>
+                                        <div className="glass-card flex-center" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', gap: '0.5rem', cursor: 'pointer' }}>
+                                            <span style={{ color: 'white', fontWeight: 500 }}>All Teams</span> <ChevronDown size={14} color="var(--color-text-muted)" />
+                                        </div>
+                                    </div>
 
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Player</th>
-                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Team</th>
-                                        <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Payment Status</th>
-                                        <th style={{ textAlign: 'right', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {players.map((p, i) => {
-                                        const style = getStatusStyle(p.status);
-                                        return (
-                                            <tr key={i}>
-                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'white', fontWeight: 500 }}>{p.name}</td>
-                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>{p.team}</td>
-                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)' }}>
-                                                    <span style={{
-                                                        color: style.color,
-                                                        backgroundColor: style.bg,
-                                                        border: style.border,
-                                                        padding: style.padding || '0.2rem 0.6rem',
-                                                        borderRadius: style.borderRadius || '2rem',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: style.fontWeight || 500
-                                                    }}>
-                                                        {p.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'right', color: 'white', fontWeight: 600 }}>{p.amount}</td>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Player</th>
+                                                <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Team</th>
+                                                <th style={{ textAlign: 'left', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Payment Status</th>
+                                                <th style={{ textAlign: 'right', padding: '1rem 0', color: 'white', fontWeight: 600, borderBottom: '1px solid var(--color-border)' }}>Amount</th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                        </thead>
+                                        <tbody>
+                                            {finances.map((p, i) => {
+                                                const statusLabel = p.status.replace('_', ' ');
+                                                const displayStatus = p.status === 'PER_GAME' ? `${statusLabel} (${p.gamesPlayed}/${p.gamesPaidFor})` : statusLabel;
+                                                const style = getStatusStyle(p.status);
+                                                return (
+                                                    <tr key={p.id || i}>
+                                                        <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'white', fontWeight: 500 }}>{p.player?.name}</td>
+                                                        <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>{p.team?.name}</td>
+                                                        <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                                                            <span style={{
+                                                                color: style.color,
+                                                                backgroundColor: style.bg,
+                                                                border: style.border,
+                                                                padding: style.padding || '0.2rem 0.6rem',
+                                                                borderRadius: style.borderRadius || '2rem',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: style.fontWeight || 500
+                                                            }}>
+                                                                {displayStatus}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '1rem 0', borderBottom: '1px solid var(--color-border)', textAlign: 'right', color: 'white', fontWeight: 600 }}>{formatCurrency(p.amountPaid)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </main>

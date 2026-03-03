@@ -43,7 +43,8 @@ export const registerTeam = async (req: Request, res: Response) => {
             data: {
                 teamId: parsedData.teamId,
                 seasonId: parsedData.seasonId,
-                status: 'PENDING'
+                divisionId: 1, // Auto-assign division 1
+                status: 'APPROVED' // Auto-approve to show in UI
             }
         });
 
@@ -105,8 +106,13 @@ export const approveRegistration = async (req: Request, res: Response) => {
 export const getTeams = async (req: Request, res: Response) => {
     try {
         const teams = await prisma.team.findMany({
+            where: {
+                registrations: {
+                    some: { status: 'APPROVED' }
+                }
+            },
             include: {
-                TeamSeasonRegistration: {
+                registrations: {
                     where: { status: 'APPROVED' }
                 }
             }

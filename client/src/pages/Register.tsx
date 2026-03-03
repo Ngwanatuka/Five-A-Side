@@ -28,10 +28,10 @@ export const Register = () => {
 
         try {
             // 1. Create team
-            // Using managerName + managerContact for the single managerContact field in DB for now
+            // Sending only the managerContact (email) to pass backend Zod validation
             const teamResp = await createTeam({
                 name: formData.name,
-                managerContact: `${formData.managerName} (${formData.managerContact})`
+                managerContact: formData.managerContact
             });
 
             // 2. Register team to current season (assuming season ID 1 for now)

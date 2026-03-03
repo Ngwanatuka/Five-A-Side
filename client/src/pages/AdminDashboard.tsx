@@ -18,6 +18,7 @@ export const AdminDashboard = () => {
     const [homeScore, setHomeScore] = useState('');
     const [awayScore, setAwayScore] = useState('');
     const [scoreMessage, setScoreMessage] = useState({ text: '', type: '' });
+    const [isMatchDropdownOpen, setIsMatchDropdownOpen] = useState(false);
 
     const fetchAdminData = async () => {
         setLoading(true);
@@ -248,30 +249,86 @@ export const AdminDashboard = () => {
                                     Select Match
                                 </label>
                                 <div style={{ position: 'relative' }}>
-                                    <select
-                                        value={selectedMatchId}
-                                        onChange={(e) => setSelectedMatchId(e.target.value)}
+                                    <div
+                                        onClick={() => setIsMatchDropdownOpen(!isMatchDropdownOpen)}
                                         style={{
                                             width: '100%',
                                             padding: '1rem',
                                             backgroundColor: 'rgba(0,0,0,0.2)',
-                                            border: '1px solid var(--color-border)',
+                                            border: isMatchDropdownOpen ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                                             borderRadius: 'var(--radius-sm)',
                                             color: selectedMatchId ? 'white' : 'var(--color-text-muted)',
                                             fontSize: '0.95rem',
-                                            appearance: 'none',
-                                            outline: 'none',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        <option value="" disabled>Choose a fixture...</option>
-                                        {matches.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.homeTeam?.name || 'TBD'} vs {m.awayTeam?.name || 'TBD'} - {new Date(m.date).toLocaleDateString('en-GB')} {m.time}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={18} color="var(--color-text-muted)" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                        <span>
+                                            {selectedMatchId
+                                                ? (() => {
+                                                    const m = matches.find(match => match.id.toString() === selectedMatchId);
+                                                    return m ? `${m.homeTeam?.name || 'TBD'} vs ${m.awayTeam?.name || 'TBD'} - ${new Date(m.date).toLocaleDateString('en-GB')} ${m.time}` : 'Choose a fixture...';
+                                                })()
+                                                : "Choose a fixture..."}
+                                        </span>
+                                        <ChevronDown size={18} color="var(--color-text-muted)" style={{ transform: isMatchDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                                    </div>
+
+                                    {isMatchDropdownOpen && (
+                                        <div className="animate-fade-in" style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            marginTop: '0.5rem',
+                                            backgroundColor: 'var(--color-bg-card)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                            zIndex: 50,
+                                            maxHeight: '280px',
+                                            overflowY: 'auto'
+                                        }}>
+                                            {matches.length === 0 ? (
+                                                <div style={{ padding: '1rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>No upcoming matches</div>
+                                            ) : (
+                                                matches.map(m => (
+                                                    <div
+                                                        key={m.id}
+                                                        onClick={() => {
+                                                            setSelectedMatchId(m.id.toString());
+                                                            setIsMatchDropdownOpen(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '1rem',
+                                                            cursor: 'pointer',
+                                                            color: 'white',
+                                                            borderBottom: '1px solid rgba(255,255,255,0.02)',
+                                                            transition: 'background-color 0.2s ease, color 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                                            e.currentTarget.style.color = 'var(--color-primary)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                                            e.currentTarget.style.color = 'white';
+                                                        }}
+                                                    >
+                                                        <span style={{ fontWeight: 600 }}>{m.homeTeam?.name || 'TBD'}</span>
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: '0 0.5rem' }}>vs</span>
+                                                        <span style={{ fontWeight: 600 }}>{m.awayTeam?.name || 'TBD'}</span>
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                                                            {new Date(m.date).toLocaleDateString('en-GB')} • {m.time}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

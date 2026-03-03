@@ -12,6 +12,7 @@ export const Payments = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
 
     useEffect(() => {
         const fetchTeams = async () => {
@@ -102,28 +103,75 @@ export const Payments = () => {
                                     <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }}>
                                         <Shield size={18} />
                                     </div>
-                                    <select
-                                        value={selectedTeam}
-                                        onChange={(e) => setSelectedTeam(e.target.value)}
-                                        disabled={loading || success}
+                                    <div
+                                        onClick={() => { if (!loading && !success) setIsTeamDropdownOpen(!isTeamDropdownOpen); }}
                                         style={{
                                             width: '100%',
                                             padding: '0.8rem 1rem 0.8rem 2.8rem',
                                             backgroundColor: 'rgba(0,0,0,0.2)',
-                                            border: '1px solid var(--color-border)',
+                                            border: isTeamDropdownOpen ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                                             borderRadius: 'var(--radius-sm)',
                                             color: selectedTeam ? 'white' : 'var(--color-text-muted)',
                                             fontSize: '1rem',
-                                            appearance: 'none',
-                                            outline: 'none',
                                             cursor: (loading || success) ? 'not-allowed' : 'pointer',
-                                            opacity: (loading || success) ? 0.6 : 1
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            opacity: (loading || success) ? 0.6 : 1,
+                                            transition: 'all 0.2s ease',
                                         }}
                                     >
-                                        <option value="" disabled>Select your team...</option>
-                                        {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                                    </select>
-                                    <ChevronDown size={18} color="var(--color-text-muted)" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                        <span>{selectedTeam || 'Select your team...'}</span>
+                                        <ChevronDown size={18} color="var(--color-text-muted)" style={{ transform: isTeamDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                                    </div>
+
+                                    {isTeamDropdownOpen && (
+                                        <div className="animate-fade-in" style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            marginTop: '0.5rem',
+                                            backgroundColor: 'var(--color-bg-card)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                            zIndex: 50,
+                                            maxHeight: '250px',
+                                            overflowY: 'auto'
+                                        }}>
+                                            {teams.length === 0 ? (
+                                                <div style={{ padding: '1rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>No teams available</div>
+                                            ) : (
+                                                teams.map(t => (
+                                                    <div
+                                                        key={t.id}
+                                                        onClick={() => {
+                                                            setSelectedTeam(t.name);
+                                                            setIsTeamDropdownOpen(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.9rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: 'white',
+                                                            borderBottom: '1px solid rgba(255,255,255,0.02)',
+                                                            transition: 'background-color 0.2s ease, color 0.2s ease'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                                            e.currentTarget.style.color = 'var(--color-primary)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                                            e.currentTarget.style.color = 'white';
+                                                        }}
+                                                    >
+                                                        {t.name}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

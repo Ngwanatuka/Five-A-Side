@@ -3,14 +3,22 @@
 > ts-node -T src/index.ts
 
 Server is running with WebSockets on port 5000
-User connected to WebSocket: h1Uhf_eCN7iw-r5DAAAD
-User connected to WebSocket: f1FdpBv3h3uNQtz_AAAE
-User connected to WebSocket: 4yxAllRBMdZ2QImPAAAF
-User connected to WebSocket: z6mXDnmGRE1SRKeIAAAH
-User disconnected: h1Uhf_eCN7iw-r5DAAAD
-User disconnected: 4yxAllRBMdZ2QImPAAAF
-User disconnected: f1FdpBv3h3uNQtz_AAAE
-User disconnected: z6mXDnmGRE1SRKeIAAAH
-User connected to WebSocket: BTqFnT2_8TEwXjEsAAAJ
-User disconnected: BTqFnT2_8TEwXjEsAAAJ
-User connected to WebSocket: 0rKzFeMOrLVmjsDXAAAL
+User connected to WebSocket: 6GbMDosaDS7Y3D_YAAAD
+User connected to WebSocket: EKUEBMIjNX6oAKwvAAAE
+User connected to WebSocket: cLnkc21prv6xhh4bAAAF
+User disconnected: 6GbMDosaDS7Y3D_YAAAD
+User disconnected: cLnkc21prv6xhh4bAAAF
+User disconnected: EKUEBMIjNX6oAKwvAAAE
+User connected to WebSocket: kjxG4P7ZV5cJEToPAAAI
+User connected to WebSocket: GJwxZKTphZmi6q3SAAAK
+User connected to WebSocket: z7YGXCSy26UIZA6uAAAM
+User connected to WebSocket: UcZvWvjD4mKOAIVAAAAO
+User disconnected: kjxG4P7ZV5cJEToPAAAI
+User disconnected: UcZvWvjD4mKOAIVAAAAO
+User disconnected: GJwxZKTphZmi6q3SAAAK
+User disconnected: z7YGXCSy26UIZA6uAAAM
+User connected to WebSocket: cdXcThULCtKfhZksAAAT
+User connected to WebSocket: 6ZIpTtMaHpkmdzXfAAAU
+User connected to WebSocket: 2DSBaEFFpjzOAJqKAAAV
+User connected to WebSocket: w92fRWi92YMH4j93AAAW
+User connected to WebSocket: Qdwm9HwpuVFr86C2AAAY

@@ -54,12 +54,14 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
             });
         });
 
-        // Fetch all completed matches for season and division
+        // Fetch all completed and live matches for season and division
         const matches = await prisma.match.findMany({
             where: {
                 seasonId,
                 divisionId,
-                status: 'COMPLETED',
+                status: {
+                    in: ['COMPLETED', 'LIVE']
+                }
             },
         });
 

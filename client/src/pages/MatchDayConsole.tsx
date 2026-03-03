@@ -33,15 +33,37 @@ export const MatchDayConsole = () => {
     const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
     const [matchState, setMatchState] = useState<MatchState>(DEFAULT_MATCH_STATE);
     const [loading, setLoading] = useState(true);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Handle clicks outside the dropdown to close it
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Fetch matches on mount
     useEffect(() => {
         const fetchFixtures = async () => {
             try {
-                const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+                const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' });
                 setMatches(data);
+
+                // Immediately attempt to resurrect active match if it exists
+                const savedMatchId = localStorage.getItem('active_match_id');
+                if (savedMatchId) {
+                    const activeMatch = data.find((m: any) => m.id.toString() === savedMatchId);
+                    if (activeMatch) {
+                        setSelectedMatch(activeMatch);
+                    }
+                }
             } catch (error) {
                 console.error("Failed to fetch fixtures", error);
             } finally {
@@ -121,7 +143,10 @@ export const MatchDayConsole = () => {
 
     const handleSelectMatch = (matchId: string) => {
         const match = matches.find(m => m.id.toString() === matchId);
-        if (match) setSelectedMatch(match);
+        if (match) {
+            setSelectedMatch(match);
+            localStorage.setItem('active_match_id', match.id.toString());
+        }
     };
 
     const handleUpdateScore = async (home: number, away: number) => {
@@ -136,8 +161,16 @@ export const MatchDayConsole = () => {
 
     const togglePlayPause = () => {
         setMatchState(prev => {
+            if (!prev.isRunning && prev.timerSeconds === 1200) {
+                // First click to start a half
+                if (prev.currentHalf === 1 && selectedMatch) {
+                    // Update status to LIVE on the backend
+                    updateMatchScore(selectedMatch.id, prev.homeScore, prev.awayScore, 'LIVE').catch(console.error);
+                }
+                return { ...prev, isRunning: true, isPaused: false };
+            }
             if (!prev.isRunning) {
-                // First click to start the half
+                // Resuming from pause
                 return { ...prev, isRunning: true, isPaused: false };
             }
             // Toggle pause
@@ -169,10 +202,19 @@ export const MatchDayConsole = () => {
     const finalizeWhistle = () => {
         if (window.confirm("Are you sure you want to finalize this match? This cannot be undone.")) {
             if (selectedMatch) {
+                updateMatchScore(selectedMatch.id, matchState.homeScore, matchState.awayScore, 'COMPLETED').catch(console.error);
                 localStorage.removeItem(`match_state_${selectedMatch.id}`);
+                localStorage.removeItem('active_match_id');
             }
             setSelectedMatch(null);
         }
+    };
+
+    const handleExitMatch = () => {
+        if (selectedMatch) {
+            localStorage.removeItem('active_match_id');
+        }
+        setSelectedMatch(null);
     };
 
     // Formatters
@@ -207,31 +249,78 @@ export const MatchDayConsole = () => {
                         {loading ? (
                             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>Loading today's fixtures...</div>
                         ) : (
-                            <div style={{ position: 'relative' }}>
-                                <select
-                                    onChange={(e) => handleSelectMatch(e.target.value)}
-                                    defaultValue=""
+                            <div style={{ position: 'relative' }} ref={dropdownRef}>
+                                <div
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                     style={{
                                         width: '100%',
                                         padding: '1rem',
                                         backgroundColor: 'rgba(0,0,0,0.2)',
-                                        border: '1px solid var(--color-border)',
+                                        border: isDropdownOpen ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                                         borderRadius: 'var(--radius-sm)',
-                                        color: 'white',
+                                        color: 'var(--color-text-muted)',
                                         fontSize: '1rem',
-                                        appearance: 'none',
-                                        outline: 'none',
-                                        cursor: 'pointer'
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        transition: 'all 0.2s ease'
                                     }}
                                 >
-                                    <option value="" disabled>Select match...</option>
-                                    {matches.map(m => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.homeTeam?.name || 'TBD'} vs {m.awayTeam?.name || 'TBD'} - Pitch {m.pitchNumber} ({m.time})
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown size={18} color="var(--color-text-muted)" style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                    <span>Select match...</span>
+                                    <ChevronDown size={18} color="var(--color-text-muted)" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                                </div>
+
+                                {isDropdownOpen && (
+                                    <div className="animate-fade-in" style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        marginTop: '0.5rem',
+                                        backgroundColor: 'var(--color-bg-card)',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                        zIndex: 50,
+                                        maxHeight: '300px',
+                                        overflowY: 'auto',
+                                    }}>
+                                        {matches.length === 0 ? (
+                                            <div style={{ padding: '1rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>No matches available</div>
+                                        ) : (
+                                            matches.map(m => (
+                                                <div
+                                                    key={m.id}
+                                                    onClick={() => {
+                                                        handleSelectMatch(m.id.toString());
+                                                        setIsDropdownOpen(false);
+                                                    }}
+                                                    style={{
+                                                        padding: '1rem',
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid rgba(255,255,255,0.02)',
+                                                        color: 'white',
+                                                        transition: 'background-color 0.2s ease',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                                        e.currentTarget.style.color = 'var(--color-primary)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                        e.currentTarget.style.color = 'white';
+                                                    }}
+                                                >
+                                                    <span style={{ fontWeight: 600 }}>{m.homeTeam?.name || 'TBD'}</span> <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: '0 0.5rem' }}>vs</span> <span style={{ fontWeight: 600 }}>{m.awayTeam?.name || 'TBD'}</span>
+                                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                                                        Pitch {m.pitchNumber} • {m.time}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -312,7 +401,7 @@ export const MatchDayConsole = () => {
 
                         {/* Bottom Actions */}
                         <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
-                            <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: 'var(--color-text-muted)', color: 'var(--color-text-muted)' }} onClick={() => setSelectedMatch(null)}>
+                            <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: 'var(--color-text-muted)', color: 'var(--color-text-muted)' }} onClick={handleExitMatch}>
                                 <LogOut size={16} /> Exit Match
                             </button>
                             <button className="btn btn-primary" disabled={!matchState.matchEnded} style={{ flex: 2, backgroundColor: matchState.matchEnded ? '#16a34a' : 'var(--color-bg-card)', color: matchState.matchEnded ? '#fff' : 'var(--color-text-muted)', border: 'none' }} onClick={finalizeWhistle}>

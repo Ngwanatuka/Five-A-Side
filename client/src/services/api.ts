@@ -29,11 +29,11 @@ export const getMatches = async (params?: { seasonId?: number, divisionId?: numb
     return response.json();
 };
 
-export const updateMatchScore = async (matchId: number, homeScore: number, awayScore: number) => {
+export const updateMatchScore = async (matchId: number, homeScore: number, awayScore: number, status?: string) => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchId}/score`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ homeScore, awayScore }),
+        body: JSON.stringify({ homeScore, awayScore, ...(status && { status }) }),
     });
     if (!response.ok) throw new Error('Failed to update score');
     return response.json();

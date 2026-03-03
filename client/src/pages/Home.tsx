@@ -3,6 +3,9 @@ import { Trophy, Calendar as CalendarIcon, MapPin, ChevronRight, Users, Clock } 
 import { Navbar } from '../components/Navbar';
 import { NavLink } from 'react-router-dom';
 import { getStandings, getMatches, getTeams } from '../services/api';
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
 
 export const Home = () => {
     const [standings, setStandings] = useState<any[]>([]);
@@ -17,8 +20,8 @@ export const Home = () => {
                 const standingsData = await getStandings(1, 1);
                 setStandings(standingsData);
 
-                // Fetch Upcoming Matches
-                const matchesData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+                // Fetch Upcoming and Live Matches
+                const matchesData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' });
                 // Sort by date/time ascending
                 matchesData.sort((a: any, b: any) => {
                     const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
@@ -42,7 +45,16 @@ export const Home = () => {
             fetchHomeData();
             setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }, 30000);
-        return () => clearInterval(interval);
+        // WebSocket for live score updates
+        socket.on('scoreUpdate', (updatedMatch) => {
+            setMatches(prev => prev.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m));
+            setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        });
+
+        return () => {
+            clearInterval(interval);
+            socket.off('scoreUpdate');
+        };
     }, []);
 
     const leader = standings.length > 0 ? standings[0] : null;
@@ -182,7 +194,7 @@ export const Home = () => {
                     {/* Upcoming Fixtures Widget */}
                     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
                         <div className="flex-between" style={{ marginBottom: '2rem' }}>
-                            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Upcoming Fixtures</h2>
+                            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Upcoming & Live Fixtures</h2>
                             <NavLink to="/fixtures" className="btn btn-sm btn-outline" style={{ display: 'flex', alignItems: 'center', color: 'white', textDecoration: 'none', fontWeight: 600, padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', border: 'none' }}>
                                 View All <ChevronRight size={14} style={{ marginLeft: '4px' }} />
                             </NavLink>
@@ -196,11 +208,18 @@ export const Home = () => {
                                 <div key={fixture.id} style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'white', marginBottom: '0.4rem' }}>
-                                            {getTeamAbbr(fixture.homeTeam?.name || '')} <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: '0 0.5rem', fontWeight: 400 }}>vs</span> {getTeamAbbr(fixture.awayTeam?.name || '')}
+                                            {getTeamAbbr(fixture.homeTeam?.name || '')}
+                                            {fixture.status === 'LIVE' ? (
+                                                <span style={{ color: '#ef4444', margin: '0 0.5rem', fontWeight: 700 }}>{fixture.homeScore ?? 0} - {fixture.awayScore ?? 0}</span>
+                                            ) : (
+                                                <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: '0 0.5rem', fontWeight: 400 }}>vs</span>
+                                            )}
+                                            {getTeamAbbr(fixture.awayTeam?.name || '')}
                                         </div>
                                         <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CalendarIcon size={12} /> {formatDate(fixture.date)}</span>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>⏱ {fixture.time}</span>
+                                            {fixture.status === 'LIVE' && <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem', padding: '0.1rem 0.4rem', border: '1px solid #ef4444', borderRadius: '4px' }}>LIVE</span>}
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>

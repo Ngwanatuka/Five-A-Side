@@ -5,6 +5,7 @@ import prisma from '../prisma';
 const updateScoreSchema = z.object({
     homeScore: z.number().int().nonnegative(),
     awayScore: z.number().int().nonnegative(),
+    status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED']).optional()
 });
 
 const createMatchSchema = z.object({
@@ -64,14 +65,14 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
+        const { homeScore, awayScore, status } = updateScoreSchema.parse(req.body);
 
         const updatedMatch = await prisma.match.update({
             where: { id: matchId },
             data: {
                 homeScore,
                 awayScore,
-                status: 'COMPLETED',
+                ...(status && { status }),
             },
         });
 
@@ -188,7 +189,7 @@ export const addPlayerToRoster = async (req: Request, res: Response): Promise<vo
 const getMatchesSchema = z.object({
     seasonId: z.string().optional(),
     divisionId: z.string().optional(),
-    status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED']).optional()
+    status: z.string().optional()
 });
 
 export const getMatches = async (req: Request, res: Response) => {
@@ -198,7 +199,9 @@ export const getMatches = async (req: Request, res: Response) => {
 
         if (query.seasonId) whereClause.seasonId = parseInt(query.seasonId, 10);
         if (query.divisionId) whereClause.divisionId = parseInt(query.divisionId, 10);
-        if (query.status) whereClause.status = query.status;
+        if (query.status) {
+            whereClause.status = { in: query.status.split(',') };
+        }
 
         const matches = await prisma.match.findMany({
             where: whereClause,

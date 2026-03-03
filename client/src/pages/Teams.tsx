@@ -3,23 +3,35 @@ import { Navbar } from '../components/Navbar';
 import { Shield, Users, Trophy } from 'lucide-react';
 import { getStandings } from '../services/api';
 import { NavLink } from 'react-router-dom';
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
 
 export const Teams = () => {
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const fetchTeams = async () => {
+        try {
+            const data = await getStandings(1, 1);
+            setTeams(data);
+        } catch (error) {
+            console.error("Failed to fetch teams", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchTeams = async () => {
-            try {
-                const data = await getStandings(1, 1);
-                setTeams(data);
-            } catch (error) {
-                console.error("Failed to fetch teams", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchTeams();
+
+        socket.on('scoreUpdate', () => {
+            fetchTeams();
+        });
+
+        return () => {
+            socket.off('scoreUpdate');
+        };
     }, []);
 
     const totalTeams = teams.length;

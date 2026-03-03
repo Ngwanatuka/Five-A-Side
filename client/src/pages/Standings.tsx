@@ -3,6 +3,9 @@ import { getStandings } from '../services/api';
 import { Navbar } from '../components/Navbar';
 import { Trophy, RefreshCw, TrendingUp, Minus, TrendingDown } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
 
 type StandingsRow = {
     teamId: number;
@@ -24,6 +27,15 @@ export const Standings = () => {
 
     useEffect(() => {
         fetchStandings();
+
+        // Listen for live score updates to refresh standings log
+        socket.on('scoreUpdate', () => {
+            fetchStandings();
+        });
+
+        return () => {
+            socket.off('scoreUpdate');
+        };
     }, []);
 
     const fetchStandings = async () => {

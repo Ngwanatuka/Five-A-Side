@@ -9,10 +9,10 @@ A comprehensive, real-time web platform built to manage a multi-division 5-a-sid
 
 ## 🛠 Tech Stack
 
-* **Database:** PostgreSQL / MySQL (Relational structure required for complex roster/season tracking)
-* **Backend:** [Insert Backend Framework e.g., Node.js/Express or Python/Django]
-* **Frontend:** [Insert Frontend Framework e.g., React, Vue, or Next.js]
-* **Real-time Engine:** [Insert WebSocket tech e.g., Socket.io]
+* **Database:** PostgreSQL / MySQL (via Prisma ORM)
+* **Backend:** Node.js / Express
+* **Frontend:** React / Vite
+* **Real-time Engine:** Socket.io
 
 ## 📂 Expected Directory Structure
 
@@ -56,7 +56,7 @@ The platform enforces strict rules on match day and during registration:
 
 ## 🚀 Getting Started
 
-1. Clone the repository: `git clone [repository-url]`
+1. Clone the repository: `git clone git@github.com:Ngwanatuka/Five-A-Side.git`
 2. Install dependencies for server and client: `npm install`
 3. Set up your environment variables (`.env`) for Database Credentials and WebSocket ports.
 4. Run database migrations to construct the relational tables.

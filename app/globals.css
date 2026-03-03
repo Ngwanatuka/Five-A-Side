@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 160 30% 6%;
+    --foreground: 150 20% 95%;
+    --card: 160 25% 10%;
+    --card-foreground: 150 20% 95%;
+    --popover: 160 25% 10%;
+    --popover-foreground: 150 20% 95%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 160 30% 6%;
+    --secondary: 160 20% 18%;
+    --secondary-foreground: 150 20% 95%;
+    --muted: 160 15% 20%;
+    --muted-foreground: 150 10% 60%;
+    --accent: 158 64% 52%;
+    --accent-foreground: 160 30% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 160 20% 20%;
+    --input: 160 20% 20%;
+    --ring: 158 64% 52%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Glassmorphism card effect */
+.glass-card {
+  @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg;
+}
+
+/* Gradient text effect */
+.gradient-text {
+  @apply bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent;
+}
+
+/* Animated background glow */
+.glow {
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+}
+
+/* Table styling */
+.standings-table {
+  @apply w-full;
+}
+
+.standings-table th {
+  @apply text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-4;
+}
+
+.standings-table td {
+  @apply py-3 px-4 text-sm;
+}
+
+.standings-table tbody tr {
+  @apply border-b border-border/50 transition-colors hover:bg-secondary/50;
+}
+
+/* Match card styling */
+.match-card {
+  @apply glass-card p-4 transition-all hover:border-primary/50;
+}
+
+/* Status badges */
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-scheduled {
+  @apply bg-blue-500/20 text-blue-400;
+}
+
+.status-in-progress {
+  @apply bg-yellow-500/20 text-yellow-400;
+}
+
+.status-completed {
+  @apply bg-green-500/20 text-green-400;
+}
+
+.status-postponed {
+  @apply bg-orange-500/20 text-orange-400;
+}
+
+.status-cancelled {
+  @apply bg-red-500/20 text-red-400;
+}
+
+/* Payment status */
+.payment-paid {
+  @apply bg-green-500/20 text-green-400;
+}
+
+.payment-partial {
+  @apply bg-yellow-500/20 text-yellow-400;
+}
+
+.payment-unpaid {
+  @apply bg-red-500/20 text-red-400;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground;
+}

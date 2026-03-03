@@ -8,7 +8,6 @@ export const Home = () => {
     const [standings, setStandings] = useState<any[]>([]);
     const [matches, setMatches] = useState<any[]>([]);
     const [teamsCount, setTeamsCount] = useState<number>(0);
-    const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
     useEffect(() => {
@@ -33,8 +32,6 @@ export const Home = () => {
                 setTeamsCount(teamsData.length);
             } catch (error) {
                 console.error("Error fetching home data:", error);
-            } finally {
-                setLoading(false);
             }
         };
 
@@ -195,7 +192,7 @@ export const Home = () => {
                             {matches.length === 0 && (
                                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No upcoming fixtures.</div>
                             )}
-                            {matches.map((fixture, i) => (
+                            {matches.map((fixture) => (
                                 <div key={fixture.id} style={{ padding: '1.25rem 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'white', marginBottom: '0.4rem' }}>
@@ -217,9 +214,14 @@ export const Home = () => {
                 </div>
 
                 <footer style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                    <div className="flex-center gap-2">
-                        <div className="nav-logo-icon" style={{ padding: '0.2rem' }}><Trophy size={14} color="#050505" /></div>
-                        <strong style={{ color: 'white' }}>5-A-Side League</strong>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
+                        <div className="flex-center gap-2">
+                            <div className="nav-logo-icon" style={{ padding: '0.2rem' }}><Trophy size={14} color="#050505" /></div>
+                            <strong style={{ color: 'white' }}>5-A-Side League</strong>
+                        </div>
+                        <NavLink to="/login" style={{ color: 'var(--color-text-muted)', textDecoration: 'none', fontSize: '0.8rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}>
+                            Referee Login
+                        </NavLink>
                     </div>
                     <div className="flex-center gap-4">
                         <span>Standings</span><span>Fixtures</span><span>Results</span><span>Teams</span>

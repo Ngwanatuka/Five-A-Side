@@ -3,51 +3,14 @@
 > ts-node -T src/index.ts
 
 Server is running with WebSockets on port 5000
-User connected to WebSocket: V5zdiEmqkvVjKpO8AAAD
-User connected to WebSocket: yEhH6OkC1LdlE_ARAAAE
-User connected to WebSocket: qx1uLuiMbUaSYplqAAAF
-User disconnected: qx1uLuiMbUaSYplqAAAF
-User disconnected: V5zdiEmqkvVjKpO8AAAD
-User disconnected: yEhH6OkC1LdlE_ARAAAE
-User connected to WebSocket: HPJ8LUFDX0JNJHIdAAAH
-User disconnected: HPJ8LUFDX0JNJHIdAAAH
-User connected to WebSocket: JssJSO1qctsxG46XAAAJ
-User disconnected: JssJSO1qctsxG46XAAAJ
-User connected to WebSocket: -dvvVRIR88AeSH20AAAL
-User connected to WebSocket: V9MMftVDA1zzliK3AAAN
-User disconnected: -dvvVRIR88AeSH20AAAL
-User disconnected: V9MMftVDA1zzliK3AAAN
-User connected to WebSocket: zTPSo0H4jlhG0uqNAAAP
-User disconnected: zTPSo0H4jlhG0uqNAAAP
-User connected to WebSocket: S_iFz5_4RB9sGVJWAAAR
-prisma:error 
-Invalid `prisma.match.update()` invocation in
-/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
-
-  66 
-  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
-  68 
-→ 69 const updatedMatch = await prisma.match.update(
-An operation failed because it depends on one or more records that were required but not found. Record to update not found.
-prisma:error 
-Invalid `prisma.match.update()` invocation in
-/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
-
-  66 
-  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
-  68 
-→ 69 const updatedMatch = await prisma.match.update(
-An operation failed because it depends on one or more records that were required but not found. Record to update not found.
-prisma:error 
-Invalid `prisma.match.update()` invocation in
-/home/ngwanatuka/Five-A-Side/server/src/controllers/matchController.ts:69:49
-
-  66 
-  67 const { homeScore, awayScore } = updateScoreSchema.parse(req.body);
-  68 
-→ 69 const updatedMatch = await prisma.match.update(
-An operation failed because it depends on one or more records that were required but not found. Record to update not found.
-User disconnected: S_iFz5_4RB9sGVJWAAAR
-User connected to WebSocket: EY_5yOFvYBgFwpTpAAAT
-User connected to WebSocket: RVjXv7X3ue627E-KAAAV
-User connected to WebSocket: H351LEa7Hq7dGas0AAAX
+User connected to WebSocket: h1Uhf_eCN7iw-r5DAAAD
+User connected to WebSocket: f1FdpBv3h3uNQtz_AAAE
+User connected to WebSocket: 4yxAllRBMdZ2QImPAAAF
+User connected to WebSocket: z6mXDnmGRE1SRKeIAAAH
+User disconnected: h1Uhf_eCN7iw-r5DAAAD
+User disconnected: 4yxAllRBMdZ2QImPAAAF
+User disconnected: f1FdpBv3h3uNQtz_AAAE
+User disconnected: z6mXDnmGRE1SRKeIAAAH
+User connected to WebSocket: BTqFnT2_8TEwXjEsAAAJ
+User disconnected: BTqFnT2_8TEwXjEsAAAJ
+User connected to WebSocket: 0rKzFeMOrLVmjsDXAAAL

@@ -4,7 +4,7 @@ import { getMatches, updateMatchScore } from '../services/api';
 import { Navbar } from '../components/Navbar';
 import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut } from 'lucide-react';
 
-const socket = io('http://localhost:5000');
+const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
 
 type MatchState = {
     homeScore: number;

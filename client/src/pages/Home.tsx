@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { getStandings, getMatches, getTeams } from '../services/api';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:5000');
+const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
 
 export const Home = () => {
     const [standings, setStandings] = useState<any[]>([]);

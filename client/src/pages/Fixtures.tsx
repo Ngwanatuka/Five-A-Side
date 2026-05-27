@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin } from 'luc
 import { getMatches } from '../services/api';
 
 export const Fixtures = () => {
-    const [matches, setMatches] = useState<any[]>([]);
+
     const [groupedMatches, setGroupedMatches] = useState<Record<string, any[]>>({});
     const [loading, setLoading] = useState(true);
 
@@ -21,7 +21,7 @@ export const Fixtures = () => {
                     const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
                     return dateA.getTime() - dateB.getTime();
                 });
-                setMatches(data);
+
 
                 // Group by date string
                 const groups: Record<string, any[]> = {};

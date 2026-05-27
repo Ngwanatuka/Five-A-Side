@@ -332,7 +332,7 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                            <div className="grid-responsive-admin-top" style={{ marginBottom: '2rem' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
                                         Home Score
@@ -420,7 +420,7 @@ export const AdminDashboard = () => {
                         ) : (
                             <>
                                 {/* Top Stats Cards */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                                <div className="grid-responsive-4" style={{ marginBottom: '2rem' }}>
                                     <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
                                         <div className="flex-center" style={{ width: '40px', height: '40px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-sm)' }}>
                                             <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>$</span>

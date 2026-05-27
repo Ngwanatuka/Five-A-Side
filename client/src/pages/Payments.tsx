@@ -94,7 +94,7 @@ export const Payments = () => {
                             <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Player Details</h2>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div className="grid-responsive-2">
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'white', marginBottom: '0.5rem' }}>
                                     Your Team
@@ -213,7 +213,7 @@ export const Payments = () => {
                             <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Select Payment Plan</h2>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                        <div className="grid-responsive-3">
                             {/* Per Game - Clickable */}
                             <div
                                 className="glass-card"

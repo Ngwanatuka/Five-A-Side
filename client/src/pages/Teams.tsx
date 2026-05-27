@@ -52,7 +52,7 @@ export const Teams = () => {
                 {loading ? (
                     <div style={{ padding: '3rem', textAlign: 'center' }}>Loading teams...</div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', paddingBottom: '2rem' }}>
+                    <div className="grid-responsive-4" style={{ paddingBottom: '2rem' }}>
                         {teams.map((team, index) => {
                             const pos = index + 1;
                             const isLeader = pos === 1;
@@ -89,7 +89,7 @@ export const Teams = () => {
                                     </div>
 
                                     {/* Main Stats */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', textAlign: 'center', marginBottom: '1.5rem' }}>
+                                    <div className="grid-responsive-3" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                                         <div>
                                             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: isLeader ? 'var(--color-primary)' : 'white' }}>{team.points}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Points</div>
@@ -107,7 +107,7 @@ export const Teams = () => {
                                     </div>
 
                                     {/* Form Stats */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', textAlign: 'center', marginBottom: '1.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                                    <div className="grid-responsive-3" style={{ textAlign: 'center', marginBottom: '1.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
                                         <div style={{ color: 'var(--color-primary)' }}>W: {team.won}</div>
                                         <div style={{ color: '#ca8a04' }}>D: {team.drawn}</div>
                                         <div style={{ color: '#ef4444' }}>L: {team.lost}</div>
@@ -125,7 +125,7 @@ export const Teams = () => {
                 )}
 
                 {/* Team Stat Cards Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginTop: '2rem', paddingBottom: '3rem' }}>
+                <div className="grid-responsive-4" style={{ marginTop: '2rem', paddingBottom: '3rem' }}>
                     <div className="glass-card flex-center" style={{ padding: '2rem 1.5rem', justifyContent: 'flex-start', gap: '1.5rem' }}>
                         <div className="flex-center" style={{ width: '48px', height: '48px', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-md)' }}>
                             <Users size={24} color="var(--color-primary)" />

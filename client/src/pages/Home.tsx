@@ -101,7 +101,7 @@ export const Home = () => {
                 <div style={{ height: '1px', backgroundColor: 'var(--color-border)', width: '100%', margin: '1rem 0 3rem 0' }}></div>
 
                 {/* Stat Cards Section */}
-                <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '4rem', animationDelay: '0.4s' }}>
+                <div className="animate-fade-in grid-responsive-4" style={{ marginBottom: '4rem', animationDelay: '0.4s' }}>
 
                     <div className="glass-card" style={{ padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', top: '-15px', right: '-15px', width: '100px', height: '100px', background: 'var(--color-primary)', opacity: 0.05, borderRadius: '50%' }}></div>
@@ -143,7 +143,7 @@ export const Home = () => {
                 </div>
 
                 {/* Dashboard Widgets */}
-                <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '2rem', animationDelay: '0.5s', marginBottom: '2rem' }}>
+                <div className="animate-fade-in grid-responsive-2" style={{ animationDelay: '0.5s', marginBottom: '2rem' }}>
 
                     {/* League Standings Widget */}
                     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>

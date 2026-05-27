@@ -84,7 +84,7 @@ export const Fixtures = () => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {dayMatches.map((match: any) => (
-                                <div key={match.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr 150px', alignItems: 'center', backgroundColor: 'var(--color-bg-card)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                                <div key={match.id} className="match-card-grid">
                                     <div style={{ textAlign: 'right', fontWeight: 600, fontSize: '1.1rem' }}>{match.homeTeam?.name || 'TBD'}</div>
                                     <div className="flex-center" style={{ flexDirection: 'column', backgroundColor: 'var(--color-bg-panel)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', margin: '0 2rem', minWidth: '100px' }}>
                                         <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.time}</span>

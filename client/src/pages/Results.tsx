@@ -100,7 +100,7 @@ export const Results = () => {
                                 };
 
                                 return (
-                                    <div key={match.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr 150px', alignItems: 'center', backgroundColor: 'var(--color-bg-card)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                                    <div key={match.id} className="match-card-grid">
                                         <div style={{ textAlign: 'right', fontWeight: homeWon ? 600 : 500, fontSize: '1.1rem', color: homeWon ? 'white' : 'var(--color-text-muted)' }}>{match.homeTeam?.name || 'TBD'}</div>
 
                                         <div className="flex-center" style={{ margin: '0 2rem', gap: '0.5rem' }}>
@@ -125,7 +125,7 @@ export const Results = () => {
                 {/* Season Stats Summary */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
                     <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>Season Stats</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', textAlign: 'center' }}>
+                    <div className="grid-responsive-3" style={{ textAlign: 'center' }}>
                         <div>
                             <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-primary)' }}>{totalGoals}</div>
                             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Total Goals</div>

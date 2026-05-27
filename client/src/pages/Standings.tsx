@@ -153,10 +153,10 @@ export const Standings = () => {
                         )}
                     </div>
 
-                    <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '2rem', fontSize: '0.85rem' }}>
+                    <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexWrap: 'wrap', gap: '2rem', fontSize: '0.85rem' }}>
                         <div className="flex-center gap-2"><div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--color-primary)' }}></div> League Leader</div>
                         <div className="flex-center gap-2"><div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></div> Bottom Position</div>
-                        <div style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
+                        <div style={{ color: 'var(--color-text-muted)', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                             <span>P = Played</span>
                             <span>W = Won</span>
                             <span>D = Drawn</span>
@@ -169,7 +169,7 @@ export const Standings = () => {
                 </div>
 
                 {/* Stat Cards for Standings Page */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1.5rem', marginTop: '2rem' }}>
+                <div className="grid-responsive-4" style={{ marginTop: '2rem' }}>
                     <div className="glass-card flex-center" style={{ flexDirection: 'column', padding: '2rem 1.5rem' }}>
                         <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--color-primary)', lineHeight: 1 }}>{totalGoals}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Total Goals Scored</div>

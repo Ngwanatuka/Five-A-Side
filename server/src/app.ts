@@ -9,6 +9,7 @@ import financeRoutes from './routes/financeRoutes';
 import leagueRoutes from './routes/leagueRoutes';
 import matchRoutes from './routes/matchRoutes';
 import authRoutes from './routes/authRoutes';
+import derbyRoutes from './routes/derbyRoutes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -41,6 +42,7 @@ app.use('/api/finances', financeRoutes);
 app.use('/api/league', leagueRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/derby', derbyRoutes);
 
 export { app, httpServer, io };
 export default app;

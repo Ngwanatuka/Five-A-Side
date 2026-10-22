@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin } from 'lucide-react';
-import { getMatches } from '../services/api';
+import { getMatches, getBackendUrl } from '../services/api';
+import { io } from 'socket.io-client';
+
+const socket = io(getBackendUrl());
 
 export const Fixtures = () => {
 
@@ -11,35 +14,47 @@ export const Fixtures = () => {
     const matchweeks = ['All', 'MW 5', 'MW 6', 'MW 7'];
     const [activeMW, setActiveMW] = useState('All');
 
+    const fetchFixtures = async () => {
+        try {
+            const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+            // Sort by date/time ascending
+            data.sort((a: any, b: any) => {
+                const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            // Group by date string
+            const groups: Record<string, any[]> = {};
+            data.forEach((match: any) => {
+                const d = new Date(match.date);
+                const dateStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                if (!groups[dateStr]) groups[dateStr] = [];
+                groups[dateStr].push(match);
+            });
+            setGroupedMatches(groups);
+        } catch (error) {
+            console.error("Failed to fetch fixtures", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchFixtures = async () => {
-            try {
-                const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
-                // Sort by date/time ascending
-                data.sort((a: any, b: any) => {
-                    const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
-                    const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
-                    return dateA.getTime() - dateB.getTime();
-                });
-
-
-                // Group by date string
-                const groups: Record<string, any[]> = {};
-                data.forEach((match: any) => {
-                    const d = new Date(match.date);
-                    const dateStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                    if (!groups[dateStr]) groups[dateStr] = [];
-                    groups[dateStr].push(match);
-                });
-                setGroupedMatches(groups);
-            } catch (error) {
-                console.error("Failed to fetch fixtures", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchFixtures();
+
+        socket.on('scoreUpdate', () => {
+            fetchFixtures();
+        });
+
+        socket.on('teamRegistered', () => {
+            fetchFixtures();
+        });
+
+        return () => {
+            socket.off('scoreUpdate');
+            socket.off('teamRegistered');
+        };
     }, []);
 
     return (

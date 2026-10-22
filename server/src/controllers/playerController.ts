@@ -36,14 +36,36 @@ export const addPlayerToTeam = async (req: Request, res: Response): Promise<void
                 firstName: parsedData.firstName,
                 lastName: parsedData.lastName,
             },
+            include: { team: true }
         });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('playerAdded', newPlayer);
+            io.emit('teamRegistered');
+        }
 
         res.status(201).json(newPlayer);
     } catch (error) {
         if (error instanceof z.ZodError) {
             res.status(400).json({ errors: error.issues });
-            return; // Added return to prevent further execution (though express types might complain without it)
+            return;
         }
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getPlayers = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const teamId = req.query.teamId ? parseInt(req.query.teamId as string, 10) : undefined;
+        const whereClause = teamId && !isNaN(teamId) ? { teamId } : {};
+        const players = await prisma.player.findMany({
+            where: whereClause,
+            include: { team: true },
+            orderBy: { id: 'asc' }
+        });
+        res.status(200).json(players);
+    } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
 };

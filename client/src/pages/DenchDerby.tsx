@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Navbar } from '../components/Navbar';
 import { 
     Trophy, 
@@ -23,6 +23,10 @@ import {
     ClipboardList
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import { getDerbyData, saveDerbyData, getBackendUrl } from '../services/api';
+
+const socket = io(getBackendUrl());
 
 export type TeamInfo = {
     id: string;
@@ -512,6 +516,45 @@ export const DenchDerby = () => {
         return [];
     });
 
+    const isRemoteUpdateRef = useRef(false);
+    const initialLoadRef = useRef(true);
+
+    // Initial load from server + real-time cross-device sync via WebSockets
+    useEffect(() => {
+        let isMounted = true;
+        const fetchRemote = async () => {
+            try {
+                const data = await getDerbyData();
+                if (data && isMounted) {
+                    isRemoteUpdateRef.current = true;
+                    if (data.teams && Object.keys(data.teams).length > 0) setTeams(data.teams);
+                    if (data.matches && data.matches.length > 0) setMatches(data.matches);
+                    if (data.players && data.players.length > 0) setPlayers(data.players);
+                    if (data.goalEvents) setGoalEvents(data.goalEvents);
+                }
+            } catch (e) {
+                console.error('Remote derby fetch notice:', e);
+            }
+        };
+        fetchRemote();
+
+        const handleRemoteUpdate = (data: any) => {
+            if (!data) return;
+            isRemoteUpdateRef.current = true;
+            if (data.teams && Object.keys(data.teams).length > 0) setTeams(data.teams);
+            if (data.matches && data.matches.length > 0) setMatches(data.matches);
+            if (data.players && data.players.length > 0) setPlayers(data.players);
+            if (data.goalEvents) setGoalEvents(data.goalEvents);
+        };
+
+        socket.on('derbyUpdate', handleRemoteUpdate);
+
+        return () => {
+            isMounted = false;
+            socket.off('derbyUpdate', handleRemoteUpdate);
+        };
+    }, []);
+
     // Active Navigation Tab
     const [activeTab, setActiveTab] = useState<'bracket' | 'groups' | 'schedule' | 'leaderboard' | 'teams' | 'rules'>('bracket');
 
@@ -571,7 +614,7 @@ export const DenchDerby = () => {
     // Notification / Share
     const [copied, setCopied] = useState(false);
 
-    // Save to localStorage
+    // Save to localStorage & sync to server for cross-device visibility
     useEffect(() => {
         try {
             localStorage.setItem('dench_derby_teams_v4', JSON.stringify(teams));
@@ -581,6 +624,24 @@ export const DenchDerby = () => {
         } catch (e) {
             console.error('Failed to save to localStorage', e);
         }
+
+        if (initialLoadRef.current) {
+            initialLoadRef.current = false;
+            return;
+        }
+
+        if (isRemoteUpdateRef.current) {
+            isRemoteUpdateRef.current = false;
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            saveDerbyData({ teams, matches, players, goalEvents }).catch(err => {
+                console.error('Failed to sync derby data to backend:', err);
+            });
+        }, 350);
+
+        return () => clearTimeout(timeout);
     }, [teams, matches, players, goalEvents]);
 
     // Countdown Timer calculation to 28 October 2026 18:30:00 SAST

@@ -48,6 +48,51 @@ export const registerTeam = async (req: Request, res: Response) => {
             }
         });
 
+        // Auto-schedule an upcoming fixture if there are other approved clubs
+        try {
+            const otherTeams = await prisma.teamSeasonRegistration.findMany({
+                where: {
+                    seasonId: parsedData.seasonId,
+                    divisionId: 1,
+                    status: 'APPROVED',
+                    teamId: { not: parsedData.teamId }
+                }
+            });
+
+            if (otherTeams.length > 0) {
+                const opponent = otherTeams[otherTeams.length - 1];
+                if (opponent) {
+                    const nextDate = new Date();
+                    nextDate.setDate(nextDate.getDate() + 7);
+                    while (nextDate.getDay() !== 2 && nextDate.getDay() !== 4) {
+                        nextDate.setDate(nextDate.getDate() + 1);
+                    }
+
+                    await prisma.match.create({
+                        data: {
+                            seasonId: parsedData.seasonId,
+                            divisionId: 1,
+                            homeTeamId: parsedData.teamId,
+                            awayTeamId: opponent.teamId,
+                            date: nextDate,
+                            time: '18:00',
+                            pitchNumber: 1,
+                            status: 'UPCOMING'
+                        }
+                    });
+                }
+            }
+        } catch (matchErr) {
+            console.error('Fixture auto-scheduling notice:', matchErr);
+        }
+
+        // Notify all devices in real-time
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('scoreUpdate');
+            io.emit('teamRegistered', newRegistration);
+        }
+
         res.status(201).json(newRegistration);
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -114,7 +159,8 @@ export const getTeams = async (req: Request, res: Response) => {
             include: {
                 registrations: {
                     where: { status: 'APPROVED' }
-                }
+                },
+                players: true
             }
         });
         res.status(200).json(teams);

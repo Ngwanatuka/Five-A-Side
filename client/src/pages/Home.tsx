@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { Trophy, Calendar as CalendarIcon, MapPin, ChevronRight, Users, Clock, Flame } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { NavLink } from 'react-router-dom';
-import { getStandings, getMatches, getTeams } from '../services/api';
+import { getStandings, getMatches, getTeams, getBackendUrl } from '../services/api';
 import { io } from 'socket.io-client';
 
-const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
+const socket = io(getBackendUrl());
 
 export const Home = () => {
     const [standings, setStandings] = useState<any[]>([]);
@@ -13,31 +13,31 @@ export const Home = () => {
     const [teamsCount, setTeamsCount] = useState<number>(0);
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
+    const fetchHomeData = async () => {
+        try {
+            // Fetch Standings
+            const standingsData = await getStandings(1, 1);
+            setStandings(standingsData);
+
+            // Fetch Upcoming and Live Matches
+            const matchesData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' });
+            // Sort by date/time ascending
+            matchesData.sort((a: any, b: any) => {
+                const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                return dateA.getTime() - dateB.getTime();
+            });
+            setMatches(matchesData.slice(0, 4)); // Get next 4
+
+            // Fetch Teams Count
+            const teamsData = await getTeams();
+            setTeamsCount(teamsData.length);
+        } catch (error) {
+            console.error("Error fetching home data:", error);
+        }
+    };
+
     useEffect(() => {
-        const fetchHomeData = async () => {
-            try {
-                // Fetch Standings
-                const standingsData = await getStandings(1, 1);
-                setStandings(standingsData);
-
-                // Fetch Upcoming and Live Matches
-                const matchesData = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' });
-                // Sort by date/time ascending
-                matchesData.sort((a: any, b: any) => {
-                    const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
-                    const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
-                    return dateA.getTime() - dateB.getTime();
-                });
-                setMatches(matchesData.slice(0, 4)); // Get next 4
-
-                // Fetch Teams Count
-                const teamsData = await getTeams();
-                setTeamsCount(teamsData.length);
-            } catch (error) {
-                console.error("Error fetching home data:", error);
-            }
-        };
-
         fetchHomeData();
 
         // Setup auto-refresh
@@ -45,15 +45,22 @@ export const Home = () => {
             fetchHomeData();
             setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }, 30000);
-        // WebSocket for live score updates
-        socket.on('scoreUpdate', (updatedMatch) => {
-            setMatches(prev => prev.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m));
+
+        // WebSocket for live score updates and team registrations
+        socket.on('scoreUpdate', () => {
+            fetchHomeData();
+            setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        });
+
+        socket.on('teamRegistered', () => {
+            fetchHomeData();
             setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         });
 
         return () => {
             clearInterval(interval);
             socket.off('scoreUpdate');
+            socket.off('teamRegistered');
         };
     }, []);
 

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { getStandings } from '../services/api';
+import { getStandings, getMatches, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
-import { Trophy, RefreshCw, TrendingUp, Minus, TrendingDown } from 'lucide-react';
+import { Trophy, RefreshCw, TrendingUp, Minus, TrendingDown, Calendar, Clock, MapPin, ChevronRight } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 
-const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
+const socket = io(getBackendUrl());
 
 type StandingsRow = {
     teamId: number;
@@ -22,33 +22,57 @@ type StandingsRow = {
 
 export const Standings = () => {
     const [standings, setStandings] = useState<StandingsRow[]>([]);
+    const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchStandings();
+        fetchStandingsAndFixtures();
 
-        // Listen for live score updates to refresh standings log
+        // Listen for live score updates and newly registered teams to refresh standings log & fixtures
         socket.on('scoreUpdate', () => {
-            fetchStandings();
+            fetchStandingsAndFixtures();
+        });
+
+        socket.on('teamRegistered', () => {
+            fetchStandingsAndFixtures();
         });
 
         return () => {
             socket.off('scoreUpdate');
+            socket.off('teamRegistered');
         };
     }, []);
 
-    const fetchStandings = async () => {
+    const fetchStandingsAndFixtures = async () => {
         setLoading(true);
         try {
-            const data = await getStandings(1, 1);
-            setStandings(data);
+            const [standingsData, matchesData] = await Promise.all([
+                getStandings(1, 1),
+                getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' })
+            ]);
+            setStandings(standingsData);
+            if (matchesData) {
+                matchesData.sort((a: any, b: any) => {
+                    const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                    const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                    return dateA.getTime() - dateB.getTime();
+                });
+                setUpcomingMatches(matchesData);
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
+    const getTeamAbbr = (name: string) => name.substring(0, 3).toUpperCase();
 
     const renderFormIcon = (form: string) => {
         if (form === 'W') return <TrendingUp size={16} className="text-green" />;
@@ -72,7 +96,7 @@ export const Standings = () => {
                         <h1 style={{ marginBottom: '0.25rem' }}>League Standings</h1>
                         <p style={{ color: 'var(--color-text-muted)' }}>Season 2025/26 - Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <button className="btn btn-secondary" onClick={fetchStandings} disabled={loading}>
+                    <button className="btn btn-secondary" onClick={fetchStandingsAndFixtures} disabled={loading}>
                         <RefreshCw size={16} className={loading ? "spin" : ""} /> Refresh
                     </button>
                 </div>
@@ -186,6 +210,71 @@ export const Standings = () => {
                         <div style={{ fontSize: '3rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>{avgGoalsPerMatch}</div>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>Avg Goals/Match</div>
                     </div>
+                </div>
+
+                {/* Upcoming Fixtures Under Standings Log */}
+                <div className="glass-panel" style={{ marginTop: '2.5rem', padding: '2rem' }}>
+                    <div className="flex-between" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <h2 style={{ fontSize: '1.35rem', margin: '0 0 0.25rem 0', color: 'white' }}>
+                                Upcoming Fixtures
+                            </h2>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                                Matches scheduled for registered clubs. Updates live across all devices.
+                            </p>
+                        </div>
+                        <NavLink to="/fixtures" className="btn btn-sm btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            Full Calendar <ChevronRight size={14} />
+                        </NavLink>
+                    </div>
+
+                    {upcomingMatches.length === 0 ? (
+                        <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+                            No upcoming fixtures scheduled yet. Register teams to automatically generate fixtures!
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                            {upcomingMatches.map((fixture) => (
+                                <div key={fixture.id} style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    padding: '1.25rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.75rem'
+                                }}>
+                                    <div className="flex-between" style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            <Calendar size={13} /> {formatDate(fixture.date)}
+                                        </span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            <Clock size={13} /> {fixture.time}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex-between" style={{ alignItems: 'center', padding: '0.5rem 0' }}>
+                                        <div style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontSize: '1rem', color: 'white' }}>
+                                            {fixture.homeTeam?.name || getTeamAbbr('Home')}
+                                        </div>
+                                        <div style={{ margin: '0 0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.06)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                            VS
+                                        </div>
+                                        <div style={{ flex: 1, textAlign: 'left', fontWeight: 700, fontSize: '1rem', color: 'white' }}>
+                                            {fixture.awayTeam?.name || getTeamAbbr('Away')}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-between" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.5rem' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                            <MapPin size={12} /> Pitch {fixture.pitchNumber}
+                                        </span>
+                                        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Division 1</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <footer style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>

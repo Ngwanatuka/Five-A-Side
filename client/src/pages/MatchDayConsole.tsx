@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { getMatches, updateMatchScore } from '../services/api';
+import { getMatches, updateMatchScore, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
 import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut } from 'lucide-react';
 
-const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
+const socket = io(getBackendUrl());
 
 type MatchState = {
     homeScore: number;

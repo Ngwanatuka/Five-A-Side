@@ -1,7 +1,27 @@
 import { httpServer } from './app';
+import prisma from './prisma';
 
 const PORT = process.env.PORT || 5000;
 
-httpServer.listen(PORT, () => {
-    console.log(`Server is running with WebSockets on port ${PORT}`);
-});
+async function bootstrap() {
+    try {
+        await prisma.season.upsert({
+            where: { id: 1 },
+            update: {},
+            create: { id: 1, name: '2025/26 Season', status: 'ACTIVE' }
+        });
+        await prisma.division.upsert({
+            where: { id: 1 },
+            update: {},
+            create: { id: 1, name: 'Division 1', tierLevel: 1 }
+        });
+    } catch (err) {
+        console.error('Bootstrap DB check notice:', err);
+    }
+
+    httpServer.listen(PORT, () => {
+        console.log(`Server is running with WebSockets on port ${PORT}`);
+    });
+}
+
+bootstrap();

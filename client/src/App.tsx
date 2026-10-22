@@ -7,6 +7,7 @@ import { Results } from './pages/Results';
 import { Teams } from './pages/Teams';
 import { Payments } from './pages/Payments';
 import { Register } from './pages/Register';
+import { DenchDerby } from './pages/DenchDerby';
 import { MatchDayConsole } from './pages/MatchDayConsole';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Login } from './pages/Login';
@@ -17,6 +18,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/dench-derby" element={<DenchDerby />} />
         <Route path="/standings" element={<Standings />} />
         <Route path="/fixtures" element={<Fixtures />} />
         <Route path="/results" element={<Results />} />

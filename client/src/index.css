@@ -221,6 +221,39 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+.nav-link-derby {
+  position: relative;
+  font-weight: 600;
+}
+
+.nav-link-derby:hover {
+  color: #f59e0b;
+}
+
+.derby-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.derby-badge-pill {
+  font-size: 0.65rem;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #050505;
+  font-weight: 800;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  margin-left: 0.35rem;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.nav-link-derby.active {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
 /* Dynamic Tables Setup */
 .table-container {
   width: 100%;

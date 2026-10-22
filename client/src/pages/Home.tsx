@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar as CalendarIcon, MapPin, ChevronRight, Users, Clock } from 'lucide-react';
+import { Trophy, Calendar as CalendarIcon, MapPin, ChevronRight, Users, Clock, Flame } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { NavLink } from 'react-router-dom';
 import { getStandings, getMatches, getTeams } from '../services/api';
@@ -73,7 +73,7 @@ export const Home = () => {
             <main className="main-content" style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 72px)' }}>
 
                 {/* Hero Section */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4rem 0 3rem 0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4rem 0 2rem 0' }}>
 
                     <div className="animate-fade-in" style={{ backgroundColor: 'var(--color-primary)', padding: '1rem', borderRadius: '1rem', marginBottom: '2rem' }}>
                         <Trophy size={48} color="#050505" strokeWidth={2} />
@@ -87,7 +87,7 @@ export const Home = () => {
                         Your local five-a-side soccer league. View live scores, fixtures, results, and league standings.
                     </p>
 
-                    <div className="animate-fade-in flex-center gap-4" style={{ animationDelay: '0.3s' }}>
+                    <div className="animate-fade-in flex-center gap-4" style={{ animationDelay: '0.3s', marginBottom: '2.5rem' }}>
                         <NavLink to="/standings" className="btn btn-primary" style={{ padding: '0.8rem 1.5rem', fontSize: '1.05rem', textDecoration: 'none' }}>
                             View Standings <ChevronRight size={18} style={{ marginLeft: '0.25rem' }} />
                         </NavLink>
@@ -95,6 +95,78 @@ export const Home = () => {
                             Register Team
                         </NavLink>
                     </div>
+
+                    {/* Dench Derby Showcase Spotlight */}
+                    <div className="animate-fade-in" style={{
+                        animationDelay: '0.35s',
+                        width: '100%',
+                        maxWidth: '850px',
+                        margin: '0 auto',
+                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(18, 184, 76, 0.08) 100%)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '1.25rem 1.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1.25rem',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                        textAlign: 'left'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: 'var(--radius-md)',
+                                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <Flame size={26} color="#f59e0b" />
+                            </div>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                    <span style={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 800,
+                                        backgroundColor: '#f59e0b',
+                                        color: '#050505',
+                                        padding: '0.15rem 0.5rem',
+                                        borderRadius: '999px',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        Featured Tournament
+                                    </span>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                        28 October 2026
+                                    </span>
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'white' }}>
+                                    Dench Derby Tournament
+                                </h3>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                    6 Clubs • Group A & B • Semi-Finals • Grand Final 🥇
+                                </p>
+                            </div>
+                        </div>
+
+                        <NavLink 
+                            to="/dench-derby" 
+                            className="btn btn-sm btn-primary"
+                            style={{
+                                textDecoration: 'none',
+                                padding: '0.6rem 1.2rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            View Tournament Bracket <ChevronRight size={16} />
+                        </NavLink>
+                    </div>
+
                 </div>
 
                 {/* Divider */}

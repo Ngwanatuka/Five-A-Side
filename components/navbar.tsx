@@ -3,11 +3,12 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Trophy, Calendar, CheckCircle2, Users, CreditCard, Menu, X } from "lucide-react"
+import { Trophy, Calendar, CheckCircle2, Users, CreditCard, Menu, X, Flame } from "lucide-react"
 import { useState } from "react"
 
 const navItems = [
   { href: "/", label: "Home", icon: Trophy },
+  { href: "/dench-derby", label: "Dench Derby", icon: Flame, badge: "28 Oct" },
   { href: "/standings", label: "Standings", icon: Trophy },
   { href: "/fixtures", label: "Fixtures", icon: Calendar },
   { href: "/results", label: "Results", icon: CheckCircle2 },

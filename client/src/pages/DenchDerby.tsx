@@ -84,7 +84,7 @@ export type GroupStanding = {
     points: number;
 };
 
-export const TEAMS: Record<string, TeamInfo> = {
+export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
     'team-dench': {
         id: 'team-dench',
         name: 'Team Dench',
@@ -153,6 +153,8 @@ export const TEAMS: Record<string, TeamInfo> = {
     }
 };
 
+export const TEAMS = DEFAULT_TEAMS;
+
 const INITIAL_PLAYERS: TournamentPlayer[] = [
     // Team Dench
     { id: 'p-dench-1', teamKey: 'team-dench', name: 'Marcus "Dench" K.', jerseyNumber: 9, position: 'FWD', isCaptain: true },
@@ -208,7 +210,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'cpt-superstars',
         homePlaceholder: 'Team Dench',
         awayPlaceholder: 'CPT superstars fc',
-        time: '10:00',
+        time: '18:30',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -224,12 +226,12 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'bras-ba-kasi',
         homePlaceholder: 'CPT superstars fc',
         awayPlaceholder: 'Bras ba kasi',
-        time: '11:30',
+        time: '19:05',
         pitch: 1,
         homeScore: null,
         awayScore: null,
         status: 'scheduled',
-        note: 'Group A Midday Showdown'
+        note: 'Group A Round 2'
     },
     {
         id: 'ga-m3',
@@ -240,7 +242,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'team-dench',
         homePlaceholder: 'Bras ba kasi',
         awayPlaceholder: 'Team Dench',
-        time: '13:00',
+        time: '19:40',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -258,7 +260,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'woza-madzala',
         homePlaceholder: 'Gauteng state warriors',
         awayPlaceholder: 'Woza madzala fc',
-        time: '10:45',
+        time: '18:30',
         pitch: 2,
         homeScore: null,
         awayScore: null,
@@ -274,12 +276,12 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'areyeng-fc',
         homePlaceholder: 'Woza madzala fc',
         awayPlaceholder: 'Areyeng fc',
-        time: '12:15',
+        time: '19:05',
         pitch: 2,
         homeScore: null,
         awayScore: null,
         status: 'scheduled',
-        note: 'Group B Battle for Points'
+        note: 'Group B Round 2'
     },
     {
         id: 'gb-m3',
@@ -290,12 +292,12 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: 'gauteng-warriors',
         homePlaceholder: 'Areyeng fc',
         awayPlaceholder: 'Gauteng state warriors',
-        time: '13:45',
+        time: '19:40',
         pitch: 2,
         homeScore: null,
         awayScore: null,
         status: 'scheduled',
-        note: 'Group B Qualification Decider'
+        note: 'Group B Decider'
     },
 
     // SEMI-FINALS
@@ -307,7 +309,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Group A ( 1st spot )',
         awayPlaceholder: 'Group B ( 2nd spot )',
-        time: '15:00',
+        time: '20:20',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -322,8 +324,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Group A ( 2nd spot )',
         awayPlaceholder: 'Group B ( 1st spot )',
-        time: '15:50',
-        pitch: 1,
+        time: '20:20',
+        pitch: 2,
         homeScore: null,
         awayScore: null,
         status: 'scheduled',
@@ -339,7 +341,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'First match (Competing for 3rd spot)',
         awayPlaceholder: 'Loser SF 2',
-        time: '16:45',
+        time: '21:05',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -354,7 +356,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Winner SF 1',
         awayPlaceholder: 'Winner SF 2',
-        time: '17:30',
+        time: '21:40',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -451,11 +453,35 @@ const SIMULATED_GOAL_EVENTS: GoalEvent[] = [
     { id: 'ev-53', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-5', minute: 30 }
 ];
 
+const COLOR_PRESETS = [
+    { label: 'Emerald Green', hex: '#12b84c' },
+    { label: 'Electric Blue', hex: '#3b82f6' },
+    { label: 'Amber Gold', hex: '#f59e0b' },
+    { label: 'Crimson Red', hex: '#ef4444' },
+    { label: 'Violet Purple', hex: '#8b5cf6' },
+    { label: 'Neon Cyan', hex: '#06b6d4' },
+    { label: 'Vibrant Orange', hex: '#f97316' },
+    { label: 'Hot Pink', hex: '#ec4899' },
+    { label: 'Lime Yellow', hex: '#84cc16' },
+    { label: 'Midnight Slate', hex: '#64748b' }
+];
+
 export const DenchDerby = () => {
+    // 0. TEAMS STATE (Customizable & Editable)
+    const [teams, setTeams] = useState<Record<string, TeamInfo>>(() => {
+        try {
+            const saved = localStorage.getItem('dench_derby_teams_v4');
+            if (saved) return JSON.parse(saved);
+        } catch {
+            // fallback
+        }
+        return DEFAULT_TEAMS;
+    });
+
     // 1. MATCHES STATE
     const [matches, setMatches] = useState<TournamentMatch[]>(() => {
         try {
-            const saved = localStorage.getItem('dench_derby_matches_v3');
+            const saved = localStorage.getItem('dench_derby_matches_v4');
             if (saved) return JSON.parse(saved);
         } catch {
             // fallback
@@ -466,7 +492,7 @@ export const DenchDerby = () => {
     // 2. PLAYERS STATE
     const [players, setPlayers] = useState<TournamentPlayer[]>(() => {
         try {
-            const saved = localStorage.getItem('dench_derby_players_v3');
+            const saved = localStorage.getItem('dench_derby_players_v4');
             if (saved) return JSON.parse(saved);
         } catch {
             // fallback
@@ -477,7 +503,7 @@ export const DenchDerby = () => {
     // 3. GOAL & ASSIST EVENTS STATE
     const [goalEvents, setGoalEvents] = useState<GoalEvent[]>(() => {
         try {
-            const saved = localStorage.getItem('dench_derby_events_v3');
+            const saved = localStorage.getItem('dench_derby_events_v4');
             if (saved) return JSON.parse(saved);
         } catch {
             // fallback
@@ -496,6 +522,44 @@ export const DenchDerby = () => {
     const [newPlayerPosition, setNewPlayerPosition] = useState<'GK' | 'DEF' | 'MID' | 'FWD'>('MID');
     const [newPlayerCaptain, setNewPlayerCaptain] = useState(false);
 
+    // Edit Teams Modal State
+    const [isEditTeamsOpen, setIsEditTeamsOpen] = useState(false);
+    const [editTeamsMode, setEditTeamsMode] = useState<'quick' | 'detail'>('quick');
+    const [selectedEditTeamKey, setSelectedEditTeamKey] = useState<string>('team-dench');
+
+    // Quick rename buffer for all 6 teams
+    const [quickTeamNames, setQuickTeamNames] = useState<Record<string, string>>(() => {
+        const map: Record<string, string> = {};
+        Object.keys(DEFAULT_TEAMS).forEach(k => { map[k] = DEFAULT_TEAMS[k].name; });
+        return map;
+    });
+
+    // Single team editor buffer
+    const [editTeamData, setEditTeamData] = useState<TeamInfo>({
+        id: 'team-dench',
+        name: 'Team Dench',
+        group: 'A',
+        color: '#12b84c',
+        secondaryColor: '#0ea141',
+        city: 'Dench Grounds',
+        slogan: 'Relentless Pace, Pure Passion',
+        founded: '2023',
+        captain: 'Marcus "Dench" K.'
+    });
+
+    // Sync quickTeamNames and editTeamData when teams or selectedEditTeamKey change
+    useEffect(() => {
+        const map: Record<string, string> = {};
+        Object.keys(teams).forEach(k => { map[k] = teams[k].name; });
+        setQuickTeamNames(map);
+    }, [teams]);
+
+    useEffect(() => {
+        if (teams[selectedEditTeamKey]) {
+            setEditTeamData({ ...teams[selectedEditTeamKey] });
+        }
+    }, [selectedEditTeamKey, teams]);
+
     // Match Events & Score Modal State
     const [activeEventMatchId, setActiveEventMatchId] = useState<string | null>(null);
     const [eventTeamKey, setEventTeamKey] = useState<string>('');
@@ -509,15 +573,16 @@ export const DenchDerby = () => {
     // Save to localStorage
     useEffect(() => {
         try {
-            localStorage.setItem('dench_derby_matches_v3', JSON.stringify(matches));
-            localStorage.setItem('dench_derby_players_v3', JSON.stringify(players));
-            localStorage.setItem('dench_derby_events_v3', JSON.stringify(goalEvents));
+            localStorage.setItem('dench_derby_teams_v4', JSON.stringify(teams));
+            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(matches));
+            localStorage.setItem('dench_derby_players_v4', JSON.stringify(players));
+            localStorage.setItem('dench_derby_events_v4', JSON.stringify(goalEvents));
         } catch (e) {
             console.error('Failed to save to localStorage', e);
         }
-    }, [matches, players, goalEvents]);
+    }, [teams, matches, players, goalEvents]);
 
-    // Countdown Timer calculation to 28 October 2026 10:00:00 SAST
+    // Countdown Timer calculation to 28 October 2026 18:30:00 SAST
     const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
         days: 0,
         hours: 0,
@@ -526,7 +591,7 @@ export const DenchDerby = () => {
     });
 
     useEffect(() => {
-        const targetDate = new Date('2026-10-28T10:00:00+02:00').getTime();
+        const targetDate = new Date('2026-10-28T18:30:00+02:00').getTime();
 
         const updateTimer = () => {
             const now = new Date().getTime();
@@ -550,14 +615,14 @@ export const DenchDerby = () => {
 
     // Standings calculation for Group A and Group B
     const calculateGroupStandings = (group: 'A' | 'B'): GroupStanding[] => {
-        const teamKeys = Object.keys(TEAMS).filter(key => TEAMS[key].group === group);
+        const teamKeys = Object.keys(teams).filter(key => teams[key].group === group);
         const map: Record<string, GroupStanding> = {};
 
         teamKeys.forEach(key => {
             map[key] = {
                 teamKey: key,
-                name: TEAMS[key].name,
-                color: TEAMS[key].color,
+                name: teams[key].name,
+                color: teams[key].color,
                 played: 0,
                 won: 0,
                 drawn: 0,
@@ -611,8 +676,8 @@ export const DenchDerby = () => {
         });
     };
 
-    const standingsA = useMemo(() => calculateGroupStandings('A'), [matches]);
-    const standingsB = useMemo(() => calculateGroupStandings('B'), [matches]);
+    const standingsA = useMemo(() => calculateGroupStandings('A'), [matches, teams]);
+    const standingsB = useMemo(() => calculateGroupStandings('B'), [matches, teams]);
 
     // Automatically derive Semi-Final and Final participants based on standings & matches
     const groupA1st = standingsA[0]?.played > 0 ? standingsA[0] : null;
@@ -685,7 +750,7 @@ export const DenchDerby = () => {
         return players
             .map(p => ({
                 player: p,
-                team: TEAMS[p.teamKey],
+                team: teams[p.teamKey],
                 goals: playerStatsMap[p.id]?.goals || 0,
                 assists: playerStatsMap[p.id]?.assists || 0,
                 matchesPlayed: playerStatsMap[p.id]?.matches.size || 0
@@ -696,14 +761,14 @@ export const DenchDerby = () => {
                 if (b.assists !== a.assists) return b.assists - a.assists;
                 return b.player.name.localeCompare(a.player.name);
             });
-    }, [players, playerStatsMap]);
+    }, [players, playerStatsMap, teams]);
 
     // Top Playmakers (Most Assists)
     const topAssists = useMemo(() => {
         return players
             .map(p => ({
                 player: p,
-                team: TEAMS[p.teamKey],
+                team: teams[p.teamKey],
                 assists: playerStatsMap[p.id]?.assists || 0,
                 goals: playerStatsMap[p.id]?.goals || 0,
                 matchesPlayed: playerStatsMap[p.id]?.matches.size || 0
@@ -714,23 +779,42 @@ export const DenchDerby = () => {
                 if (b.goals !== a.goals) return b.goals - a.goals;
                 return b.player.name.localeCompare(a.player.name);
             });
-    }, [players, playerStatsMap]);
+    }, [players, playerStatsMap, teams]);
 
-    // Handlers
+    // Handlers for Players
+    const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+
     const handleAddPlayer = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newPlayerName.trim()) return;
 
-        const newP: TournamentPlayer = {
-            id: `p-${Date.now()}`,
-            teamKey: targetTeamKey,
-            name: newPlayerName.trim(),
-            jerseyNumber: parseInt(newPlayerNumber, 10) || (players.filter(p => p.teamKey === targetTeamKey).length + 1),
-            position: newPlayerPosition,
-            isCaptain: newPlayerCaptain
-        };
+        if (editingPlayerId) {
+            setPlayers(prev => prev.map(p => {
+                if (p.id === editingPlayerId) {
+                    return {
+                        ...p,
+                        teamKey: targetTeamKey,
+                        name: newPlayerName.trim(),
+                        jerseyNumber: parseInt(newPlayerNumber, 10) || p.jerseyNumber,
+                        position: newPlayerPosition,
+                        isCaptain: newPlayerCaptain
+                    };
+                }
+                return p;
+            }));
+            setEditingPlayerId(null);
+        } else {
+            const newP: TournamentPlayer = {
+                id: `p-${Date.now()}`,
+                teamKey: targetTeamKey,
+                name: newPlayerName.trim(),
+                jerseyNumber: parseInt(newPlayerNumber, 10) || (players.filter(p => p.teamKey === targetTeamKey).length + 1),
+                position: newPlayerPosition,
+                isCaptain: newPlayerCaptain
+            };
+            setPlayers(prev => [...prev, newP]);
+        }
 
-        setPlayers(prev => [...prev, newP]);
         setNewPlayerName('');
         setNewPlayerNumber('');
         setNewPlayerPosition('MID');
@@ -739,8 +823,110 @@ export const DenchDerby = () => {
     };
 
     const handleOpenAddPlayerModal = (teamKey?: string) => {
+        setEditingPlayerId(null);
         if (teamKey) setTargetTeamKey(teamKey);
+        setNewPlayerName('');
+        setNewPlayerNumber('');
+        setNewPlayerPosition('MID');
+        setNewPlayerCaptain(false);
         setIsAddPlayerOpen(true);
+    };
+
+    const handleOpenEditPlayer = (p: TournamentPlayer) => {
+        setEditingPlayerId(p.id);
+        setTargetTeamKey(p.teamKey);
+        setNewPlayerName(p.name);
+        setNewPlayerNumber(p.jerseyNumber.toString());
+        setNewPlayerPosition(p.position);
+        setNewPlayerCaptain(!!p.isCaptain);
+        setIsAddPlayerOpen(true);
+    };
+
+    const handleDeletePlayer = (playerId: string) => {
+        if (window.confirm('Are you sure you want to remove this player from the squad?')) {
+            setPlayers(prev => prev.filter(p => p.id !== playerId));
+            setGoalEvents(prev => prev.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId));
+        }
+    };
+
+    const handleClearAllMockData = () => {
+        if (window.confirm('Clear all mock players, scores, and goal events? You can then register your own clubs and squad rosters from scratch!')) {
+            setPlayers([]);
+            setGoalEvents([]);
+            setMatches(DEFAULT_MATCHES.map(m => ({
+                ...m,
+                homeScore: null,
+                awayScore: null,
+                status: 'scheduled'
+            })));
+            localStorage.setItem('dench_derby_players_v4', JSON.stringify([]));
+            localStorage.setItem('dench_derby_events_v4', JSON.stringify([]));
+        }
+    };
+
+    const handleRestoreSamplePlayers = () => {
+        setPlayers(INITIAL_PLAYERS);
+        localStorage.setItem('dench_derby_players_v4', JSON.stringify(INITIAL_PLAYERS));
+    };
+
+    // Handlers for Editing Teams
+    const handleSaveQuickTeams = (e: React.FormEvent) => {
+        e.preventDefault();
+        setTeams(prev => {
+            const updated = { ...prev };
+            Object.keys(quickTeamNames).forEach(k => {
+                if (updated[k] && quickTeamNames[k]?.trim()) {
+                    updated[k] = { ...updated[k], name: quickTeamNames[k].trim() };
+                }
+            });
+            return updated;
+        });
+
+        // Also update match placeholders if they match
+        setMatches(prev => prev.map(m => {
+            let hp = m.homePlaceholder;
+            let ap = m.awayPlaceholder;
+            if (m.homeTeamKey && quickTeamNames[m.homeTeamKey]?.trim()) {
+                hp = quickTeamNames[m.homeTeamKey].trim();
+            }
+            if (m.awayTeamKey && quickTeamNames[m.awayTeamKey]?.trim()) {
+                ap = quickTeamNames[m.awayTeamKey].trim();
+            }
+            return { ...m, homePlaceholder: hp, awayPlaceholder: ap };
+        }));
+
+        setIsEditTeamsOpen(false);
+    };
+
+    const handleSaveDetailTeam = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editTeamData.name.trim()) return;
+
+        setTeams(prev => ({
+            ...prev,
+            [selectedEditTeamKey]: { ...editTeamData }
+        }));
+
+        setMatches(prev => prev.map(m => {
+            let hp = m.homePlaceholder;
+            let ap = m.awayPlaceholder;
+            if (m.homeTeamKey === selectedEditTeamKey) {
+                hp = editTeamData.name.trim();
+            }
+            if (m.awayTeamKey === selectedEditTeamKey) {
+                ap = editTeamData.name.trim();
+            }
+            return { ...m, homePlaceholder: hp, awayPlaceholder: ap };
+        }));
+
+        setIsEditTeamsOpen(false);
+    };
+
+    const handleResetTeamsToDefault = () => {
+        if (window.confirm('Reset all teams back to default? Any custom team names will be reset.')) {
+            setTeams(DEFAULT_TEAMS);
+            localStorage.removeItem('dench_derby_teams_v4');
+        }
     };
 
     // Open Match Event Logger Modal
@@ -862,8 +1048,8 @@ export const DenchDerby = () => {
     const handleResetTournament = () => {
         setMatches(DEFAULT_MATCHES);
         setGoalEvents([]);
-        localStorage.removeItem('dench_derby_matches_v3');
-        localStorage.removeItem('dench_derby_events_v3');
+        localStorage.removeItem('dench_derby_matches_v4');
+        localStorage.removeItem('dench_derby_events_v4');
     };
 
     const handleShare = () => {
@@ -875,12 +1061,12 @@ export const DenchDerby = () => {
     };
 
     const getTeamDisplayName = (key: string | null, placeholder: string) => {
-        if (key && TEAMS[key]) return TEAMS[key].name;
+        if (key && teams[key]) return teams[key].name;
         return placeholder;
     };
 
     const getTeamBadgeColor = (key: string | null) => {
-        if (key && TEAMS[key]) return TEAMS[key].color;
+        if (key && teams[key]) return teams[key].color;
         return '#6b7280';
     };
 
@@ -932,14 +1118,21 @@ export const DenchDerby = () => {
                             <Flame size={13} /> Official Tournament
                         </span>
                         <span style={{ fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
-                            Dench Derby kicks off on <strong>Wednesday, 28th October 2026</strong>!
+                            Dench Derby kicks off on <strong>Wednesday, 28th October 2026 at 18:30 SAST</strong>!
                         </span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
-                            onClick={() => handleOpenAddPlayerModal()}
+                            onClick={() => setIsEditTeamsOpen(true)}
                             className="btn btn-sm btn-primary"
+                            title="Register and customize your tournament teams"
+                        >
+                            <Sliders size={14} /> Register & Edit Teams
+                        </button>
+                        <button
+                            onClick={() => handleOpenAddPlayerModal()}
+                            className="btn btn-sm btn-secondary"
                             title="Add a player to a tournament squad"
                         >
                             <UserPlus size={14} /> Add Player
@@ -969,15 +1162,7 @@ export const DenchDerby = () => {
                 </div>
 
                 {/* Hero Header */}
-                <div style={{
-                    background: 'linear-gradient(180deg, rgba(18, 184, 76, 0.12) 0%, rgba(17, 17, 17, 0.6) 100%)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-xl)',
-                    padding: '3rem 2rem',
-                    marginBottom: '2.5rem',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
+                <div className="derby-hero">
                     <div style={{
                         position: 'absolute',
                         top: '-60px',
@@ -1000,29 +1185,17 @@ export const DenchDerby = () => {
                             letterSpacing: '0.05em',
                             textTransform: 'uppercase'
                         }}>
-                            <Calendar size={16} /> 28 October 2026 • 5-A-Side Championship
+                            <Calendar size={16} /> 28 October 2026 • 18:30 SAST Kickoff • 5-A-Side Championship
                         </div>
 
-                        <h1 style={{
-                            fontSize: '3.25rem',
-                            lineHeight: 1.1,
-                            marginBottom: '1rem',
-                            fontWeight: 800,
-                            letterSpacing: '-0.03em'
-                        }}>
+                        <h1 className="derby-title">
                             Dench Derby <span className="gradient-text">Tournament</span>
                         </h1>
 
-                        <p style={{
-                            color: 'var(--color-text-muted)',
-                            fontSize: '1.15rem',
-                            lineHeight: 1.6,
-                            marginBottom: '2rem',
-                            maxWidth: '680px'
-                        }}>
+                        <p className="derby-subtitle">
                             The battle for five-a-side supremacy. 6 elite clubs split into Group A and Group B, 
                             fighting through group fixtures, semi-final clashes, and the grand final for 1st spot 🥇.
-                            Track every goal and assist live on the Golden Boot leaderboards!
+                            Register your own clubs, build your squads, and track every goal and assist live!
                         </p>
 
                         {/* Live Countdown & Info Pill */}
@@ -1030,17 +1203,18 @@ export const DenchDerby = () => {
                             display: 'flex',
                             flexWrap: 'wrap',
                             alignItems: 'center',
-                            gap: '1.5rem'
+                            gap: '1.25rem'
                         }}>
                             {/* Countdown Cards */}
-                            <div style={{
+                            <div className="derby-countdown-box" style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.75rem',
                                 background: 'rgba(5, 5, 5, 0.75)',
                                 padding: '0.75rem 1.25rem',
                                 borderRadius: 'var(--radius-lg)',
-                                border: '1px solid var(--color-border)'
+                                border: '1px solid var(--color-border)',
+                                flexWrap: 'wrap'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
                                     <Clock size={18} color="var(--color-primary)" />
@@ -1079,7 +1253,7 @@ export const DenchDerby = () => {
                                     border: '1px solid rgba(245, 158, 11, 0.3)',
                                     padding: '0.75rem 1.25rem',
                                     borderRadius: 'var(--radius-lg)'
-                                }}>
+                            }}>
                                     <Award size={22} color="#f59e0b" />
                                     <div>
                                         <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 700, letterSpacing: '0.05em' }}>
@@ -1109,7 +1283,7 @@ export const DenchDerby = () => {
                                             Tournament Champion
                                         </div>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'white' }}>
-                                            {TEAMS[finalOutcome.winnerKey]?.name} 🥇
+                                            {teams[finalOutcome.winnerKey]?.name} 🥇
                                         </div>
                                     </div>
                                 </div>
@@ -1119,53 +1293,40 @@ export const DenchDerby = () => {
                 </div>
 
                 {/* Tournament Navigation Tabs */}
-                <div style={{
-                    display: 'flex',
-                    gap: '0.5rem',
-                    borderBottom: '1px solid var(--color-border)',
-                    marginBottom: '2rem',
-                    overflowX: 'auto',
-                    paddingBottom: '0.25rem'
-                }}>
+                <div className="derby-tabs-bar">
                     <button
-                        className={`btn ${activeTab === 'bracket' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'bracket' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('bracket')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Trophy size={16} /> Tournament Bracket
                     </button>
                     <button
-                        className={`btn ${activeTab === 'groups' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'groups' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('groups')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Users size={16} /> Groups & Standings
                     </button>
                     <button
-                        className={`btn ${activeTab === 'schedule' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'schedule' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('schedule')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Clock size={16} /> Match Schedule & Goals
                     </button>
                     <button
-                        className={`btn ${activeTab === 'leaderboard' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'leaderboard' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('leaderboard')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Medal size={16} color="#f59e0b" /> Scorers & Assists 🥇
                     </button>
                     <button
-                        className={`btn ${activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('teams')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Shield size={16} /> Squad Rosters ({players.length})
                     </button>
                     <button
-                        className={`btn ${activeTab === 'rules' ? 'btn-primary' : 'btn-secondary'}`}
+                        className={`derby-tab-btn ${activeTab === 'rules' ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setActiveTab('rules')}
-                        style={{ borderRadius: 'var(--radius-sm)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
                     >
                         <Info size={16} /> Format & Rules
                     </button>
@@ -1854,8 +2015,8 @@ export const DenchDerby = () => {
                                     homeDisplay = getTeamDisplayName(finalHomeKey, 'Winner SF 1');
                                     awayDisplay = getTeamDisplayName(finalAwayKey, 'Winner SF 2');
                                 } else {
-                                    if (m.homeTeamKey) homeDisplay = TEAMS[m.homeTeamKey]?.name || m.homePlaceholder;
-                                    if (m.awayTeamKey) awayDisplay = TEAMS[m.awayTeamKey]?.name || m.awayPlaceholder;
+                                    if (m.homeTeamKey) homeDisplay = teams[m.homeTeamKey]?.name || m.homePlaceholder;
+                                    if (m.awayTeamKey) awayDisplay = teams[m.awayTeamKey]?.name || m.awayPlaceholder;
                                 }
 
                                 const matchGoals = goalEvents.filter(ev => ev.matchId === m.id);
@@ -1865,7 +2026,7 @@ export const DenchDerby = () => {
                                         padding: '1.25rem 1.5rem',
                                         border: isFinal ? '1px solid rgba(245, 158, 11, 0.4)' : (isSemi ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--color-border)')
                                     }}>
-                                        <div className="flex-between" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+                                        <div className="derby-match-row">
 
                                             {/* Match Info & Timing */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: '180px' }}>
@@ -1895,14 +2056,7 @@ export const DenchDerby = () => {
                                             </div>
 
                                             {/* Teams & Scores */}
-                                            <div style={{
-                                                flex: 1,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '1.5rem',
-                                                minWidth: '280px'
-                                            }}>
+                                            <div className="derby-score-board">
                                                 <div style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'white', fontSize: '1rem' }}>
                                                     {homeDisplay}
                                                 </div>
@@ -2207,17 +2361,74 @@ export const DenchDerby = () => {
                                     Manage players, jersey numbers, and monitor individual tournament statistics.
                                 </p>
                             </div>
-                            <button
-                                onClick={() => handleOpenAddPlayerModal()}
-                                className="btn btn-primary"
-                            >
-                                <Plus size={16} /> Add New Player
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => setIsEditTeamsOpen(true)}
+                                    className="btn btn-primary"
+                                    title="Register and edit all 6 tournament clubs"
+                                >
+                                    <Sliders size={15} /> Register / Edit Teams
+                                </button>
+                                <button
+                                    onClick={() => handleOpenAddPlayerModal()}
+                                    className="btn btn-secondary"
+                                    title="Register a new player to any team"
+                                >
+                                    <Plus size={15} /> Add New Player
+                                </button>
+                                <button
+                                    onClick={handleClearAllMockData}
+                                    className="btn btn-outline"
+                                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                                    title="Wipe mock players and scores to start fresh with your real clubs"
+                                >
+                                    <Trash2 size={14} /> Clear Mock Data
+                                </button>
+                                <button
+                                    onClick={handleRestoreSamplePlayers}
+                                    className="btn btn-outline"
+                                    title="Restore sample players if needed"
+                                >
+                                    <RotateCcw size={14} /> Restore Sample Squads
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Registration Quick Info Banner */}
+                        <div style={{
+                            backgroundColor: 'rgba(18, 184, 76, 0.06)',
+                            border: '1px solid rgba(18, 184, 76, 0.25)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '0.85rem 1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem',
+                            fontSize: '0.85rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-main)' }}>
+                                <CheckCircle2 size={16} color="var(--color-primary)" />
+                                <span>
+                                    <strong>Self-Service Registration:</strong> Register your own 6 clubs via <strong>Register / Edit Teams</strong>, then register your players below. Or click <strong>Clear Mock Data</strong> to start with a blank tournament sheet!
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '999px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    color: 'var(--color-text-muted)'
+                                }}>
+                                    Total Registered: <strong style={{ color: 'white' }}>{players.length}</strong> Players
+                                </span>
+                            </div>
                         </div>
 
                         {/* 6 Squad Cards */}
                         <div className="grid-responsive-2">
-                            {Object.values(TEAMS).map(team => {
+                            {Object.values(teams).map(team => {
                                 const teamPlayers = players.filter(p => p.teamKey === team.id);
 
                                 return (
@@ -2247,103 +2458,183 @@ export const DenchDerby = () => {
                                                 <div>
                                                     <h3 style={{ fontSize: '1.15rem', color: 'white', margin: 0 }}>{team.name}</h3>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                                        Group {team.group} • {team.city}
+                                                        Group {team.group} • {team.city || 'Dench Derby'} • {teamPlayers.length} player{teamPlayers.length === 1 ? '' : 's'}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={() => handleOpenAddPlayerModal(team.id)}
-                                                className="btn btn-sm btn-secondary"
-                                                style={{ fontSize: '0.8rem' }}
-                                            >
-                                                <UserPlus size={13} /> Add Player
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedEditTeamKey(team.id);
+                                                        setEditTeamsMode('detail');
+                                                        setIsEditTeamsOpen(true);
+                                                    }}
+                                                    className="btn btn-sm btn-outline"
+                                                    style={{ fontSize: '0.8rem' }}
+                                                    title="Edit this team's name and details"
+                                                >
+                                                    <Sliders size={13} /> Edit Team
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenAddPlayerModal(team.id)}
+                                                    className="btn btn-sm btn-secondary"
+                                                    style={{ fontSize: '0.8rem' }}
+                                                    title="Register a new player into this squad"
+                                                >
+                                                    <UserPlus size={13} /> + Player
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* Roster Table */}
-                                        <div style={{ padding: '0.75rem 1.5rem' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                                {teamPlayers.map(p => {
-                                                    const stat = playerStatsMap[p.id];
-                                                    return (
-                                                        <div key={p.id} style={{
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'center',
-                                                            padding: '0.5rem 0.75rem',
-                                                            borderRadius: 'var(--radius-sm)',
-                                                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                                                            border: '1px solid var(--color-border)'
-                                                        }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                                <span style={{
-                                                                    width: '26px',
-                                                                    height: '26px',
-                                                                    borderRadius: '50%',
-                                                                    backgroundColor: `${team.color}25`,
-                                                                    color: team.color,
-                                                                    fontWeight: 800,
-                                                                    fontSize: '0.75rem',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center'
-                                                                }}>
-                                                                    {p.jerseyNumber}
-                                                                </span>
-                                                                <div>
-                                                                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>
-                                                                        {p.name}
-                                                                        {p.isCaptain && (
-                                                                            <span style={{
-                                                                                fontSize: '0.65rem',
-                                                                                backgroundColor: 'var(--color-primary)',
-                                                                                color: '#050505',
-                                                                                fontWeight: 800,
-                                                                                padding: '0.1rem 0.35rem',
-                                                                                borderRadius: '3px',
-                                                                                marginLeft: '6px'
-                                                                            }}>
-                                                                                CAPTAIN
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                                                        {p.position}
+                                        <div style={{ padding: '0.75rem 1.25rem' }}>
+                                            {teamPlayers.length === 0 ? (
+                                                <div style={{
+                                                    textAlign: 'center',
+                                                    padding: '2rem 1rem',
+                                                    color: 'var(--color-text-muted)',
+                                                    fontSize: '0.85rem',
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px dashed var(--color-border)'
+                                                }}>
+                                                    <Users size={28} style={{ opacity: 0.35, margin: '0 auto 0.5rem auto', display: 'block' }} />
+                                                    <div>No registered players in <strong>{team.name}</strong> yet.</div>
+                                                    <div style={{ marginTop: '0.75rem' }}>
+                                                        <button
+                                                            onClick={() => handleOpenAddPlayerModal(team.id)}
+                                                            className="btn btn-sm btn-primary"
+                                                            style={{ fontSize: '0.8rem' }}
+                                                        >
+                                                            <UserPlus size={13} /> Register First Player
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                                                    {teamPlayers.map(p => {
+                                                        const stat = playerStatsMap[p.id];
+                                                        return (
+                                                            <div key={p.id} style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center',
+                                                                padding: '0.55rem 0.75rem',
+                                                                borderRadius: 'var(--radius-sm)',
+                                                                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                                                border: '1px solid var(--color-border)',
+                                                                flexWrap: 'wrap',
+                                                                gap: '0.5rem'
+                                                            }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                                    <span style={{
+                                                                        width: '26px',
+                                                                        height: '26px',
+                                                                        borderRadius: '50%',
+                                                                        backgroundColor: `${team.color}25`,
+                                                                        color: team.color,
+                                                                        fontWeight: 800,
+                                                                        fontSize: '0.75rem',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        {p.jerseyNumber}
                                                                     </span>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                            {p.name}
+                                                                            {p.isCaptain && (
+                                                                                <span style={{
+                                                                                    fontSize: '0.62rem',
+                                                                                    backgroundColor: 'var(--color-primary)',
+                                                                                    color: '#050505',
+                                                                                    fontWeight: 800,
+                                                                                    padding: '0.1rem 0.35rem',
+                                                                                    borderRadius: '3px'
+                                                                                }}>
+                                                                                    CAPTAIN
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                                            {p.position}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Player Stats & Actions */}
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <div style={{
+                                                                        backgroundColor: stat?.goals ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                                                                        border: stat?.goals ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                                                                        padding: '0.2rem 0.5rem',
+                                                                        borderRadius: 'var(--radius-sm)',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 700,
+                                                                        color: stat?.goals ? '#f59e0b' : 'var(--color-text-muted)'
+                                                                    }} title="Goals scored">
+                                                                        {stat?.goals || 0} ⚽
+                                                                    </div>
+
+                                                                    <div style={{
+                                                                        backgroundColor: stat?.assists ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                                                                        border: stat?.assists ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                                                                        padding: '0.2rem 0.5rem',
+                                                                        borderRadius: 'var(--radius-sm)',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 700,
+                                                                        color: stat?.assists ? '#3b82f6' : 'var(--color-text-muted)'
+                                                                    }} title="Assists made">
+                                                                        {stat?.assists || 0} 👟
+                                                                    </div>
+
+                                                                    <button
+                                                                        onClick={() => handleOpenEditPlayer(p)}
+                                                                        className="btn-icon"
+                                                                        style={{
+                                                                            padding: '0.25rem 0.45rem',
+                                                                            borderRadius: 'var(--radius-sm)',
+                                                                            background: 'rgba(255, 255, 255, 0.05)',
+                                                                            border: '1px solid var(--color-border)',
+                                                                            color: 'var(--color-text-main)',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.75rem',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '0.25rem'
+                                                                        }}
+                                                                        title="Edit player details"
+                                                                    >
+                                                                        <Sliders size={12} /> Edit
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() => handleDeletePlayer(p.id)}
+                                                                        className="btn-icon"
+                                                                        style={{
+                                                                            padding: '0.25rem 0.45rem',
+                                                                            borderRadius: 'var(--radius-sm)',
+                                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                            color: '#ef4444',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.75rem',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center'
+                                                                        }}
+                                                                        title="Remove player from squad"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
                                                                 </div>
                                                             </div>
-
-                                                            {/* Player Stats Pills */}
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                                <div style={{
-                                                                    backgroundColor: stat?.goals ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                                                                    border: stat?.goals ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
-                                                                    padding: '0.2rem 0.6rem',
-                                                                    borderRadius: 'var(--radius-sm)',
-                                                                    fontSize: '0.8rem',
-                                                                    fontWeight: 700,
-                                                                    color: stat?.goals ? '#f59e0b' : 'var(--color-text-muted)'
-                                                                }}>
-                                                                    {stat?.goals || 0} ⚽
-                                                                </div>
-
-                                                                <div style={{
-                                                                    backgroundColor: stat?.assists ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                                                                    border: stat?.assists ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-                                                                    padding: '0.2rem 0.6rem',
-                                                                    borderRadius: 'var(--radius-sm)',
-                                                                    fontSize: '0.8rem',
-                                                                    fontWeight: 700,
-                                                                    color: stat?.assists ? '#3b82f6' : 'var(--color-text-muted)'
-                                                                }}>
-                                                                    {stat?.assists || 0} 👟
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -2412,36 +2703,22 @@ export const DenchDerby = () => {
                     </div>
                 )}
 
-                {/* MODAL 1: ADD PLAYER TO SQUAD */}
+                {/* MODAL 1: ADD / EDIT PLAYER TO SQUAD */}
                 {isAddPlayerOpen && (
-                    <div style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100vw',
-                        height: '100vh',
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        backdropFilter: 'blur(8px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 100,
-                        padding: '1rem'
-                    }}>
-                        <div className="glass-panel animate-fade-in" style={{
-                            width: '100%',
-                            maxWidth: '480px',
-                            padding: '2rem',
-                            border: '1px solid var(--color-border)',
-                            position: 'relative'
-                        }}>
+                    <div className="derby-modal-overlay">
+                        <div className="derby-modal-content" style={{ maxWidth: '480px' }}>
                             <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <UserPlus size={20} color="var(--color-primary)" />
-                                    <h3 style={{ fontSize: '1.25rem', margin: 0, color: 'white' }}>Add Player to Team</h3>
+                                    <h3 style={{ fontSize: '1.25rem', margin: 0, color: 'white' }}>
+                                        {editingPlayerId ? 'Edit Player' : 'Register Player to Squad'}
+                                    </h3>
                                 </div>
                                 <button
-                                    onClick={() => setIsAddPlayerOpen(false)}
+                                    onClick={() => {
+                                        setIsAddPlayerOpen(false);
+                                        setEditingPlayerId(null);
+                                    }}
                                     style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
                                 >
                                     <X size={20} />
@@ -2456,17 +2733,9 @@ export const DenchDerby = () => {
                                     <select
                                         value={targetTeamKey}
                                         onChange={(e) => setTargetTeamKey(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.65rem',
-                                            background: '#111',
-                                            border: '1px solid var(--color-border)',
-                                            color: 'white',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: '0.95rem'
-                                        }}
+                                        className="derby-input"
                                     >
-                                        {Object.values(TEAMS).map(t => (
+                                        {Object.values(teams).map(t => (
                                             <option key={t.id} value={t.id}>
                                                 {t.name} (Group {t.group})
                                             </option>
@@ -2484,15 +2753,7 @@ export const DenchDerby = () => {
                                         placeholder="e.g. Sipho 'Star' Zulu"
                                         value={newPlayerName}
                                         onChange={(e) => setNewPlayerName(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.65rem',
-                                            background: '#111',
-                                            border: '1px solid var(--color-border)',
-                                            color: 'white',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: '0.95rem'
-                                        }}
+                                        className="derby-input"
                                     />
                                 </div>
 
@@ -2508,15 +2769,7 @@ export const DenchDerby = () => {
                                             placeholder="e.g. 10"
                                             value={newPlayerNumber}
                                             onChange={(e) => setNewPlayerNumber(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.65rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.95rem'
-                                            }}
+                                            className="derby-input"
                                         />
                                     </div>
 
@@ -2527,15 +2780,7 @@ export const DenchDerby = () => {
                                         <select
                                             value={newPlayerPosition}
                                             onChange={(e) => setNewPlayerPosition(e.target.value as any)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.65rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.95rem'
-                                            }}
+                                            className="derby-input"
                                         >
                                             <option value="FWD">Forward (FWD)</option>
                                             <option value="MID">Midfielder (MID)</option>
@@ -2564,11 +2809,14 @@ export const DenchDerby = () => {
                                         className="btn btn-primary"
                                         style={{ flex: 1 }}
                                     >
-                                        Save Player
+                                        {editingPlayerId ? 'Save Player Changes' : 'Register Player'}
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setIsAddPlayerOpen(false)}
+                                        onClick={() => {
+                                            setIsAddPlayerOpen(false);
+                                            setEditingPlayerId(null);
+                                        }}
                                         className="btn btn-outline"
                                     >
                                         Cancel
@@ -2581,33 +2829,12 @@ export const DenchDerby = () => {
 
                 {/* MODAL 2: LOG GOALS & ASSISTS */}
                 {activeEventMatchId && activeModalMatch && (
-                    <div style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100vw',
-                        height: '100vh',
-                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                        backdropFilter: 'blur(8px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 100,
-                        padding: '1rem'
-                    }}>
-                        <div className="glass-panel animate-fade-in" style={{
-                            width: '100%',
-                            maxWidth: '620px',
-                            maxHeight: '90vh',
-                            overflowY: 'auto',
-                            padding: '2rem',
-                            border: '1px solid var(--color-border)',
-                            position: 'relative'
-                        }}>
+                    <div className="derby-modal-overlay">
+                        <div className="derby-modal-content" style={{ maxWidth: '640px' }}>
                             <div className="flex-between" style={{ marginBottom: '1.25rem' }}>
                                 <div>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase' }}>
-                                        {activeModalMatch.note} • 28 October 2026
+                                        {activeModalMatch.note} • 28 October 2026 • 18:30
                                     </span>
                                     <h3 style={{ fontSize: '1.25rem', color: 'white', margin: 0 }}>
                                         Log Goals & Assists
@@ -2634,7 +2861,7 @@ export const DenchDerby = () => {
                                 marginBottom: '1.5rem'
                             }}>
                                 <div style={{ flex: 1, textAlign: 'right', fontWeight: 700, color: 'white' }}>
-                                    {modalHomeKey ? TEAMS[modalHomeKey]?.name : activeModalMatch.homePlaceholder}
+                                    {modalHomeKey ? teams[modalHomeKey]?.name : activeModalMatch.homePlaceholder}
                                 </div>
                                 <div style={{
                                     margin: '0 1.5rem',
@@ -2646,7 +2873,7 @@ export const DenchDerby = () => {
                                     {activeModalMatch.homeScore ?? 0} - {activeModalMatch.awayScore ?? 0}
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'left', fontWeight: 700, color: 'white' }}>
-                                    {modalAwayKey ? TEAMS[modalAwayKey]?.name : activeModalMatch.awayPlaceholder}
+                                    {modalAwayKey ? teams[modalAwayKey]?.name : activeModalMatch.awayPlaceholder}
                                 </div>
                             </div>
 
@@ -2677,21 +2904,13 @@ export const DenchDerby = () => {
                                                 setEventScorerId(newPlayers[0]?.id || '');
                                                 setEventAssistId('');
                                             }}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.5rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.85rem'
-                                            }}
+                                            className="derby-input"
                                         >
-                                            {modalHomeKey && TEAMS[modalHomeKey] && (
-                                                <option value={modalHomeKey}>{TEAMS[modalHomeKey].name}</option>
+                                            {modalHomeKey && teams[modalHomeKey] && (
+                                                <option value={modalHomeKey}>{teams[modalHomeKey].name}</option>
                                             )}
-                                            {modalAwayKey && TEAMS[modalAwayKey] && (
-                                                <option value={modalAwayKey}>{TEAMS[modalAwayKey].name}</option>
+                                            {modalAwayKey && teams[modalAwayKey] && (
+                                                <option value={modalAwayKey}>{teams[modalAwayKey].name}</option>
                                             )}
                                         </select>
                                     </div>
@@ -2704,21 +2923,17 @@ export const DenchDerby = () => {
                                         <select
                                             value={eventScorerId}
                                             onChange={(e) => setEventScorerId(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.5rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.85rem'
-                                            }}
+                                            className="derby-input"
                                         >
-                                            {eventTeamPlayers.map(p => (
-                                                <option key={p.id} value={p.id}>
-                                                    #{p.jerseyNumber} {p.name} ({p.position})
-                                                </option>
-                                            ))}
+                                            {eventTeamPlayers.length === 0 ? (
+                                                <option value="">No registered players (Add in Squad tab)</option>
+                                            ) : (
+                                                eventTeamPlayers.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        #{p.jerseyNumber} {p.name} ({p.position})
+                                                    </option>
+                                                ))
+                                            )}
                                         </select>
                                     </div>
 
@@ -2730,15 +2945,7 @@ export const DenchDerby = () => {
                                         <select
                                             value={eventAssistId}
                                             onChange={(e) => setEventAssistId(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.5rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.85rem'
-                                            }}
+                                            className="derby-input"
                                         >
                                             <option value="">None (Solo Goal / Penalty)</option>
                                             {eventTeamPlayers.filter(p => p.id !== eventScorerId).map(p => (
@@ -2752,7 +2959,7 @@ export const DenchDerby = () => {
                                     {/* Minute */}
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
-                                            Minute (1 - 30)
+                                            Minute (1 - 35)
                                         </label>
                                         <input
                                             type="number"
@@ -2760,15 +2967,7 @@ export const DenchDerby = () => {
                                             max="35"
                                             value={eventMinute}
                                             onChange={(e) => setEventMinute(parseInt(e.target.value, 10) || 1)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.5rem',
-                                                background: '#111',
-                                                border: '1px solid var(--color-border)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.85rem'
-                                            }}
+                                            className="derby-input"
                                         />
                                     </div>
                                 </div>
@@ -2777,6 +2976,7 @@ export const DenchDerby = () => {
                                     onClick={handleAddGoalEvent}
                                     className="btn btn-sm btn-primary"
                                     style={{ width: '100%', fontWeight: 700 }}
+                                    disabled={!eventScorerId}
                                 >
                                     Record Goal Event (+1 Goal)
                                 </button>
@@ -2795,7 +2995,7 @@ export const DenchDerby = () => {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         {activeMatchGoalEvents.map(ev => {
-                                            const team = TEAMS[ev.teamKey];
+                                            const team = teams[ev.teamKey];
                                             const scorer = players.find(p => p.id === ev.scorerPlayerId);
                                             const assist = players.find(p => p.id === ev.assistPlayerId);
 
@@ -2816,7 +3016,7 @@ export const DenchDerby = () => {
                                                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: team?.color || '#999' }} />
                                                         <div>
                                                             <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>
-                                                                ⚽ {scorer?.name}
+                                                                ⚽ {scorer?.name || 'Player'}
                                                             </div>
                                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                                                                 {team?.name} {assist && `• 👟 Assist by ${assist.name}`}
@@ -2852,6 +3052,289 @@ export const DenchDerby = () => {
                                     Done
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL 3: REGISTER & EDIT TOURNAMENT TEAMS */}
+                {isEditTeamsOpen && (
+                    <div className="derby-modal-overlay">
+                        <div className="derby-modal-content" style={{ maxWidth: '680px' }}>
+                            <div className="flex-between" style={{ marginBottom: '1.25rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Sliders size={22} color="var(--color-primary)" />
+                                    <div>
+                                        <h3 style={{ fontSize: '1.3rem', margin: 0, color: 'white' }}>
+                                            Register Tournament Teams
+                                        </h3>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                            Register your 6 clubs into Group A & Group B for 28 October 2026 (18:30 Kickoff)
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsEditTeamsOpen(false)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
+                                >
+                                    <X size={22} />
+                                </button>
+                            </div>
+
+                            {/* Sub Tabs */}
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
+                                <button
+                                    onClick={() => setEditTeamsMode('quick')}
+                                    className={`btn btn-sm ${editTeamsMode === 'quick' ? 'btn-primary' : 'btn-secondary'}`}
+                                >
+                                    ⚡ Quick Register All 6 Teams
+                                </button>
+                                <button
+                                    onClick={() => setEditTeamsMode('detail')}
+                                    className={`btn btn-sm ${editTeamsMode === 'detail' ? 'btn-primary' : 'btn-secondary'}`}
+                                >
+                                    🎨 Full Club Customizer
+                                </button>
+                            </div>
+
+                            {editTeamsMode === 'quick' ? (
+                                <form onSubmit={handleSaveQuickTeams} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <div style={{
+                                        backgroundColor: 'rgba(18, 184, 76, 0.08)',
+                                        border: '1px solid rgba(18, 184, 76, 0.25)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        padding: '0.85rem 1rem',
+                                        fontSize: '0.85rem',
+                                        color: 'var(--color-text-main)'
+                                    }}>
+                                        Enter your club names below. Changes immediately update all match fixtures, group standings, bracket pathways, and squad lists!
+                                    </div>
+
+                                    <div className="quick-teams-grid">
+                                        {/* Group A */}
+                                        <div style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: '1.25rem'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)', fontWeight: 700, fontSize: '0.95rem' }}>
+                                                <Users size={16} /> Group A (3 Clubs)
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                                {Object.values(teams).filter(t => t.group === 'A').map((t, idx) => (
+                                                    <div key={t.id}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.color }} />
+                                                            Team A{idx + 1} Name
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            required
+                                                            value={quickTeamNames[t.id] || ''}
+                                                            onChange={(e) => setQuickTeamNames(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                                            placeholder={`e.g. Club ${idx + 1}`}
+                                                            className="derby-input"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Group B */}
+                                        <div style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: '1.25rem'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#8b5cf6', fontWeight: 700, fontSize: '0.95rem' }}>
+                                                <Users size={16} /> Group B (3 Clubs)
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                                {Object.values(teams).filter(t => t.group === 'B').map((t, idx) => (
+                                                    <div key={t.id}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: t.color }} />
+                                                            Team B{idx + 1} Name
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            required
+                                                            value={quickTeamNames[t.id] || ''}
+                                                            onChange={(e) => setQuickTeamNames(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                                            placeholder={`e.g. Club ${idx + 4}`}
+                                                            className="derby-input"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearAllMockData}
+                                            className="btn btn-outline"
+                                            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                            title="Clear mock scores & players so tournament is completely fresh"
+                                        >
+                                            <Trash2 size={14} /> Clear Mock Scores & Squads
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleResetTeamsToDefault}
+                                            className="btn btn-outline"
+                                            title="Reset back to default mock clubs"
+                                        >
+                                            Reset to Default
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditTeamsOpen(false)}
+                                            className="btn btn-secondary"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary"
+                                            style={{ minWidth: '160px' }}
+                                        >
+                                            <CheckCircle2 size={16} /> Save & Register Teams
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleSaveDetailTeam} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    {/* Club Selector Pill Bar */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                                            Select Club to Customize
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            {Object.values(teams).map(t => (
+                                                <button
+                                                    key={t.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedEditTeamKey(t.id)}
+                                                    className={`btn btn-sm ${selectedEditTeamKey === t.id ? 'btn-primary' : 'btn-secondary'}`}
+                                                    style={{
+                                                        borderLeft: `4px solid ${t.color}`,
+                                                        fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    {t.name} (Gr {t.group})
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                Club Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={editTeamData.name}
+                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, name: e.target.value }))}
+                                                className="derby-input"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                Team Captain Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editTeamData.captain}
+                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, captain: e.target.value }))}
+                                                placeholder="e.g. Marcus 'Dench' K."
+                                                className="derby-input"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                City / Home Ground
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editTeamData.city}
+                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, city: e.target.value }))}
+                                                placeholder="e.g. Cape Town, Johannesburg"
+                                                className="derby-input"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                Team Motto / Slogan
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editTeamData.slogan}
+                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, slogan: e.target.value }))}
+                                                placeholder="e.g. Relentless Pace, Pure Passion"
+                                                className="derby-input"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Group & Color */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', alignItems: 'center' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                Tournament Group
+                                            </label>
+                                            <select
+                                                value={editTeamData.group}
+                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, group: e.target.value as 'A' | 'B' }))}
+                                                className="derby-input"
+                                            >
+                                                <option value="A">Group A</option>
+                                                <option value="B">Group B</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                                                Club Kit Color Accent
+                                            </label>
+                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                {COLOR_PRESETS.map(c => (
+                                                    <div
+                                                        key={c.hex}
+                                                        onClick={() => setEditTeamData(prev => ({ ...prev, color: c.hex, secondaryColor: c.hex }))}
+                                                        className={`color-swatch ${editTeamData.color === c.hex ? 'active' : ''}`}
+                                                        style={{ backgroundColor: c.hex }}
+                                                        title={c.label}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditTeamsOpen(false)}
+                                            className="btn btn-secondary"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary"
+                                        >
+                                            <CheckCircle2 size={16} /> Save Club Details
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </div>
                     </div>
                 )}

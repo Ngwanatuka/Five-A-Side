@@ -406,3 +406,219 @@ tbody tr:last-child td {
   h1 { font-size: 2rem; }
   h2 { font-size: 1.75rem; }
 }
+
+/* --- DENCH DERBY SCALABLE UI/UX STYLES --- */
+
+.derby-hero {
+  background: linear-gradient(180deg, rgba(18, 184, 76, 0.12) 0%, rgba(17, 17, 17, 0.6) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2.5rem);
+  margin-bottom: 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.derby-title {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.15;
+  margin-bottom: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.derby-subtitle {
+  color: var(--color-text-muted);
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  line-height: 1.6;
+  margin-bottom: 1.75rem;
+  max-width: 680px;
+}
+
+.derby-tabs-bar {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.derby-tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.derby-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+/* Scalable Match Card */
+.derby-match-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.derby-match-card:hover {
+  border-color: rgba(18, 184, 76, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.derby-match-row {
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.derby-score-board {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-width: 280px;
+}
+
+/* Modal styling */
+.derby-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.derby-modal-content {
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+.derby-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #111111;
+  border: 1px solid var(--color-border);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 1rem; /* 16px avoids iOS Safari zoom */
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.derby-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Mobile adjustments (< 768px) */
+@media (max-width: 768px) {
+  .derby-match-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .derby-score-board {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: unset;
+  }
+
+  .derby-score-board > div:first-child {
+    text-align: center !important;
+  }
+
+  .derby-score-board > div:last-child {
+    text-align: center !important;
+  }
+
+  .derby-match-row > div:first-child {
+    justify-content: center;
+  }
+
+  .derby-match-row > div:last-child > button {
+    width: 100%;
+  }
+
+  .derby-countdown-box {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Color swatches in team customizer */
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* Quick team edit grid */
+.quick-teams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .quick-teams-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Responsive table container */
+.derby-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+}
+
+.derby-table-wrapper table {
+  min-width: 580px;
+}
+

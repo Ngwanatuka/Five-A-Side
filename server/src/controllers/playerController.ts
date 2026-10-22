@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { DATA_FILE } from './derbyController';
 
 const addPlayerSchema = z.object({
     teamId: z.number().int().positive(),
@@ -39,7 +41,40 @@ export const addPlayerToTeam = async (req: Request, res: Response): Promise<void
             include: { team: true }
         });
 
+        // Also sync into derby-tournament.json if this team belongs to the tournament
         const io = req.app.get('io');
+        try {
+            if (team.managerContact && team.managerContact.endsWith('@tournament.local')) {
+                const teamKey = team.managerContact.replace('@tournament.local', '');
+                if (fs.existsSync(DATA_FILE)) {
+                    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+                    const derbyData = JSON.parse(raw);
+                    if (!derbyData.players) derbyData.players = [];
+
+                    const fullName = `${newPlayer.firstName} ${newPlayer.lastName}`.trim();
+                    const nextJersey = derbyData.players.filter((p: any) => p.teamKey === teamKey).length + 1;
+
+                    derbyData.players.push({
+                        id: `p-${newPlayer.id}`,
+                        teamKey,
+                        name: fullName,
+                        jerseyNumber: nextJersey,
+                        position: 'MID',
+                        isCaptain: false
+                    });
+
+                    derbyData.updatedAt = new Date().toISOString();
+                    fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+
+                    if (io) {
+                        io.emit('derbyUpdate', derbyData);
+                    }
+                }
+            }
+        } catch (derbyPlayerSyncErr) {
+            console.error('Notice syncing player to derby file:', derbyPlayerSyncErr);
+        }
+
         if (io) {
             io.emit('playerAdded', newPlayer);
             io.emit('teamRegistered');

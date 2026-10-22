@@ -99,7 +99,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Dench Grounds',
         slogan: 'Relentless Pace, Pure Passion',
         founded: '2023',
-        captain: 'Marcus "Dench" K.'
+        captain: ''
     },
     'cpt-superstars': {
         id: 'cpt-superstars',
@@ -110,7 +110,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Cape Town',
         slogan: 'Mother City Maestros',
         founded: '2022',
-        captain: 'Chad "Speedy" P.'
+        captain: ''
     },
     'bras-ba-kasi': {
         id: 'bras-ba-kasi',
@@ -121,7 +121,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Kasi Local',
         slogan: 'Flavour, Flair & Brotherhood',
         founded: '2021',
-        captain: 'Thabo "Jiki" M.'
+        captain: ''
     },
     'gauteng-warriors': {
         id: 'gauteng-warriors',
@@ -132,7 +132,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Gauteng',
         slogan: 'The Golden Province Titans',
         founded: '2022',
-        captain: 'Kagiso "Iron" N.'
+        captain: ''
     },
     'woza-madzala': {
         id: 'woza-madzala',
@@ -143,7 +143,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Ekurhuleni',
         slogan: 'Wisdom, Power & Tactical Fire',
         founded: '2020',
-        captain: 'Sipho "Madzala" Z.'
+        captain: ''
     },
     'areyeng-fc': {
         id: 'areyeng-fc',
@@ -154,55 +154,14 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Tshwane',
         slogan: 'Forward Together, Never Back',
         founded: '2024',
-        captain: 'Lerato "Skilo" D.'
+        captain: ''
     }
 };
 
 export const TEAMS = DEFAULT_TEAMS;
 
-const INITIAL_PLAYERS: TournamentPlayer[] = [
-    // Team Dench
-    { id: 'p-dench-1', teamKey: 'team-dench', name: 'Marcus "Dench" K.', jerseyNumber: 9, position: 'FWD', isCaptain: true },
-    { id: 'p-dench-2', teamKey: 'team-dench', name: 'Tshepo Moremi', jerseyNumber: 7, position: 'MID' },
-    { id: 'p-dench-3', teamKey: 'team-dench', name: 'David Ndlovu', jerseyNumber: 4, position: 'DEF' },
-    { id: 'p-dench-4', teamKey: 'team-dench', name: 'Kabelo Mokoena', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-dench-5', teamKey: 'team-dench', name: 'Brian Sithole', jerseyNumber: 10, position: 'FWD' },
-
-    // CPT superstars fc
-    { id: 'p-cpt-1', teamKey: 'cpt-superstars', name: 'Chad "Speedy" P.', jerseyNumber: 10, position: 'FWD', isCaptain: true },
-    { id: 'p-cpt-2', teamKey: 'cpt-superstars', name: 'Jerome Abrahams', jerseyNumber: 8, position: 'MID' },
-    { id: 'p-cpt-3', teamKey: 'cpt-superstars', name: 'Luke Hendricks', jerseyNumber: 3, position: 'DEF' },
-    { id: 'p-cpt-4', teamKey: 'cpt-superstars', name: 'Moegamat Adams', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-cpt-5', teamKey: 'cpt-superstars', name: 'Keanu Daniels', jerseyNumber: 11, position: 'MID' },
-
-    // Bras ba kasi
-    { id: 'p-bras-1', teamKey: 'bras-ba-kasi', name: 'Thabo "Jiki" M.', jerseyNumber: 10, position: 'MID', isCaptain: true },
-    { id: 'p-bras-2', teamKey: 'bras-ba-kasi', name: 'Bongani "Shoelace" Zulu', jerseyNumber: 9, position: 'FWD' },
-    { id: 'p-bras-3', teamKey: 'bras-ba-kasi', name: 'Sbusiso Khumalo', jerseyNumber: 5, position: 'DEF' },
-    { id: 'p-bras-4', teamKey: 'bras-ba-kasi', name: 'Vusi "Cat" Radebe', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-bras-5', teamKey: 'bras-ba-kasi', name: 'Mandla Nkosi', jerseyNumber: 7, position: 'FWD' },
-
-    // Gauteng state warriors
-    { id: 'p-gaut-1', teamKey: 'gauteng-warriors', name: 'Kagiso "Iron" N.', jerseyNumber: 4, position: 'DEF', isCaptain: true },
-    { id: 'p-gaut-2', teamKey: 'gauteng-warriors', name: 'Tumi Mashaba', jerseyNumber: 9, position: 'FWD' },
-    { id: 'p-gaut-3', teamKey: 'gauteng-warriors', name: 'Nhlanhla Dlamini', jerseyNumber: 8, position: 'MID' },
-    { id: 'p-gaut-4', teamKey: 'gauteng-warriors', name: 'Itumeleng Phiri', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-gaut-5', teamKey: 'gauteng-warriors', name: 'Sello Motsepe', jerseyNumber: 11, position: 'FWD' },
-
-    // Woza madzala fc
-    { id: 'p-woza-1', teamKey: 'woza-madzala', name: 'Sipho "Madzala" Z.', jerseyNumber: 8, position: 'MID', isCaptain: true },
-    { id: 'p-woza-2', teamKey: 'woza-madzala', name: 'Patrick "Bullet" Mabena', jerseyNumber: 9, position: 'FWD' },
-    { id: 'p-woza-3', teamKey: 'woza-madzala', name: 'Jabulani Sithole', jerseyNumber: 2, position: 'DEF' },
-    { id: 'p-woza-4', teamKey: 'woza-madzala', name: 'Senzo Vilakazi', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-woza-5', teamKey: 'woza-madzala', name: 'Doctor Mokoena', jerseyNumber: 10, position: 'MID' },
-
-    // Areyeng fc
-    { id: 'p-arey-1', teamKey: 'areyeng-fc', name: 'Lerato "Skilo" D.', jerseyNumber: 7, position: 'MID', isCaptain: true },
-    { id: 'p-arey-2', teamKey: 'areyeng-fc', name: 'Tebogo Maleka', jerseyNumber: 9, position: 'FWD' },
-    { id: 'p-arey-3', teamKey: 'areyeng-fc', name: 'Koketso Mahlangu', jerseyNumber: 6, position: 'DEF' },
-    { id: 'p-arey-4', teamKey: 'areyeng-fc', name: 'Ofentse Baloyi', jerseyNumber: 1, position: 'GK' },
-    { id: 'p-arey-5', teamKey: 'areyeng-fc', name: 'Katlego Modise', jerseyNumber: 11, position: 'FWD' }
-];
+// All mocked player names removed - only real saved players will reflect
+const INITIAL_PLAYERS: TournamentPlayer[] = [];
 
 const DEFAULT_MATCHES: TournamentMatch[] = [
     // GROUP A MATCHES
@@ -383,80 +342,7 @@ const SIMULATED_SCORES: Record<string, { home: number; away: number }> = {
     'fn-gold': { home: 5, away: 4 }
 };
 
-const SIMULATED_GOAL_EVENTS: GoalEvent[] = [
-    // ga-m1: Dench 4 - 2 CPT
-    { id: 'ev-1', matchId: 'ga-m1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-2', minute: 4 },
-    { id: 'ev-2', matchId: 'ga-m1', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-1', assistPlayerId: null, minute: 9 },
-    { id: 'ev-3', matchId: 'ga-m1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-5', minute: 14 },
-    { id: 'ev-4', matchId: 'ga-m1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-5', assistPlayerId: 'p-dench-1', minute: 19 },
-    { id: 'ev-5', matchId: 'ga-m1', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-2', assistPlayerId: 'p-cpt-1', minute: 23 },
-    { id: 'ev-6', matchId: 'ga-m1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-2', assistPlayerId: null, minute: 27 },
-
-    // gb-m1: Gauteng 3 - 3 Woza
-    { id: 'ev-7', matchId: 'gb-m1', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: 'p-gaut-3', minute: 6 },
-    { id: 'ev-8', matchId: 'gb-m1', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-1', minute: 11 },
-    { id: 'ev-9', matchId: 'gb-m1', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-1', assistPlayerId: null, minute: 16 },
-    { id: 'ev-10', matchId: 'gb-m1', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-5', assistPlayerId: 'p-gaut-2', minute: 21 },
-    { id: 'ev-11', matchId: 'gb-m1', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-5', minute: 25 },
-    { id: 'ev-12', matchId: 'gb-m1', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: 'p-gaut-1', minute: 29 },
-
-    // ga-m2: CPT 3 - 1 Bras
-    { id: 'ev-13', matchId: 'ga-m2', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-1', assistPlayerId: 'p-cpt-5', minute: 8 },
-    { id: 'ev-14', matchId: 'ga-m2', teamKey: 'bras-ba-kasi', scorerPlayerId: 'p-bras-2', assistPlayerId: 'p-bras-1', minute: 15 },
-    { id: 'ev-15', matchId: 'ga-m2', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-1', assistPlayerId: 'p-cpt-2', minute: 22 },
-    { id: 'ev-16', matchId: 'ga-m2', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-5', assistPlayerId: null, minute: 28 },
-
-    // gb-m2: Woza 2 - 1 Areyeng
-    { id: 'ev-17', matchId: 'gb-m2', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-1', minute: 10 },
-    { id: 'ev-18', matchId: 'gb-m2', teamKey: 'areyeng-fc', scorerPlayerId: 'p-arey-1', assistPlayerId: 'p-arey-2', minute: 17 },
-    { id: 'ev-19', matchId: 'gb-m2', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-5', assistPlayerId: null, minute: 24 },
-
-    // ga-m3: Bras 2 - 3 Dench
-    { id: 'ev-20', matchId: 'ga-m3', teamKey: 'bras-ba-kasi', scorerPlayerId: 'p-bras-1', assistPlayerId: 'p-bras-2', minute: 5 },
-    { id: 'ev-21', matchId: 'ga-m3', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-2', minute: 12 },
-    { id: 'ev-22', matchId: 'ga-m3', teamKey: 'bras-ba-kasi', scorerPlayerId: 'p-bras-5', assistPlayerId: 'p-bras-1', minute: 18 },
-    { id: 'ev-23', matchId: 'ga-m3', teamKey: 'team-dench', scorerPlayerId: 'p-dench-5', assistPlayerId: 'p-dench-1', minute: 24 },
-    { id: 'ev-24', matchId: 'ga-m3', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: null, minute: 29 },
-
-    // gb-m3: Areyeng 1 - 4 Gauteng
-    { id: 'ev-25', matchId: 'gb-m3', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: 'p-gaut-3', minute: 4 },
-    { id: 'ev-26', matchId: 'gb-m3', teamKey: 'areyeng-fc', scorerPlayerId: 'p-arey-2', assistPlayerId: 'p-arey-1', minute: 11 },
-    { id: 'ev-27', matchId: 'gb-m3', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-5', assistPlayerId: 'p-gaut-2', minute: 16 },
-    { id: 'ev-28', matchId: 'gb-m3', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: null, minute: 22 },
-    { id: 'ev-29', matchId: 'gb-m3', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-3', assistPlayerId: 'p-gaut-2', minute: 27 },
-
-    // sf-1: Dench 3 - 2 Woza
-    { id: 'ev-30', matchId: 'sf-1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-5', minute: 7 },
-    { id: 'ev-31', matchId: 'sf-1', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-1', minute: 13 },
-    { id: 'ev-32', matchId: 'sf-1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-2', assistPlayerId: 'p-dench-1', minute: 19 },
-    { id: 'ev-33', matchId: 'sf-1', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-1', assistPlayerId: null, minute: 25 },
-    { id: 'ev-34', matchId: 'sf-1', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-2', minute: 29 },
-
-    // sf-2: CPT 2 - 4 Gauteng
-    { id: 'ev-35', matchId: 'sf-2', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-1', assistPlayerId: 'p-cpt-2', minute: 6 },
-    { id: 'ev-36', matchId: 'sf-2', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: 'p-gaut-3', minute: 12 },
-    { id: 'ev-37', matchId: 'sf-2', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-5', assistPlayerId: 'p-gaut-2', minute: 17 },
-    { id: 'ev-38', matchId: 'sf-2', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-2', assistPlayerId: 'p-cpt-1', minute: 21 },
-    { id: 'ev-39', matchId: 'sf-2', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: null, minute: 26 },
-    { id: 'ev-40', matchId: 'sf-2', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-3', assistPlayerId: 'p-gaut-2', minute: 30 },
-
-    // fn-3rd: Woza 3 - 1 CPT
-    { id: 'ev-41', matchId: 'fn-3rd', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-1', minute: 8 },
-    { id: 'ev-42', matchId: 'fn-3rd', teamKey: 'cpt-superstars', scorerPlayerId: 'p-cpt-1', assistPlayerId: null, minute: 15 },
-    { id: 'ev-43', matchId: 'fn-3rd', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-1', assistPlayerId: 'p-woza-2', minute: 21 },
-    { id: 'ev-44', matchId: 'fn-3rd', teamKey: 'woza-madzala', scorerPlayerId: 'p-woza-2', assistPlayerId: 'p-woza-5', minute: 27 },
-
-    // fn-gold: Dench 5 - 4 Gauteng
-    { id: 'ev-45', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-2', minute: 3 },
-    { id: 'ev-46', matchId: 'fn-gold', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: 'p-gaut-3', minute: 7 },
-    { id: 'ev-47', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-5', assistPlayerId: 'p-dench-1', minute: 11 },
-    { id: 'ev-48', matchId: 'fn-gold', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-5', assistPlayerId: 'p-gaut-2', minute: 15 },
-    { id: 'ev-49', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-2', minute: 19 },
-    { id: 'ev-50', matchId: 'fn-gold', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-2', assistPlayerId: null, minute: 23 },
-    { id: 'ev-51', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-2', assistPlayerId: 'p-dench-1', minute: 26 },
-    { id: 'ev-52', matchId: 'fn-gold', teamKey: 'gauteng-warriors', scorerPlayerId: 'p-gaut-3', assistPlayerId: 'p-gaut-2', minute: 28 },
-    { id: 'ev-53', matchId: 'fn-gold', teamKey: 'team-dench', scorerPlayerId: 'p-dench-1', assistPlayerId: 'p-dench-5', minute: 30 }
-];
+const SIMULATED_GOAL_EVENTS: GoalEvent[] = [];
 
 const COLOR_PRESETS = [
     { label: 'Emerald Green', hex: '#12b84c' },
@@ -498,26 +384,78 @@ export const DenchDerby = () => {
     const [players, setPlayers] = useState<TournamentPlayer[]>(() => {
         try {
             const saved = localStorage.getItem('dench_derby_players_v4');
-            if (saved) return JSON.parse(saved);
-        } catch {
-            // fallback
-        }
-        return INITIAL_PLAYERS;
-    });
-
-    // 3. GOAL & ASSIST EVENTS STATE
-    const [goalEvents, setGoalEvents] = useState<GoalEvent[]>(() => {
-        try {
-            const saved = localStorage.getItem('dench_derby_events_v4');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    // Filter out any mock players that were previously stored in localStorage
+                    return parsed.filter(p =>
+                        p && p.id &&
+                        !p.id.startsWith('p-dench-') &&
+                        !p.id.startsWith('p-cpt-') &&
+                        !p.id.startsWith('p-bras-') &&
+                        !p.id.startsWith('p-gaut-') &&
+                        !p.id.startsWith('p-woza-') &&
+                        !p.id.startsWith('p-arey-')
+                    );
+                }
+            }
         } catch {
             // fallback
         }
         return [];
     });
 
-    const isRemoteUpdateRef = useRef(false);
+    // 3. GOAL & ASSIST EVENTS STATE
+    const [goalEvents, setGoalEvents] = useState<GoalEvent[]>(() => {
+        try {
+            const saved = localStorage.getItem('dench_derby_events_v4');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(ev =>
+                        ev && ev.scorerPlayerId &&
+                        !ev.scorerPlayerId.startsWith('p-dench-') &&
+                        !ev.scorerPlayerId.startsWith('p-cpt-') &&
+                        !ev.scorerPlayerId.startsWith('p-bras-') &&
+                        !ev.scorerPlayerId.startsWith('p-gaut-') &&
+                        !ev.scorerPlayerId.startsWith('p-woza-') &&
+                        !ev.scorerPlayerId.startsWith('p-arey-')
+                    );
+                }
+            }
+        } catch {
+            // fallback
+        }
+        return [];
+    });
+
     const initialLoadRef = useRef(true);
+
+    // Helper for direct, instant persistence across local storage, REST, and DB
+    const persistTournamentData = (
+        newTeams: Record<string, TeamInfo>,
+        newMatches: TournamentMatch[],
+        newPlayers: TournamentPlayer[],
+        newEvents: GoalEvent[]
+    ) => {
+        try {
+            localStorage.setItem('dench_derby_teams_v4', JSON.stringify(newTeams));
+            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(newMatches));
+            localStorage.setItem('dench_derby_players_v4', JSON.stringify(newPlayers));
+            localStorage.setItem('dench_derby_events_v4', JSON.stringify(newEvents));
+        } catch (e) {
+            console.error('Failed to save to localStorage', e);
+        }
+
+        saveDerbyData({
+            teams: newTeams,
+            matches: newMatches,
+            players: newPlayers,
+            goalEvents: newEvents
+        }).catch(err => {
+            console.error('Failed to sync tournament data to server:', err);
+        });
+    };
 
     // Initial load from server + real-time cross-device sync via WebSockets
     useEffect(() => {
@@ -526,11 +464,27 @@ export const DenchDerby = () => {
             try {
                 const data = await getDerbyData();
                 if (data && isMounted) {
-                    isRemoteUpdateRef.current = true;
-                    if (data.teams && Object.keys(data.teams).length > 0) setTeams(data.teams);
-                    if (data.matches && data.matches.length > 0) setMatches(data.matches);
-                    if (data.players && data.players.length > 0) setPlayers(data.players);
-                    if (data.goalEvents) setGoalEvents(data.goalEvents);
+                    if (data.teams && Object.keys(data.teams).length > 0) {
+                        setTeams(data.teams);
+                    }
+                    if (data.matches && data.matches.length > 0) {
+                        setMatches(data.matches);
+                    }
+                    if (Array.isArray(data.players)) {
+                        const cleanPlayers = data.players.filter((p: any) =>
+                            p && p.id &&
+                            !p.id.startsWith('p-dench-') &&
+                            !p.id.startsWith('p-cpt-') &&
+                            !p.id.startsWith('p-bras-') &&
+                            !p.id.startsWith('p-gaut-') &&
+                            !p.id.startsWith('p-woza-') &&
+                            !p.id.startsWith('p-arey-')
+                        );
+                        setPlayers(cleanPlayers);
+                    }
+                    if (Array.isArray(data.goalEvents)) {
+                        setGoalEvents(data.goalEvents);
+                    }
                 }
             } catch (e) {
                 console.error('Remote derby fetch notice:', e);
@@ -540,11 +494,21 @@ export const DenchDerby = () => {
 
         const handleRemoteUpdate = (data: any) => {
             if (!data) return;
-            isRemoteUpdateRef.current = true;
             if (data.teams && Object.keys(data.teams).length > 0) setTeams(data.teams);
             if (data.matches && data.matches.length > 0) setMatches(data.matches);
-            if (data.players && data.players.length > 0) setPlayers(data.players);
-            if (data.goalEvents) setGoalEvents(data.goalEvents);
+            if (Array.isArray(data.players)) {
+                const cleanPlayers = data.players.filter((p: any) =>
+                    p && p.id &&
+                    !p.id.startsWith('p-dench-') &&
+                    !p.id.startsWith('p-cpt-') &&
+                    !p.id.startsWith('p-bras-') &&
+                    !p.id.startsWith('p-gaut-') &&
+                    !p.id.startsWith('p-woza-') &&
+                    !p.id.startsWith('p-arey-')
+                );
+                setPlayers(cleanPlayers);
+            }
+            if (Array.isArray(data.goalEvents)) setGoalEvents(data.goalEvents);
         };
 
         socket.on('derbyUpdate', handleRemoteUpdate);
@@ -588,7 +552,7 @@ export const DenchDerby = () => {
         city: 'Dench Grounds',
         slogan: 'Relentless Pace, Pure Passion',
         founded: '2023',
-        captain: 'Marcus "Dench" K.'
+        captain: ''
     });
 
     // Sync quickTeamNames and editTeamData when teams or selectedEditTeamKey change
@@ -614,7 +578,7 @@ export const DenchDerby = () => {
     // Notification / Share
     const [copied, setCopied] = useState(false);
 
-    // Save to localStorage & sync to server for cross-device visibility
+    // Secondary save safety debounce
     useEffect(() => {
         try {
             localStorage.setItem('dench_derby_teams_v4', JSON.stringify(teams));
@@ -630,16 +594,11 @@ export const DenchDerby = () => {
             return;
         }
 
-        if (isRemoteUpdateRef.current) {
-            isRemoteUpdateRef.current = false;
-            return;
-        }
-
         const timeout = setTimeout(() => {
             saveDerbyData({ teams, matches, players, goalEvents }).catch(err => {
                 console.error('Failed to sync derby data to backend:', err);
             });
-        }, 350);
+        }, 500);
 
         return () => clearTimeout(timeout);
     }, [teams, matches, players, goalEvents]);
@@ -850,8 +809,9 @@ export const DenchDerby = () => {
         e.preventDefault();
         if (!newPlayerName.trim()) return;
 
+        let updated: TournamentPlayer[] = [];
         if (editingPlayerId) {
-            setPlayers(prev => prev.map(p => {
+            updated = players.map(p => {
                 if (p.id === editingPlayerId) {
                     return {
                         ...p,
@@ -863,7 +823,8 @@ export const DenchDerby = () => {
                     };
                 }
                 return p;
-            }));
+            });
+            setPlayers(updated);
             setEditingPlayerId(null);
         } else {
             const newP: TournamentPlayer = {
@@ -874,8 +835,11 @@ export const DenchDerby = () => {
                 position: newPlayerPosition,
                 isCaptain: newPlayerCaptain
             };
-            setPlayers(prev => [...prev, newP]);
+            updated = [...players, newP];
+            setPlayers(updated);
         }
+
+        persistTournamentData(teams, matches, updated, goalEvents);
 
         setNewPlayerName('');
         setNewPlayerNumber('');
@@ -948,7 +912,7 @@ export const DenchDerby = () => {
 
         const updated = [...players, newP];
         setPlayers(updated);
-        localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
+        persistTournamentData(teams, matches, updated, goalEvents);
 
         const nextNum = getNextJerseyNumber(teamKey, updated);
         const nextHasGk = updated.filter(p => p.teamKey === teamKey).some(p => p.position === 'GK');
@@ -981,7 +945,7 @@ export const DenchDerby = () => {
 
         const updated = [...players, newP];
         setPlayers(updated);
-        localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
+        persistTournamentData(teams, matches, updated, goalEvents);
 
         // Pre-fill next number and reset name, keep modal open
         const nextNum = getNextJerseyNumber(targetTeamKey, updated);
@@ -1095,14 +1059,12 @@ export const DenchDerby = () => {
             isCaptain: p.isCaptain
         }));
 
-        setPlayers(prev => {
-            const retained = bulkReplaceMode === 'replace'
-                ? prev.filter(p => p.teamKey !== bulkTargetTeamKey)
-                : prev;
-            const updated = [...retained, ...newPlayersList];
-            localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
-            return updated;
-        });
+        const retained = bulkReplaceMode === 'replace'
+            ? players.filter(p => p.teamKey !== bulkTargetTeamKey)
+            : players;
+        const updated = [...retained, ...newPlayersList];
+        setPlayers(updated);
+        persistTournamentData(teams, matches, updated, goalEvents);
 
         setIsBulkPasteOpen(false);
         setBulkRosterText('');
@@ -1134,46 +1096,49 @@ export const DenchDerby = () => {
 
     const handleDeletePlayer = (playerId: string) => {
         if (window.confirm('Are you sure you want to remove this player from the squad?')) {
-            setPlayers(prev => prev.filter(p => p.id !== playerId));
-            setGoalEvents(prev => prev.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId));
+            const updated = players.filter(p => p.id !== playerId);
+            const updatedEvents = goalEvents.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId);
+            setPlayers(updated);
+            setGoalEvents(updatedEvents);
+            persistTournamentData(teams, matches, updated, updatedEvents);
         }
     };
 
     const handleClearAllMockData = () => {
-        if (window.confirm('Clear all mock players, scores, and goal events? You can then register your own clubs and squad rosters from scratch!')) {
-            setPlayers([]);
-            setGoalEvents([]);
-            setMatches(DEFAULT_MATCHES.map(m => ({
+        if (window.confirm('Clear all registered players, scores, and goal events? You can register your real squad rosters from scratch!')) {
+            const cleanMatches = DEFAULT_MATCHES.map(m => ({
                 ...m,
                 homeScore: null,
                 awayScore: null,
-                status: 'scheduled'
-            })));
-            localStorage.setItem('dench_derby_players_v4', JSON.stringify([]));
-            localStorage.setItem('dench_derby_events_v4', JSON.stringify([]));
+                status: 'scheduled' as const
+            }));
+            setPlayers([]);
+            setGoalEvents([]);
+            setMatches(cleanMatches);
+            persistTournamentData(teams, cleanMatches, [], []);
         }
     };
 
-    const handleRestoreSamplePlayers = () => {
-        setPlayers(INITIAL_PLAYERS);
-        localStorage.setItem('dench_derby_players_v4', JSON.stringify(INITIAL_PLAYERS));
+    const handleClearAllSquads = () => {
+        if (window.confirm('Are you sure you want to remove all players from all squads?')) {
+            setPlayers([]);
+            setGoalEvents([]);
+            persistTournamentData(teams, matches, [], []);
+        }
     };
 
     // Handlers for Editing Teams
     const handleSaveQuickTeams = (e: React.FormEvent) => {
         e.preventDefault();
-        setTeams(prev => {
-            const updated = { ...prev };
-            Object.keys(quickTeamNames).forEach(k => {
-                if (updated[k] && quickTeamNames[k]?.trim()) {
-                    updated[k] = { ...updated[k], name: quickTeamNames[k].trim() };
-                }
-            });
-            return updated;
+        const updatedTeams = { ...teams };
+        Object.keys(quickTeamNames).forEach(k => {
+            if (updatedTeams[k] && quickTeamNames[k]?.trim()) {
+                updatedTeams[k] = { ...updatedTeams[k], name: quickTeamNames[k].trim() };
+            }
         });
 
         // Also update match placeholders if they match
-        setMatches(prev => prev.map(m => {
+        const updatedMatches = matches.map(m => {
             let hp = m.homePlaceholder;
             let ap = m.awayPlaceholder;
             if (m.homeTeamKey && quickTeamNames[m.homeTeamKey]?.trim()) {
@@ -1183,8 +1148,11 @@ export const DenchDerby = () => {
                 ap = quickTeamNames[m.awayTeamKey].trim();
             }
             return { ...m, homePlaceholder: hp, awayPlaceholder: ap };
-        }));
+        });
 
+        setTeams(updatedTeams);
+        setMatches(updatedMatches);
+        persistTournamentData(updatedTeams, updatedMatches, players, goalEvents);
         setIsEditTeamsOpen(false);
     };
 
@@ -1192,12 +1160,12 @@ export const DenchDerby = () => {
         e.preventDefault();
         if (!editTeamData.name.trim()) return;
 
-        setTeams(prev => ({
-            ...prev,
+        const updatedTeams = {
+            ...teams,
             [selectedEditTeamKey]: { ...editTeamData }
-        }));
+        };
 
-        setMatches(prev => prev.map(m => {
+        const updatedMatches = matches.map(m => {
             let hp = m.homePlaceholder;
             let ap = m.awayPlaceholder;
             if (m.homeTeamKey === selectedEditTeamKey) {
@@ -1207,15 +1175,18 @@ export const DenchDerby = () => {
                 ap = editTeamData.name.trim();
             }
             return { ...m, homePlaceholder: hp, awayPlaceholder: ap };
-        }));
+        });
 
+        setTeams(updatedTeams);
+        setMatches(updatedMatches);
+        persistTournamentData(updatedTeams, updatedMatches, players, goalEvents);
         setIsEditTeamsOpen(false);
     };
 
     const handleResetTeamsToDefault = () => {
         if (window.confirm('Reset all teams back to default? Any custom team names will be reset.')) {
             setTeams(DEFAULT_TEAMS);
-            localStorage.removeItem('dench_derby_teams_v4');
+            persistTournamentData(DEFAULT_TEAMS, matches, players, goalEvents);
         }
     };
 
@@ -1306,40 +1277,44 @@ export const DenchDerby = () => {
         const homeGoals = homeKey ? matchEvs.filter(e => e.teamKey === homeKey).length : 0;
         const awayGoals = awayKey ? matchEvs.filter(e => e.teamKey === awayKey).length : 0;
 
-        setMatches(prev => prev.map(m => {
+        const updatedMatches = matches.map(m => {
             if (m.id === matchId) {
                 return {
                     ...m,
                     homeScore: homeGoals,
                     awayScore: awayGoals,
-                    status: matchEvs.length > 0 ? 'completed' : m.status
+                    status: (matchEvs.length > 0 ? 'completed' : m.status) as 'scheduled' | 'live' | 'completed'
                 };
             }
             return m;
-        }));
+        });
+
+        setMatches(updatedMatches);
+        persistTournamentData(teams, updatedMatches, players, currentEvents);
     };
 
     const handleSimulateTournament = () => {
-        setMatches(prev => prev.map(m => {
+        const updatedMatches = matches.map(m => {
             const sim = SIMULATED_SCORES[m.id];
             if (sim) {
                 return {
                     ...m,
                     homeScore: sim.home,
                     awayScore: sim.away,
-                    status: 'completed'
+                    status: 'completed' as const
                 };
             }
             return m;
-        }));
-        setGoalEvents(SIMULATED_GOAL_EVENTS);
+        });
+        setMatches(updatedMatches);
+        setGoalEvents([]);
+        persistTournamentData(teams, updatedMatches, players, []);
     };
 
     const handleResetTournament = () => {
         setMatches(DEFAULT_MATCHES);
         setGoalEvents([]);
-        localStorage.removeItem('dench_derby_matches_v4');
-        localStorage.removeItem('dench_derby_events_v4');
+        persistTournamentData(teams, DEFAULT_MATCHES, players, []);
     };
 
     const handleShare = () => {
@@ -2674,19 +2649,12 @@ export const DenchDerby = () => {
                                     <Plus size={15} /> + Add Player
                                 </button>
                                 <button
-                                    onClick={handleClearAllMockData}
+                                    onClick={handleClearAllSquads}
                                     className="btn btn-outline"
                                     style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)' }}
-                                    title="Wipe mock players and scores to start fresh with your real clubs"
+                                    title="Wipe all registered players from all squads to start fresh"
                                 >
-                                    <Trash2 size={14} /> Clear Mock Data
-                                </button>
-                                <button
-                                    onClick={handleRestoreSamplePlayers}
-                                    className="btn btn-outline"
-                                    title="Restore sample players if needed"
-                                >
-                                    <RotateCcw size={14} /> Restore Sample Squads
+                                    <Trash2 size={14} /> Clear All Squads
                                 </button>
                             </div>
                         </div>
@@ -3660,7 +3628,7 @@ export const DenchDerby = () => {
                                                 type="text"
                                                 value={editTeamData.captain}
                                                 onChange={(e) => setEditTeamData(prev => ({ ...prev, captain: e.target.value }))}
-                                                placeholder="e.g. Marcus 'Dench' K."
+                                                placeholder="e.g. Captain Name"
                                                 className="derby-input"
                                             />
                                         </div>

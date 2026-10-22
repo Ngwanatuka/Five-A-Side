@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Trophy } from 'lucide-react';
-import { getMatches } from '../services/api';
+import { getMatches, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
+import { io } from 'socket.io-client';
+
+const socket = io(getBackendUrl());
 
 export const Results = () => {
     const [matches, setMatches] = useState<any[]>([]);
@@ -12,35 +15,43 @@ export const Results = () => {
     const matchweeks = ['All', 'MW 5', 'MW 4'];
     const [activeMW, setActiveMW] = useState('All');
 
+    const fetchResults = async () => {
+        try {
+            const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'COMPLETED' });
+            // Sort by date/time descending for results
+            data.sort((a: any, b: any) => {
+                const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
+                const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
+                return dateB.getTime() - dateA.getTime();
+            });
+            setMatches(data);
+
+            // Group by date string
+            const groups: Record<string, any[]> = {};
+            data.forEach((match: any) => {
+                const d = new Date(match.date);
+                const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                if (!groups[dateStr]) groups[dateStr] = [];
+                groups[dateStr].push(match);
+            });
+            setGroupedMatches(groups);
+        } catch (error) {
+            console.error("Failed to fetch results", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchResults = async () => {
-            try {
-                const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'COMPLETED' });
-                // Sort by date/time descending for results
-                data.sort((a: any, b: any) => {
-                    const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
-                    const dateB = new Date(`${b.date.split('T')[0]}T${b.time}`);
-                    return dateB.getTime() - dateA.getTime();
-                });
-                setMatches(data);
-
-                // Group by date string
-                const groups: Record<string, any[]> = {};
-                data.forEach((match: any) => {
-                    const d = new Date(match.date);
-                    const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-                    if (!groups[dateStr]) groups[dateStr] = [];
-                    groups[dateStr].push(match);
-                });
-                setGroupedMatches(groups);
-            } catch (error) {
-                console.error("Failed to fetch results", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchResults();
+
+        socket.on('scoreUpdate', () => { fetchResults(); });
+        socket.on('derbyUpdate', () => { fetchResults(); });
+
+        return () => {
+            socket.off('scoreUpdate');
+            socket.off('derbyUpdate');
+        };
     }, []);
 
     const totalGoals = matches.reduce((sum, m) => sum + (m.homeScore || 0) + (m.awayScore || 0), 0);

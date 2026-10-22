@@ -44,11 +44,13 @@ export const Teams = () => {
         socket.on('scoreUpdate', () => { fetchTeams(); });
         socket.on('teamRegistered', () => { fetchTeams(); });
         socket.on('playerAdded', () => { fetchTeams(); });
+        socket.on('derbyUpdate', () => { fetchTeams(); });
 
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
             socket.off('playerAdded');
+            socket.off('derbyUpdate');
         };
     }, []);
 

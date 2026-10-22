@@ -1,9 +1,14 @@
 import { httpServer } from './app';
 import prisma from './prisma';
+import { initDerbyTournament } from './controllers/derbyController';
 
 const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
+    httpServer.listen(PORT, () => {
+        console.log(`Server is running with WebSockets on port ${PORT}`);
+    });
+
     try {
         await prisma.season.upsert({
             where: { id: 1 },
@@ -15,13 +20,12 @@ async function bootstrap() {
             update: {},
             create: { id: 1, name: 'Division 1', tierLevel: 1 }
         });
+
+        // Initialize Dench Derby Tournament and synchronize teams and squads to database
+        await initDerbyTournament();
     } catch (err) {
         console.error('Bootstrap DB check notice:', err);
     }
-
-    httpServer.listen(PORT, () => {
-        console.log(`Server is running with WebSockets on port ${PORT}`);
-    });
 }
 
 bootstrap();

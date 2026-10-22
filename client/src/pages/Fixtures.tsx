@@ -51,9 +51,14 @@ export const Fixtures = () => {
             fetchFixtures();
         });
 
+        socket.on('derbyUpdate', () => {
+            fetchFixtures();
+        });
+
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
+            socket.off('derbyUpdate');
         };
     }, []);
 

@@ -74,7 +74,8 @@ export const MatchDayConsole = () => {
         fetchFixtures();
 
         socket.on('scoreUpdate', (match) => {
-            if (selectedMatch && match.id === selectedMatch.id) {
+            fetchFixtures();
+            if (selectedMatch && match?.id === selectedMatch.id) {
                 setMatchState(prev => ({
                     ...prev,
                     homeScore: match.homeScore,
@@ -83,8 +84,18 @@ export const MatchDayConsole = () => {
             }
         });
 
+        socket.on('derbyUpdate', () => {
+            fetchFixtures();
+        });
+
+        socket.on('teamRegistered', () => {
+            fetchFixtures();
+        });
+
         return () => {
             socket.off('scoreUpdate');
+            socket.off('derbyUpdate');
+            socket.off('teamRegistered');
         };
     }, [selectedMatch]);
 

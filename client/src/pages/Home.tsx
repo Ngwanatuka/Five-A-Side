@@ -57,10 +57,16 @@ export const Home = () => {
             setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         });
 
+        socket.on('derbyUpdate', () => {
+            fetchHomeData();
+            setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        });
+
         return () => {
             clearInterval(interval);
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
+            socket.off('derbyUpdate');
         };
     }, []);
 

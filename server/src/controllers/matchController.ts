@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { DATA_FILE } from './derbyController';
 
 const updateScoreSchema = z.object({
     homeScore: z.number().int().nonnegative(),
@@ -74,12 +76,50 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                 awayScore,
                 ...(status && { status }),
             },
+            include: {
+                homeTeam: true,
+                awayTeam: true
+            }
         });
+
+        // Sync to derby tournament JSON file if matches exist
+        try {
+            if (fs.existsSync(DATA_FILE)) {
+                const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+                const derbyData = JSON.parse(raw);
+                if (derbyData.matches && Array.isArray(derbyData.matches)) {
+                    let changed = false;
+                    for (const m of derbyData.matches) {
+                        const homeKeyMatch = m.homeTeamKey && updatedMatch.homeTeam?.managerContact?.startsWith(m.homeTeamKey);
+                        const awayKeyMatch = m.awayTeamKey && updatedMatch.awayTeam?.managerContact?.startsWith(m.awayTeamKey);
+                        if (homeKeyMatch && awayKeyMatch) {
+                            m.homeScore = homeScore;
+                            m.awayScore = awayScore;
+                            if (status) {
+                                m.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
+                            }
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        derbyData.updatedAt = new Date().toISOString();
+                        fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                        const io = req.app.get('io');
+                        if (io) {
+                            io.emit('derbyUpdate', derbyData);
+                        }
+                    }
+                }
+            }
+        } catch (derbySyncErr) {
+            console.error('Notice syncing referee score to derby file:', derbySyncErr);
+        }
 
         // Broadcast the update to all connected clients
         const io = req.app.get('io');
         if (io) {
             io.emit('scoreUpdate', updatedMatch);
+            io.emit('teamRegistered');
         }
 
         res.status(200).json(updatedMatch);

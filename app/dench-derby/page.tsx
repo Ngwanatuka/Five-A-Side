@@ -93,7 +93,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     color: "#f59e0b",
     city: "Kasi Local",
     slogan: "Flavour, Flair & Brotherhood",
-    captain: 'Thabo "Jiki" M.'
+    captain: ""
   },
   "gauteng-warriors": {
     id: "gauteng-warriors",
@@ -102,7 +102,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     color: "#8b5cf6",
     city: "Gauteng",
     slogan: "The Golden Province Titans",
-    captain: 'Kagiso "Iron" N.'
+    captain: ""
   },
   "woza-madzala": {
     id: "woza-madzala",
@@ -111,7 +111,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     color: "#ef4444",
     city: "Ekurhuleni",
     slogan: "Wisdom, Power & Tactical Fire",
-    captain: 'Sipho "Madzala" Z.'
+    captain: ""
   },
   "areyeng-fc": {
     id: "areyeng-fc",
@@ -120,47 +120,11 @@ export const TEAMS: Record<string, TeamInfo> = {
     color: "#06b6d4",
     city: "Tshwane",
     slogan: "Forward Together, Never Back",
-    captain: 'Lerato "Skilo" D.'
+    captain: ""
   }
 }
 
-const INITIAL_PLAYERS: TournamentPlayer[] = [
-  { id: "p-dench-1", teamKey: "team-dench", name: 'Marcus "Dench" K.', jerseyNumber: 9, position: "FWD", isCaptain: true },
-  { id: "p-dench-2", teamKey: "team-dench", name: "Tshepo Moremi", jerseyNumber: 7, position: "MID" },
-  { id: "p-dench-3", teamKey: "team-dench", name: "David Ndlovu", jerseyNumber: 4, position: "DEF" },
-  { id: "p-dench-4", teamKey: "team-dench", name: "Kabelo Mokoena", jerseyNumber: 1, position: "GK" },
-  { id: "p-dench-5", teamKey: "team-dench", name: "Brian Sithole", jerseyNumber: 10, position: "FWD" },
-
-  { id: "p-cpt-1", teamKey: "cpt-superstars", name: 'Chad "Speedy" P.', jerseyNumber: 10, position: "FWD", isCaptain: true },
-  { id: "p-cpt-2", teamKey: "cpt-superstars", name: "Jerome Abrahams", jerseyNumber: 8, position: "MID" },
-  { id: "p-cpt-3", teamKey: "cpt-superstars", name: "Luke Hendricks", jerseyNumber: 3, position: "DEF" },
-  { id: "p-cpt-4", teamKey: "cpt-superstars", name: "Moegamat Adams", jerseyNumber: 1, position: "GK" },
-  { id: "p-cpt-5", teamKey: "cpt-superstars", name: "Keanu Daniels", jerseyNumber: 11, position: "MID" },
-
-  { id: "p-bras-1", teamKey: "bras-ba-kasi", name: 'Thabo "Jiki" M.', jerseyNumber: 10, position: "MID", isCaptain: true },
-  { id: "p-bras-2", teamKey: "bras-ba-kasi", name: 'Bongani "Shoelace" Zulu', jerseyNumber: 9, position: "FWD" },
-  { id: "p-bras-3", teamKey: "bras-ba-kasi", name: "Sbusiso Khumalo", jerseyNumber: 5, position: "DEF" },
-  { id: "p-bras-4", teamKey: "bras-ba-kasi", name: 'Vusi "Cat" Radebe', jerseyNumber: 1, position: "GK" },
-  { id: "p-bras-5", teamKey: "bras-ba-kasi", name: "Mandla Nkosi", jerseyNumber: 7, position: "FWD" },
-
-  { id: "p-gaut-1", teamKey: "gauteng-warriors", name: 'Kagiso "Iron" N.', jerseyNumber: 4, position: "DEF", isCaptain: true },
-  { id: "p-gaut-2", teamKey: "gauteng-warriors", name: "Tumi Mashaba", jerseyNumber: 9, position: "FWD" },
-  { id: "p-gaut-3", teamKey: "gauteng-warriors", name: "Nhlanhla Dlamini", jerseyNumber: 8, position: "MID" },
-  { id: "p-gaut-4", teamKey: "gauteng-warriors", name: "Itumeleng Phiri", jerseyNumber: 1, position: "GK" },
-  { id: "p-gaut-5", teamKey: "gauteng-warriors", name: "Sello Motsepe", jerseyNumber: 11, position: "FWD" },
-
-  { id: "p-woza-1", teamKey: "woza-madzala", name: 'Sipho "Madzala" Z.', jerseyNumber: 8, position: "MID", isCaptain: true },
-  { id: "p-woza-2", teamKey: "woza-madzala", name: 'Patrick "Bullet" Mabena', jerseyNumber: 9, position: "FWD" },
-  { id: "p-woza-3", teamKey: "woza-madzala", name: "Jabulani Sithole", jerseyNumber: 2, position: "DEF" },
-  { id: "p-woza-4", teamKey: "woza-madzala", name: "Senzo Vilakazi", jerseyNumber: 1, position: "GK" },
-  { id: "p-woza-5", teamKey: "woza-madzala", name: "Doctor Mokoena", jerseyNumber: 10, position: "MID" },
-
-  { id: "p-arey-1", teamKey: "areyeng-fc", name: 'Lerato "Skilo" D.', jerseyNumber: 7, position: "MID", isCaptain: true },
-  { id: "p-arey-2", teamKey: "areyeng-fc", name: "Tebogo Maleka", jerseyNumber: 9, position: "FWD" },
-  { id: "p-arey-3", teamKey: "areyeng-fc", name: "Koketso Mahlangu", jerseyNumber: 6, position: "DEF" },
-  { id: "p-arey-4", teamKey: "areyeng-fc", name: "Ofentse Baloyi", jerseyNumber: 1, position: "GK" },
-  { id: "p-arey-5", teamKey: "areyeng-fc", name: "Katlego Modise", jerseyNumber: 11, position: "FWD" }
-]
+const INITIAL_PLAYERS: TournamentPlayer[] = []
 
 const DEFAULT_MATCHES: TournamentMatch[] = [
   { id: "ga-m1", stage: "group", group: "A", matchOrder: 1, homeTeamKey: "team-dench", awayTeamKey: "cpt-superstars", homePlaceholder: "Team Dench", awayPlaceholder: "CPT superstars fc", time: "18:30", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Opening Clash" },

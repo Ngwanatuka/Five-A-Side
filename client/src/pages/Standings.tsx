@@ -29,7 +29,7 @@ export const Standings = () => {
     useEffect(() => {
         fetchStandingsAndFixtures();
 
-        // Listen for live score updates and newly registered teams to refresh standings log & fixtures
+        // Listen for live score updates, tournament changes and registered teams
         socket.on('scoreUpdate', () => {
             fetchStandingsAndFixtures();
         });
@@ -38,9 +38,14 @@ export const Standings = () => {
             fetchStandingsAndFixtures();
         });
 
+        socket.on('derbyUpdate', () => {
+            fetchStandingsAndFixtures();
+        });
+
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
+            socket.off('derbyUpdate');
         };
     }, []);
 

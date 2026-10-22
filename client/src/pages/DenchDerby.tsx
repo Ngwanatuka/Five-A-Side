@@ -19,7 +19,8 @@ import {
     UserPlus,
     X,
     Trash2,
-    CheckCircle2
+    CheckCircle2,
+    ClipboardList
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
@@ -822,12 +823,240 @@ export const DenchDerby = () => {
         setIsAddPlayerOpen(false);
     };
 
+    // Helper to calculate next available jersey number for a squad
+    const getNextJerseyNumber = (teamKey: string, currentPlayers: TournamentPlayer[]): number => {
+        const teamNums = currentPlayers
+            .filter(p => p.teamKey === teamKey)
+            .map(p => p.jerseyNumber)
+            .filter(n => typeof n === 'number' && !isNaN(n));
+        for (let i = 1; i <= 99; i++) {
+            if (!teamNums.includes(i)) return i;
+        }
+        return teamNums.length + 1;
+    };
+
+    // Inline Quick-Add State per team
+    const [inlineTeamPlayer, setInlineTeamPlayer] = useState<Record<string, {
+        name: string;
+        jerseyNumber: string;
+        position: 'GK' | 'DEF' | 'MID' | 'FWD';
+        isCaptain: boolean;
+    }>>({});
+
+    const getInlineState = (teamKey: string) => {
+        const existing = inlineTeamPlayer[teamKey];
+        const teamPs = players.filter(p => p.teamKey === teamKey);
+        const hasGk = teamPs.some(p => p.position === 'GK');
+        const defaultPos: 'GK' | 'DEF' | 'MID' | 'FWD' = hasGk ? 'MID' : 'GK';
+        const nextNum = getNextJerseyNumber(teamKey, players);
+
+        return {
+            name: existing?.name ?? '',
+            jerseyNumber: existing?.jerseyNumber ?? nextNum.toString(),
+            position: existing?.position ?? defaultPos,
+            isCaptain: existing?.isCaptain ?? false
+        };
+    };
+
+    const setInlineField = (teamKey: string, field: 'name' | 'jerseyNumber' | 'position' | 'isCaptain', value: any) => {
+        const current = getInlineState(teamKey);
+        setInlineTeamPlayer(prev => ({
+            ...prev,
+            [teamKey]: {
+                ...current,
+                [field]: value
+            }
+        }));
+    };
+
+    const handleInlineAdd = (teamKey: string, e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const curr = getInlineState(teamKey);
+        const trimmed = curr.name.trim();
+        if (!trimmed) return;
+
+        const num = parseInt(curr.jerseyNumber, 10) || getNextJerseyNumber(teamKey, players);
+        const newP: TournamentPlayer = {
+            id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            teamKey,
+            name: trimmed,
+            jerseyNumber: num,
+            position: curr.position,
+            isCaptain: curr.isCaptain
+        };
+
+        const updated = [...players, newP];
+        setPlayers(updated);
+        localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
+
+        const nextNum = getNextJerseyNumber(teamKey, updated);
+        const nextHasGk = updated.filter(p => p.teamKey === teamKey).some(p => p.position === 'GK');
+
+        setInlineTeamPlayer(prev => ({
+            ...prev,
+            [teamKey]: {
+                name: '',
+                jerseyNumber: nextNum.toString(),
+                position: nextHasGk ? 'MID' : 'GK',
+                isCaptain: false
+            }
+        }));
+    };
+
+    // Save & Add Another in Modal 1
+    const handleAddPlayerAndAnother = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newPlayerName.trim()) return;
+
+        const num = parseInt(newPlayerNumber, 10) || getNextJerseyNumber(targetTeamKey, players);
+        const newP: TournamentPlayer = {
+            id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            teamKey: targetTeamKey,
+            name: newPlayerName.trim(),
+            jerseyNumber: num,
+            position: newPlayerPosition,
+            isCaptain: newPlayerCaptain
+        };
+
+        const updated = [...players, newP];
+        setPlayers(updated);
+        localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
+
+        // Pre-fill next number and reset name, keep modal open
+        const nextNum = getNextJerseyNumber(targetTeamKey, updated);
+        setNewPlayerName('');
+        setNewPlayerNumber(nextNum.toString());
+        setNewPlayerCaptain(false);
+    };
+
+    // Bulk Paste Roster State & Logic
+    const [isBulkPasteOpen, setIsBulkPasteOpen] = useState(false);
+    const [bulkTargetTeamKey, setBulkTargetTeamKey] = useState<string>('team-dench');
+    const [bulkRosterText, setBulkRosterText] = useState<string>('');
+    const [bulkReplaceMode, setBulkReplaceMode] = useState<'append' | 'replace'>('append');
+
+    const handleOpenBulkPaste = (teamKey?: string) => {
+        if (teamKey) setBulkTargetTeamKey(teamKey);
+        setBulkRosterText('');
+        setBulkReplaceMode('append');
+        setIsBulkPasteOpen(true);
+    };
+
+    // Parse bulk roster text in real time for instant preview
+    const parsedBulkPlayers = useMemo(() => {
+        if (!bulkRosterText.trim()) return [];
+
+        const lines = bulkRosterText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const existingForTeam = bulkReplaceMode === 'replace' ? [] : players.filter(p => p.teamKey === bulkTargetTeamKey);
+        const usedNumbers = new Set(existingForTeam.map(p => p.jerseyNumber));
+
+        let nextAvailable = 1;
+        const getNextNum = (): number => {
+            while (usedNumbers.has(nextAvailable)) {
+                nextAvailable++;
+            }
+            usedNumbers.add(nextAvailable);
+            return nextAvailable;
+        };
+
+        const result: Array<{ name: string; jerseyNumber: number; position: 'GK' | 'DEF' | 'MID' | 'FWD'; isCaptain: boolean }> = [];
+
+        lines.forEach(line => {
+            let isCaptain = false;
+            let position: 'GK' | 'DEF' | 'MID' | 'FWD' = 'MID';
+
+            // Captain detection
+            if (/\b(\(c\)|\[c\]|captain|\(cap\))\b/i.test(line)) {
+                isCaptain = true;
+                line = line.replace(/\b(\(c\)|\[c\]|captain|\(cap\))\b/gi, '');
+            }
+
+            // Position detection
+            if (/\b(\(gk\)|\[gk\]|gk|goalie|goalkeeper)\b/i.test(line)) {
+                position = 'GK';
+                line = line.replace(/\b(\(gk\)|\[gk\]|gk|goalie|goalkeeper)\b/gi, '');
+            } else if (/\b(\(def\)|\[def\]|def|defender)\b/i.test(line)) {
+                position = 'DEF';
+                line = line.replace(/\b(\(def\)|\[def\]|def|defender)\b/gi, '');
+            } else if (/\b(\(fwd\)|\[fwd\]|fwd|striker|att|attacker)\b/i.test(line)) {
+                position = 'FWD';
+                line = line.replace(/\b(\(fwd\)|\[fwd\]|fwd|striker|att|attacker)\b/gi, '');
+            } else if (/\b(\(mid\)|\[mid\]|mid|midfield|midfielder)\b/i.test(line)) {
+                position = 'MID';
+                line = line.replace(/\b(\(mid\)|\[mid\]|mid|midfield|midfielder)\b/gi, '');
+            }
+
+            // Number detection (e.g., "1.", "#10", "4 -")
+            let jerseyNumber: number | null = null;
+            const leadingNumMatch = line.match(/^#?(\d+)[\.\-\s:]+/);
+            if (leadingNumMatch) {
+                const parsedNum = parseInt(leadingNumMatch[1], 10);
+                if (!isNaN(parsedNum) && parsedNum > 0 && parsedNum <= 99) {
+                    jerseyNumber = parsedNum;
+                    usedNumbers.add(jerseyNumber);
+                    line = line.replace(/^#?\d+[\.\-\s:]+/, '');
+                }
+            }
+
+            let cleanName = line.replace(/^[-•*>\s]+/, '').replace(/[\(\)\[\]]/g, '').trim();
+            if (!cleanName) return;
+
+            if (!jerseyNumber) {
+                jerseyNumber = getNextNum();
+            }
+
+            // If no GK yet in existing team or parsed list, default #1 to GK
+            const hasGk = existingForTeam.some(p => p.position === 'GK') || result.some(p => p.position === 'GK');
+            if (position === 'MID' && jerseyNumber === 1 && !hasGk) {
+                position = 'GK';
+            }
+
+            result.push({
+                name: cleanName,
+                jerseyNumber,
+                position,
+                isCaptain
+            });
+        });
+
+        return result;
+    }, [bulkRosterText, bulkTargetTeamKey, bulkReplaceMode, players]);
+
+    const handleImportBulkRoster = () => {
+        if (parsedBulkPlayers.length === 0) return;
+
+        const newPlayersList: TournamentPlayer[] = parsedBulkPlayers.map((p, idx) => ({
+            id: `p-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+            teamKey: bulkTargetTeamKey,
+            name: p.name,
+            jerseyNumber: p.jerseyNumber,
+            position: p.position,
+            isCaptain: p.isCaptain
+        }));
+
+        setPlayers(prev => {
+            const retained = bulkReplaceMode === 'replace'
+                ? prev.filter(p => p.teamKey !== bulkTargetTeamKey)
+                : prev;
+            const updated = [...retained, ...newPlayersList];
+            localStorage.setItem('dench_derby_players_v4', JSON.stringify(updated));
+            return updated;
+        });
+
+        setIsBulkPasteOpen(false);
+        setBulkRosterText('');
+    };
+
     const handleOpenAddPlayerModal = (teamKey?: string) => {
         setEditingPlayerId(null);
+        const target = teamKey || targetTeamKey;
         if (teamKey) setTargetTeamKey(teamKey);
         setNewPlayerName('');
-        setNewPlayerNumber('');
-        setNewPlayerPosition('MID');
+        const nextNum = getNextJerseyNumber(target, players);
+        setNewPlayerNumber(nextNum.toString());
+        const teamPs = players.filter(p => p.teamKey === target);
+        const hasGk = teamPs.some(p => p.position === 'GK');
+        setNewPlayerPosition(hasGk ? 'MID' : 'GK');
         setNewPlayerCaptain(false);
         setIsAddPlayerOpen(true);
     };
@@ -2370,11 +2599,18 @@ export const DenchDerby = () => {
                                     <Sliders size={15} /> Register / Edit Teams
                                 </button>
                                 <button
-                                    onClick={() => handleOpenAddPlayerModal()}
+                                    onClick={() => handleOpenBulkPaste()}
                                     className="btn btn-secondary"
-                                    title="Register a new player to any team"
+                                    title="Paste a full squad list from WhatsApp, Notes, or Excel"
                                 >
-                                    <Plus size={15} /> Add New Player
+                                    <ClipboardList size={15} /> Paste Squad List
+                                </button>
+                                <button
+                                    onClick={() => handleOpenAddPlayerModal()}
+                                    className="btn btn-primary"
+                                    title="Open registration dialog for a player"
+                                >
+                                    <Plus size={15} /> + Add Player
                                 </button>
                                 <button
                                     onClick={handleClearAllMockData}
@@ -2410,7 +2646,7 @@ export const DenchDerby = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-main)' }}>
                                 <CheckCircle2 size={16} color="var(--color-primary)" />
                                 <span>
-                                    <strong>Self-Service Registration:</strong> Register your own 6 clubs via <strong>Register / Edit Teams</strong>, then register your players below. Or click <strong>Clear Mock Data</strong> to start with a blank tournament sheet!
+                                    <strong>Fast Player Registration:</strong> Type directly in the <strong>quick-add bar</strong> below any team & press <strong>Enter ↵</strong>, or click <strong>Paste Squad List</strong> to import entire WhatsApp rosters in 1 second!
                                 </span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -2430,6 +2666,7 @@ export const DenchDerby = () => {
                         <div className="grid-responsive-2">
                             {Object.values(teams).map(team => {
                                 const teamPlayers = players.filter(p => p.teamKey === team.id);
+                                const inlineState = getInlineState(team.id);
 
                                 return (
                                     <div key={team.id} className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
@@ -2463,7 +2700,15 @@ export const DenchDerby = () => {
                                                 </div>
                                             </div>
 
-                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                                <button
+                                                    onClick={() => handleOpenBulkPaste(team.id)}
+                                                    className="btn btn-sm btn-outline"
+                                                    style={{ fontSize: '0.78rem' }}
+                                                    title="Paste squad roster from WhatsApp or Notes"
+                                                >
+                                                    <ClipboardList size={13} /> Paste
+                                                </button>
                                                 <button
                                                     onClick={() => {
                                                         setSelectedEditTeamKey(team.id);
@@ -2471,18 +2716,18 @@ export const DenchDerby = () => {
                                                         setIsEditTeamsOpen(true);
                                                     }}
                                                     className="btn btn-sm btn-outline"
-                                                    style={{ fontSize: '0.8rem' }}
+                                                    style={{ fontSize: '0.78rem' }}
                                                     title="Edit this team's name and details"
                                                 >
-                                                    <Sliders size={13} /> Edit Team
+                                                    <Sliders size={13} /> Edit
                                                 </button>
                                                 <button
                                                     onClick={() => handleOpenAddPlayerModal(team.id)}
                                                     className="btn btn-sm btn-secondary"
-                                                    style={{ fontSize: '0.8rem' }}
-                                                    title="Register a new player into this squad"
+                                                    style={{ fontSize: '0.78rem' }}
+                                                    title="Open registration dialog for this squad"
                                                 >
-                                                    <UserPlus size={13} /> + Player
+                                                    <UserPlus size={13} /> + Modal
                                                 </button>
                                             </div>
                                         </div>
@@ -2492,27 +2737,28 @@ export const DenchDerby = () => {
                                             {teamPlayers.length === 0 ? (
                                                 <div style={{
                                                     textAlign: 'center',
-                                                    padding: '2rem 1rem',
+                                                    padding: '1.5rem 1rem',
                                                     color: 'var(--color-text-muted)',
                                                     fontSize: '0.85rem',
                                                     backgroundColor: 'rgba(255, 255, 255, 0.01)',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    border: '1px dashed var(--color-border)'
+                                                    border: '1px dashed var(--color-border)',
+                                                    marginBottom: '0.75rem'
                                                 }}>
-                                                    <Users size={28} style={{ opacity: 0.35, margin: '0 auto 0.5rem auto', display: 'block' }} />
+                                                    <Users size={24} style={{ opacity: 0.35, margin: '0 auto 0.4rem auto', display: 'block' }} />
                                                     <div>No registered players in <strong>{team.name}</strong> yet.</div>
-                                                    <div style={{ marginTop: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.6rem' }}>
                                                         <button
-                                                            onClick={() => handleOpenAddPlayerModal(team.id)}
-                                                            className="btn btn-sm btn-primary"
-                                                            style={{ fontSize: '0.8rem' }}
+                                                            onClick={() => handleOpenBulkPaste(team.id)}
+                                                            className="btn btn-sm btn-secondary"
+                                                            style={{ fontSize: '0.78rem' }}
                                                         >
-                                                            <UserPlus size={13} /> Register First Player
+                                                            <ClipboardList size={12} /> Paste WhatsApp List
                                                         </button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
                                                     {teamPlayers.map(p => {
                                                         const stat = playerStatsMap[p.id];
                                                         return (
@@ -2635,6 +2881,89 @@ export const DenchDerby = () => {
                                                     })}
                                                 </div>
                                             )}
+
+                                            {/* INLINE QUICK-ADD BAR: ADD IN 1 SECOND WITH ENTER */}
+                                            <form
+                                                onSubmit={(e) => handleInlineAdd(team.id, e)}
+                                                style={{
+                                                    marginTop: '0.6rem',
+                                                    paddingTop: '0.6rem',
+                                                    borderTop: '1px dashed var(--color-border)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '0.35rem'
+                                                }}
+                                            >
+                                                <div className="quick-add-bar">
+                                                    {/* Jersey # Input (auto-suggested) */}
+                                                    <input
+                                                        type="text"
+                                                        value={inlineState.jerseyNumber}
+                                                        onChange={(e) => setInlineField(team.id, 'jerseyNumber', e.target.value)}
+                                                        placeholder="#"
+                                                        className="jersey-pill-input"
+                                                        title="Jersey Number"
+                                                    />
+
+                                                    {/* Player Name Input */}
+                                                    <input
+                                                        type="text"
+                                                        value={inlineState.name}
+                                                        onChange={(e) => setInlineField(team.id, 'name', e.target.value)}
+                                                        placeholder="Player name (type & press Enter ↵)"
+                                                        className="quick-add-input"
+                                                    />
+
+                                                    {/* Position Pills */}
+                                                    <div className="pos-pill-group">
+                                                        {(['GK', 'DEF', 'MID', 'FWD'] as const).map(pos => (
+                                                            <span
+                                                                key={pos}
+                                                                onClick={() => setInlineField(team.id, 'position', pos)}
+                                                                className={`pos-pill ${inlineState.position === pos ? 'active' : ''}`}
+                                                                title={`Select position: ${pos}`}
+                                                            >
+                                                                {pos}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Captain Toggle */}
+                                                    <span
+                                                        onClick={() => setInlineField(team.id, 'isCaptain', !inlineState.isCaptain)}
+                                                        className={`pos-pill ${inlineState.isCaptain ? 'active' : ''}`}
+                                                        style={{
+                                                            backgroundColor: inlineState.isCaptain ? 'var(--color-primary)' : undefined,
+                                                            color: inlineState.isCaptain ? '#050505' : undefined,
+                                                            fontWeight: 800
+                                                        }}
+                                                        title="Mark as Captain"
+                                                    >
+                                                        (C)
+                                                    </span>
+
+                                                    {/* Quick Submit Button */}
+                                                    <button
+                                                        type="submit"
+                                                        className="btn btn-sm btn-primary"
+                                                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                                                        disabled={!inlineState.name.trim()}
+                                                    >
+                                                        <Plus size={13} /> Add
+                                                    </button>
+                                                </div>
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--color-text-muted)', padding: '0 0.25rem' }}>
+                                                    <span>⚡ Press <strong>Enter ↵</strong> to add player immediately</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenBulkPaste(team.id)}
+                                                        style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline' }}
+                                                    >
+                                                        Or paste full team list
+                                                    </button>
+                                                </div>
+                                            </form>
                                         </div>
                                     </div>
                                 );
@@ -2777,16 +3106,23 @@ export const DenchDerby = () => {
                                         <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
                                             Position
                                         </label>
-                                        <select
-                                            value={newPlayerPosition}
-                                            onChange={(e) => setNewPlayerPosition(e.target.value as any)}
-                                            className="derby-input"
-                                        >
-                                            <option value="FWD">Forward (FWD)</option>
-                                            <option value="MID">Midfielder (MID)</option>
-                                            <option value="DEF">Defender (DEF)</option>
-                                            <option value="GK">Goalkeeper (GK)</option>
-                                        </select>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                                            {(['GK', 'DEF', 'MID', 'FWD'] as const).map(pos => (
+                                                <button
+                                                    key={pos}
+                                                    type="button"
+                                                    onClick={() => setNewPlayerPosition(pos)}
+                                                    className={`pos-pill ${newPlayerPosition === pos ? 'active' : ''}`}
+                                                    style={{ padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.8rem' }}
+                                                >
+                                                    {pos === 'GK' && '🧤 '}
+                                                    {pos === 'DEF' && '🛡️ '}
+                                                    {pos === 'MID' && '⚡ '}
+                                                    {pos === 'FWD' && '🎯 '}
+                                                    {pos}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2803,14 +3139,25 @@ export const DenchDerby = () => {
                                     </label>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                                     <button
                                         type="submit"
                                         className="btn btn-primary"
-                                        style={{ flex: 1 }}
+                                        style={{ flex: 1, minWidth: '130px' }}
                                     >
                                         {editingPlayerId ? 'Save Player Changes' : 'Register Player'}
                                     </button>
+                                    {!editingPlayerId && (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddPlayerAndAnother}
+                                            className="btn btn-secondary"
+                                            style={{ minWidth: '150px' }}
+                                            title="Save this player and keep modal open for the next player"
+                                        >
+                                            Save & Add Another ➕
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -3335,6 +3682,162 @@ export const DenchDerby = () => {
                                     </div>
                                 </form>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL 4: BULK PASTE SQUAD ROSTER */}
+                {isBulkPasteOpen && (
+                    <div className="derby-modal-overlay">
+                        <div className="derby-modal-content" style={{ maxWidth: '620px' }}>
+                            <div className="flex-between" style={{ marginBottom: '1.25rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <ClipboardList size={22} color="var(--color-primary)" />
+                                    <div>
+                                        <h3 style={{ fontSize: '1.25rem', margin: 0, color: 'white' }}>
+                                            Paste Squad List
+                                        </h3>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                            Instantly import a whole team from WhatsApp, Notes, or text
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsBulkPasteOpen(false)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                {/* Target Club */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
+                                        Import into Club:
+                                    </label>
+                                    <select
+                                        value={bulkTargetTeamKey}
+                                        onChange={(e) => setBulkTargetTeamKey(e.target.value)}
+                                        className="derby-input"
+                                    >
+                                        {Object.values(teams).map(t => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name} (Group {t.group})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Import Mode: Append or Replace */}
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'white', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            name="bulkMode"
+                                            checked={bulkReplaceMode === 'append'}
+                                            onChange={() => setBulkReplaceMode('append')}
+                                            style={{ accentColor: 'var(--color-primary)' }}
+                                        />
+                                        Add to existing players
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: '#ef4444', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            name="bulkMode"
+                                            checked={bulkReplaceMode === 'replace'}
+                                            onChange={() => setBulkReplaceMode('replace')}
+                                            style={{ accentColor: '#ef4444' }}
+                                        />
+                                        Replace existing squad
+                                    </label>
+                                </div>
+
+                                {/* Textarea */}
+                                <div>
+                                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
+                                        <span>Paste names here (one per line):</span>
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)' }}>
+                                            ✨ Auto-detects numbers (#1), positions (GK/DEF/MID/FWD), and (C)
+                                        </span>
+                                    </label>
+                                    <textarea
+                                        value={bulkRosterText}
+                                        onChange={(e) => setBulkRosterText(e.target.value)}
+                                        placeholder={"1. Sipho Mokoena (GK)\n2. Thabo Khumalo (DEF)\n7. Marcus Dench (C)\n9. Chad Peters (FWD)\n10. Brian Sithole"}
+                                        className="bulk-paste-textarea"
+                                    />
+                                </div>
+
+                                {/* Live Parsed Preview */}
+                                <div style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    padding: '0.85rem 1rem'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'white' }}>
+                                            Parsed Players ({parsedBulkPlayers.length} detected)
+                                        </span>
+                                        {parsedBulkPlayers.length > 0 && (
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                                                Ready to import into {teams[bulkTargetTeamKey]?.name}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {parsedBulkPlayers.length === 0 ? (
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                                            Paste or type a list above to see the instant live preview. You can also paste simple names without numbers, and we'll assign jerseys automatically!
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', maxHeight: '160px', overflowY: 'auto' }}>
+                                            {parsedBulkPlayers.map((p, i) => (
+                                                <div key={i} style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.4rem',
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                    border: '1px solid var(--color-border)',
+                                                    padding: '0.25rem 0.6rem',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontSize: '0.8rem'
+                                                }}>
+                                                    <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>#{p.jerseyNumber}</span>
+                                                    <span style={{ color: 'white' }}>{p.name}</span>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>({p.position})</span>
+                                                    {p.isCaptain && (
+                                                        <span style={{ fontSize: '0.65rem', backgroundColor: 'var(--color-primary)', color: '#050505', fontWeight: 800, padding: '0.05rem 0.3rem', borderRadius: '2px' }}>
+                                                            CAPTAIN
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Modal Actions */}
+                                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsBulkPasteOpen(false)}
+                                        className="btn btn-outline"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleImportBulkRoster}
+                                        disabled={parsedBulkPlayers.length === 0}
+                                        className="btn btn-primary"
+                                        style={{ opacity: parsedBulkPlayers.length === 0 ? 0.5 : 1 }}
+                                    >
+                                        Import {parsedBulkPlayers.length} Players into {teams[bulkTargetTeamKey]?.name}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

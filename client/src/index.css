@@ -622,3 +622,106 @@ tbody tr:last-child td {
   min-width: 580px;
 }
 
+/* Quick Player Add Inline Bar */
+.quick-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.quick-add-bar:focus-within {
+  border-color: var(--color-primary);
+  background: rgba(18, 184, 76, 0.03);
+}
+
+.quick-add-input {
+  flex: 1;
+  min-width: 140px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.quick-add-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.825rem;
+}
+
+.jersey-pill-input {
+  width: 44px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.2rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.jersey-pill-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* Compact Position Pill Group */
+.pos-pill-group {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.pos-pill {
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.pos-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.pos-pill.active {
+  background: var(--color-primary);
+  color: #050505;
+  border-color: var(--color-primary);
+}
+
+/* Bulk Paste Box */
+.bulk-paste-textarea {
+  width: 100%;
+  min-height: 180px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: white;
+  padding: 0.85rem;
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+
+.bulk-paste-textarea:focus {
+  border-color: var(--color-primary);
+}
+

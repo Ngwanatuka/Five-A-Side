@@ -10,8 +10,28 @@ const addPlayerSchema = z.object({
     lastName: z.string().min(1, 'Last name is required'),
 });
 
-export const addPlayerToTeam = async (req: Request, res: Response): Promise<void> => {
+export const addPlayerToTeam = async (req: any, res: Response): Promise<void> => {
     try {
+        // Enforce role authorization
+        if (req.user) {
+            if (req.user.role === 'REFEREE' || req.user.role === 'SPECTATOR') {
+                res.status(403).json({ 
+                    error: 'Editing restricted: Participants and Referees have read-only access. Only Team Captains and Admins can add players.' 
+                });
+                return;
+            }
+
+            if (req.user.role === 'CAPTAIN') {
+                const { isDeadlineExpired } = await import('../services/captainService');
+                if (isDeadlineExpired()) {
+                    res.status(403).json({ 
+                        error: 'Roster editing deadline has passed (28 October 18:30). Official rosters are locked. Please contact League Admin.' 
+                    });
+                    return;
+                }
+            }
+        }
+
         const parsedData = addPlayerSchema.parse(req.body);
 
         const team = await prisma.team.findUnique({
@@ -21,6 +41,19 @@ export const addPlayerToTeam = async (req: Request, res: Response): Promise<void
         if (!team) {
             res.status(404).json({ error: 'Team not found' });
             return;
+        }
+
+        // Captain team ownership check
+        if (req.user && req.user.role === 'CAPTAIN') {
+            const captainTeamKey = req.user.teamKey;
+            const matchesManager = team.managerContact && team.managerContact.startsWith(captainTeamKey);
+            const matchesName = req.user.teamName && team.name.toLowerCase().trim() === req.user.teamName.toLowerCase().trim();
+            if (!matchesManager && !matchesName) {
+                res.status(403).json({
+                    error: `Forbidden: As Captain of "${req.user.teamName || captainTeamKey}", you can only add players to your own squad.`
+                });
+                return;
+            }
         }
 
         const playerCount = await prisma.player.count({

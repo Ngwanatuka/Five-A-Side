@@ -12,11 +12,86 @@ export const getBackendUrl = (): string => {
 
 export const API_BASE_URL = `${getBackendUrl()}/api`;
 
-const getAuthHeaders = (): Record<string, string> => {
+export const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('token');
     return token
         ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         : { 'Content-Type': 'application/json' };
+};
+
+// --- AUTH & ROLES ---
+export const login = async (credentials: { email: string; password: string }) => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+    }
+    return data;
+};
+
+export const captainLogin = async (teamKey: string, pin: string) => {
+    const response = await fetch(`${API_BASE_URL}/auth/captain-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamKey, pin }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'Captain login failed');
+    }
+    return data;
+};
+
+export const getPublicCaptains = async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/captains`);
+    if (!response.ok) throw new Error('Failed to fetch captains directory');
+    return response.json();
+};
+
+export const getDeadlineStatus = async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/deadline`);
+    if (!response.ok) throw new Error('Failed to fetch deadline status');
+    return response.json();
+};
+
+export const getAdminCaptains = async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/admin/captains`, {
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch admin captains');
+    return response.json();
+};
+
+export const updateCaptainAdmin = async (data: {
+    teamKey: string;
+    captainName?: string;
+    email?: string;
+    pin?: string;
+    teamName?: string;
+    group?: string;
+}) => {
+    const response = await fetch(`${API_BASE_URL}/auth/admin/captains`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to update captain');
+    return result;
+};
+
+export const updateDeadlineAdmin = async (deadline: string) => {
+    const response = await fetch(`${API_BASE_URL}/auth/admin/deadline`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ deadline }),
+    });
+    if (!response.ok) throw new Error('Failed to update deadline');
+    return response.json();
 };
 
 // --- LEAGUE ---
@@ -82,7 +157,7 @@ export const registerTeamToSeason = async (data: { teamId: number, seasonId: num
 export const addPlayerToTeam = async (data: { teamId: number; firstName: string; lastName: string }) => {
     const response = await fetch(`${API_BASE_URL}/players`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -127,19 +202,21 @@ export const getDerbyData = async () => {
 export const saveDerbyData = async (data: any) => {
     const response = await fetch(`${API_BASE_URL}/derby`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to save Derby tournament data');
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to save Derby tournament data' }));
+        throw new Error(err.error || 'Failed to save Derby tournament data');
+    }
     return response.json();
 };
 
 export const resetDerbyData = async () => {
     const response = await fetch(`${API_BASE_URL}/derby/reset`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to reset Derby tournament data');
     return response.json();
 };
-

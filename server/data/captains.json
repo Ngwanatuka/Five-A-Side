@@ -1,0 +1,53 @@
+{
+  "deadline": "2026-10-28T18:30:00+02:00",
+  "captains": {
+    "team-dench": {
+      "teamKey": "team-dench",
+      "teamName": "Team Dench",
+      "captainName": "Bafana Sithole",
+      "email": "dench.captain@5aside.com",
+      "pin": "1111",
+      "group": "A"
+    },
+    "cpt-superstars": {
+      "teamKey": "cpt-superstars",
+      "teamName": "CPT superstars fc",
+      "captainName": "Mo Hendricks",
+      "email": "cpt.captain@5aside.com",
+      "pin": "2222",
+      "group": "A"
+    },
+    "bras-ba-kasi": {
+      "teamKey": "bras-ba-kasi",
+      "teamName": "Bras ba kasi",
+      "captainName": "Thabo Dlamini",
+      "email": "kasi.captain@5aside.com",
+      "pin": "3333",
+      "group": "A"
+    },
+    "gauteng-warriors": {
+      "teamKey": "gauteng-warriors",
+      "teamName": "Gauteng state warriors",
+      "captainName": "Sipho Zulu",
+      "email": "gauteng.captain@5aside.com",
+      "pin": "4444",
+      "group": "B"
+    },
+    "woza-madzala": {
+      "teamKey": "woza-madzala",
+      "teamName": "Woza madzala fc",
+      "captainName": "Mandla Nkosi",
+      "email": "woza.captain@5aside.com",
+      "pin": "5555",
+      "group": "B"
+    },
+    "areyeng-fc": {
+      "teamKey": "areyeng-fc",
+      "teamName": "Areyeng fc",
+      "captainName": "Kagiso Molefe",
+      "email": "areyeng.captain@5aside.com",
+      "pin": "6666",
+      "group": "B"
+    }
+  }
+}

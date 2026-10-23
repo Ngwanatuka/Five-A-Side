@@ -2,10 +2,21 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { 
+    verifyCaptain, 
+    getPublicCaptains, 
+    getAdminCaptains, 
+    adminUpdateCaptain, 
+    adminUpdateDeadline,
+    getDeadlineStatus 
+} from '../services/captainService';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
 
+/**
+ * Standard Email/Password login (Admin, Referee, Cashier)
+ */
 export const login = async (req: Request, res: Response): Promise<void> => {
     try {
         const { email, password } = req.body;
@@ -20,21 +31,21 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         });
 
         if (!user) {
-            res.status(401).json({ error: 'Invalid credentials' });
+            res.status(401).json({ error: 'Invalid email or password' });
             return;
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            res.status(401).json({ error: 'Invalid credentials' });
+            res.status(401).json({ error: 'Invalid email or password' });
             return;
         }
 
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
             JWT_SECRET,
-            { expiresIn: '1d' }
+            { expiresIn: '7d' }
         );
 
         res.json({
@@ -49,5 +60,138 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * Captain PIN login
+ * Captians only admin can assign PINs, and captains can log in with their Team + PIN
+ */
+export const captainLogin = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { teamKey, pin } = req.body;
+
+        if (!teamKey || !pin) {
+            res.status(400).json({ error: 'Team and 4-digit PIN are required' });
+            return;
+        }
+
+        const captain = verifyCaptain(teamKey, pin);
+
+        if (!captain) {
+            res.status(401).json({ error: 'Incorrect Captain PIN for this team. Please check with the League Admin.' });
+            return;
+        }
+
+        const token = jwt.sign(
+            {
+                role: 'CAPTAIN',
+                teamKey: captain.teamKey,
+                teamName: captain.teamName,
+                captainName: captain.captainName,
+                email: captain.email
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            message: `Welcome Captain ${captain.captainName}!`,
+            token,
+            user: {
+                role: 'CAPTAIN',
+                teamKey: captain.teamKey,
+                teamName: captain.teamName,
+                captainName: captain.captainName,
+                email: captain.email,
+                group: captain.group
+            }
+        });
+    } catch (error) {
+        console.error('Captain login error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * Public listing of team captains (without PINs)
+ */
+export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const list = getPublicCaptains();
+        res.json(list);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve captains' });
+    }
+};
+
+/**
+ * Deadline status (28 Oct 18:30)
+ */
+export const getDeadline = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const status = getDeadlineStatus();
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve deadline status' });
+    }
+};
+
+/**
+ * Admin: Get all captains including PINs
+ */
+export const getAdminCaptainsList = async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const data = getAdminCaptains();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve admin captains' });
+    }
+};
+
+/**
+ * Admin: Update captain name, email, or PIN for a team
+ */
+export const updateCaptainByAdmin = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { teamKey, captainName, email, pin, teamName, group } = req.body;
+
+        if (!teamKey) {
+            res.status(400).json({ error: 'teamKey is required' });
+            return;
+        }
+
+        const updated = adminUpdateCaptain(teamKey, {
+            captainName,
+            email,
+            pin,
+            teamName,
+            group
+        });
+
+        res.json({
+            message: `Captain updated for ${updated.teamName}`,
+            captain: updated
+        });
+    } catch (error) {
+        console.error('Admin update captain error:', error);
+        res.status(500).json({ error: 'Failed to update captain' });
+    }
+};
+
+/**
+ * Admin: Update deadline if requested
+ */
+export const updateDeadlineByAdmin = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { deadline } = req.body;
+        if (!deadline) {
+            res.status(400).json({ error: 'deadline ISO date string required' });
+            return;
+        }
+        const updated = adminUpdateDeadline(deadline);
+        res.json({ message: 'Deadline updated successfully', deadline: updated });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update deadline' });
     }
 };

@@ -20,11 +20,14 @@ import {
     X,
     Trash2,
     CheckCircle2,
-    ClipboardList
+    ClipboardList,
+    Lock,
+    Crown
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { getDerbyData, saveDerbyData, getBackendUrl } from '../services/api';
+import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
 
@@ -160,8 +163,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
 
 export const TEAMS = DEFAULT_TEAMS;
 
-// All mocked player names removed - only real saved players will reflect
-const INITIAL_PLAYERS: TournamentPlayer[] = [];
+export const INITIAL_PLAYERS: TournamentPlayer[] = [];
 
 const DEFAULT_MATCHES: TournamentMatch[] = [
     // GROUP A MATCHES
@@ -342,7 +344,7 @@ const SIMULATED_SCORES: Record<string, { home: number; away: number }> = {
     'fn-gold': { home: 5, away: 4 }
 };
 
-const SIMULATED_GOAL_EVENTS: GoalEvent[] = [];
+export const SIMULATED_GOAL_EVENTS: GoalEvent[] = [];
 
 const COLOR_PRESETS = [
     { label: 'Emerald Green', hex: '#12b84c' },
@@ -358,6 +360,8 @@ const COLOR_PRESETS = [
 ];
 
 export const DenchDerby = () => {
+    const { role, captainTeamKey, captainTeamName, canEditTeam, isPastDeadline, deadlineRemaining, openRoleModal } = useRole();
+
     // 0. TEAMS STATE (Customizable & Editable)
     const [teams, setTeams] = useState<Record<string, TeamInfo>>(() => {
         try {
@@ -1371,8 +1375,8 @@ export const DenchDerby = () => {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.35rem',
-                            backgroundColor: 'var(--color-primary)',
-                            color: '#050505',
+                            backgroundColor: role === 'ADMIN' ? '#a855f7' : (role === 'CAPTAIN' ? '#f59e0b' : 'var(--color-primary)'),
+                            color: role === 'ADMIN' ? '#ffffff' : '#050505',
                             fontWeight: 700,
                             fontSize: '0.75rem',
                             padding: '0.2rem 0.6rem',
@@ -1380,42 +1384,110 @@ export const DenchDerby = () => {
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em'
                         }}>
-                            <Flame size={13} /> Official Tournament
+                            {role === 'ADMIN' ? <Crown size={13} /> : (role === 'CAPTAIN' ? <span>🧢</span> : <Flame size={13} />)}
+                            {role === 'ADMIN' ? 'League Admin' : (role === 'CAPTAIN' ? `Captain: ${captainTeamName || 'Your Team'}` : 'Participant View')}
                         </span>
                         <span style={{ fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
-                            Dench Derby kicks off on <strong>Wednesday, 28th October 2026 at 18:30 SAST</strong>!
+                            {role === 'CAPTAIN' ? (
+                                isPastDeadline ? (
+                                    <span style={{ color: '#ef4444' }}>
+                                        🔒 <strong>Roster Locked:</strong> Squad editing deadline expired on 28th October at 18:30.
+                                    </span>
+                                ) : (
+                                    <span>
+                                        ⏰ Roster Window: <strong>Open until 28 Oct 18:30 ({deadlineRemaining} remaining)</strong>
+                                    </span>
+                                )
+                            ) : role === 'ADMIN' ? (
+                                <span>
+                                    👑 <strong>Admin Mode:</strong> Full power to edit any team, add players, or adjust tournament schedule.
+                                </span>
+                            ) : (
+                                <span>
+                                    Dench Derby kicks off on <strong>Wednesday, 28th October 2026 at 18:30 SAST</strong>!
+                                </span>
+                            )}
                         </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Admin Action Buttons */}
+                        {role === 'ADMIN' && (
+                            <>
+                                <button
+                                    onClick={() => setIsEditTeamsOpen(true)}
+                                    className="btn btn-sm btn-primary"
+                                    title="Register and customize tournament teams"
+                                >
+                                    <Sliders size={14} /> Register & Edit Teams
+                                </button>
+                                <button
+                                    onClick={() => handleOpenAddPlayerModal()}
+                                    className="btn btn-sm btn-secondary"
+                                    title="Add a player to a tournament squad"
+                                >
+                                    <UserPlus size={14} /> Add Player
+                                </button>
+                                <button
+                                    onClick={handleSimulateTournament}
+                                    className="btn btn-sm btn-secondary"
+                                    title="Fill in realistic scores & goalscorers to test full leaderboard"
+                                >
+                                    <Sparkles size={14} color="#f59e0b" /> Simulate Results
+                                </button>
+                                <button
+                                    onClick={handleResetTournament}
+                                    className="btn btn-sm btn-outline"
+                                    title="Reset matches & goal events"
+                                >
+                                    <RotateCcw size={14} /> Reset
+                                </button>
+                            </>
+                        )}
+
+                        {/* Captain Action Buttons */}
+                        {role === 'CAPTAIN' && (
+                            <>
+                                {!isPastDeadline && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                if (captainTeamKey && teams[captainTeamKey]) {
+                                                    setSelectedEditTeamKey(captainTeamKey);
+                                                    setEditTeamsMode('detail');
+                                                    setIsEditTeamsOpen(true);
+                                                } else {
+                                                    setIsEditTeamsOpen(true);
+                                                }
+                                            }}
+                                            className="btn btn-sm btn-primary"
+                                            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#050505' }}
+                                            title="Edit your squad details"
+                                        >
+                                            <Sliders size={14} /> Edit My Team
+                                        </button>
+                                        <button
+                                            onClick={() => handleOpenAddPlayerModal(captainTeamKey || undefined)}
+                                            className="btn btn-sm btn-secondary"
+                                            title="Add a player to your team"
+                                        >
+                                            <UserPlus size={14} /> Add Player to Squad
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        )}
+
+                        {/* Role Switcher button */}
                         <button
-                            onClick={() => setIsEditTeamsOpen(true)}
-                            className="btn btn-sm btn-primary"
-                            title="Register and customize your tournament teams"
-                        >
-                            <Sliders size={14} /> Register & Edit Teams
-                        </button>
-                        <button
-                            onClick={() => handleOpenAddPlayerModal()}
-                            className="btn btn-sm btn-secondary"
-                            title="Add a player to a tournament squad"
-                        >
-                            <UserPlus size={14} /> Add Player
-                        </button>
-                        <button
-                            onClick={handleSimulateTournament}
-                            className="btn btn-sm btn-secondary"
-                            title="Fill in realistic scores & goalscorers to test full leaderboard"
-                        >
-                            <Sparkles size={14} color="#f59e0b" /> Simulate Results
-                        </button>
-                        <button
-                            onClick={handleResetTournament}
+                            onClick={openRoleModal}
                             className="btn btn-sm btn-outline"
-                            title="Reset matches & goal events"
+                            title="Switch active role"
+                            style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }}
                         >
-                            <RotateCcw size={14} /> Reset
+                            Switch Role
                         </button>
+
                         <button
                             onClick={handleShare}
                             className="btn btn-sm btn-secondary"
@@ -2627,35 +2699,100 @@ export const DenchDerby = () => {
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <button
-                                    onClick={() => setIsEditTeamsOpen(true)}
-                                    className="btn btn-primary"
-                                    title="Register and edit all 6 tournament clubs"
-                                >
-                                    <Sliders size={15} /> Register / Edit Teams
-                                </button>
-                                <button
-                                    onClick={() => handleOpenBulkPaste()}
-                                    className="btn btn-secondary"
-                                    title="Paste a full squad list from WhatsApp, Notes, or Excel"
-                                >
-                                    <ClipboardList size={15} /> Paste Squad List
-                                </button>
-                                <button
-                                    onClick={() => handleOpenAddPlayerModal()}
-                                    className="btn btn-primary"
-                                    title="Open registration dialog for a player"
-                                >
-                                    <Plus size={15} /> + Add Player
-                                </button>
-                                <button
-                                    onClick={handleClearAllSquads}
-                                    className="btn btn-outline"
-                                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)' }}
-                                    title="Wipe all registered players from all squads to start fresh"
-                                >
-                                    <Trash2 size={14} /> Clear All Squads
-                                </button>
+                                {role === 'ADMIN' && (
+                                    <>
+                                        <button
+                                            onClick={() => setIsEditTeamsOpen(true)}
+                                            className="btn btn-primary"
+                                            title="Register and edit all 6 tournament clubs"
+                                        >
+                                            <Sliders size={15} /> Register / Edit Teams
+                                        </button>
+                                        <button
+                                            onClick={() => handleOpenBulkPaste()}
+                                            className="btn btn-secondary"
+                                            title="Paste a full squad list from WhatsApp, Notes, or Excel"
+                                        >
+                                            <ClipboardList size={15} /> Paste Squad List
+                                        </button>
+                                        <button
+                                            onClick={() => handleOpenAddPlayerModal()}
+                                            className="btn btn-primary"
+                                            title="Open registration dialog for a player"
+                                        >
+                                            <Plus size={15} /> + Add Player
+                                        </button>
+                                        <button
+                                            onClick={handleClearAllSquads}
+                                            className="btn btn-outline"
+                                            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                                            title="Wipe all registered players from all squads to start fresh"
+                                        >
+                                            <Trash2 size={14} /> Clear All Squads
+                                        </button>
+                                    </>
+                                )}
+
+                                {role === 'CAPTAIN' && (
+                                    <>
+                                        {!isPastDeadline ? (
+                                            <>
+                                                <button
+                                                    onClick={() => {
+                                                        if (captainTeamKey && teams[captainTeamKey]) {
+                                                            setSelectedEditTeamKey(captainTeamKey);
+                                                            setEditTeamsMode('detail');
+                                                            setIsEditTeamsOpen(true);
+                                                        }
+                                                    }}
+                                                    className="btn btn-primary"
+                                                    style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#050505' }}
+                                                >
+                                                    <Sliders size={15} /> Edit My Team Details
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenBulkPaste(captainTeamKey || undefined)}
+                                                    className="btn btn-secondary"
+                                                >
+                                                    <ClipboardList size={15} /> Paste My Squad
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenAddPlayerModal(captainTeamKey || undefined)}
+                                                    className="btn btn-primary"
+                                                >
+                                                    <Plus size={15} /> + Add Player
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div style={{
+                                                padding: '0.45rem 0.9rem',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                                border: '1px solid #ef4444',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: '#f87171',
+                                                fontSize: '0.85rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.4rem'
+                                            }}>
+                                                <Lock size={14} /> Squad editing deadline expired on 28 Oct at 18:30
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {(role === 'SPECTATOR' || role === 'REFEREE') && (
+                                    <div style={{
+                                        padding: '0.4rem 0.85rem',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.85rem',
+                                        color: 'var(--color-text-muted)'
+                                    }}>
+                                        👀 Participant View (Official Rosters)
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -2696,6 +2833,7 @@ export const DenchDerby = () => {
                             {Object.values(teams).map(team => {
                                 const teamPlayers = players.filter(p => p.teamKey === team.id);
                                 const inlineState = getInlineState(team.id);
+                                const isTeamEditable = canEditTeam(team.id);
 
                                 return (
                                     <div key={team.id} className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
@@ -2730,34 +2868,52 @@ export const DenchDerby = () => {
                                             </div>
 
                                             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                                <button
-                                                    onClick={() => handleOpenBulkPaste(team.id)}
-                                                    className="btn btn-sm btn-outline"
-                                                    style={{ fontSize: '0.78rem' }}
-                                                    title="Paste squad roster from WhatsApp or Notes"
-                                                >
-                                                    <ClipboardList size={13} /> Paste
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedEditTeamKey(team.id);
-                                                        setEditTeamsMode('detail');
-                                                        setIsEditTeamsOpen(true);
-                                                    }}
-                                                    className="btn btn-sm btn-outline"
-                                                    style={{ fontSize: '0.78rem' }}
-                                                    title="Edit this team's name and details"
-                                                >
-                                                    <Sliders size={13} /> Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleOpenAddPlayerModal(team.id)}
-                                                    className="btn btn-sm btn-secondary"
-                                                    style={{ fontSize: '0.78rem' }}
-                                                    title="Open registration dialog for this squad"
-                                                >
-                                                    <UserPlus size={13} /> + Modal
-                                                </button>
+                                                {isTeamEditable ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleOpenBulkPaste(team.id)}
+                                                            className="btn btn-sm btn-outline"
+                                                            style={{ fontSize: '0.78rem' }}
+                                                            title="Paste squad roster from WhatsApp or Notes"
+                                                        >
+                                                            <ClipboardList size={13} /> Paste
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedEditTeamKey(team.id);
+                                                                setEditTeamsMode('detail');
+                                                                setIsEditTeamsOpen(true);
+                                                            }}
+                                                            className="btn btn-sm btn-outline"
+                                                            style={{ fontSize: '0.78rem' }}
+                                                            title="Edit this team's name and details"
+                                                        >
+                                                            <Sliders size={13} /> Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenAddPlayerModal(team.id)}
+                                                            className="btn btn-sm btn-secondary"
+                                                            style={{ fontSize: '0.78rem' }}
+                                                            title="Open registration dialog for this squad"
+                                                        >
+                                                            <UserPlus size={13} /> + Modal
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    role === 'CAPTAIN' && isPastDeadline ? (
+                                                        <span style={{ fontSize: '0.75rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                            <Lock size={12} /> Squad locked
+                                                        </span>
+                                                    ) : role === 'CAPTAIN' ? (
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                            🧢 {team.captain ? `Capt: ${team.captain}` : 'Club'}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                            👀 Read-Only
+                                                        </span>
+                                                    )
+                                                )}
                                             </div>
                                         </div>
 
@@ -2866,44 +3022,48 @@ export const DenchDerby = () => {
                                                                         {stat?.assists || 0} 👟
                                                                     </div>
 
-                                                                    <button
-                                                                        onClick={() => handleOpenEditPlayer(p)}
-                                                                        className="btn-icon"
-                                                                        style={{
-                                                                            padding: '0.25rem 0.45rem',
-                                                                            borderRadius: 'var(--radius-sm)',
-                                                                            background: 'rgba(255, 255, 255, 0.05)',
-                                                                            border: '1px solid var(--color-border)',
-                                                                            color: 'var(--color-text-main)',
-                                                                            cursor: 'pointer',
-                                                                            fontSize: '0.75rem',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            gap: '0.25rem'
-                                                                        }}
-                                                                        title="Edit player details"
-                                                                    >
-                                                                        <Sliders size={12} /> Edit
-                                                                    </button>
+                                                                    {isTeamEditable && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => handleOpenEditPlayer(p)}
+                                                                                className="btn-icon"
+                                                                                style={{
+                                                                                    padding: '0.25rem 0.45rem',
+                                                                                    borderRadius: 'var(--radius-sm)',
+                                                                                    background: 'rgba(255, 255, 255, 0.05)',
+                                                                                    border: '1px solid var(--color-border)',
+                                                                                    color: 'var(--color-text-main)',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.75rem',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '0.25rem'
+                                                                                }}
+                                                                                title="Edit player details"
+                                                                            >
+                                                                                <Sliders size={12} /> Edit
+                                                                            </button>
 
-                                                                    <button
-                                                                        onClick={() => handleDeletePlayer(p.id)}
-                                                                        className="btn-icon"
-                                                                        style={{
-                                                                            padding: '0.25rem 0.45rem',
-                                                                            borderRadius: 'var(--radius-sm)',
-                                                                            background: 'rgba(239, 68, 68, 0.1)',
-                                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                                            color: '#ef4444',
-                                                                            cursor: 'pointer',
-                                                                            fontSize: '0.75rem',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center'
-                                                                        }}
-                                                                        title="Remove player from squad"
-                                                                    >
-                                                                        <Trash2 size={12} />
-                                                                    </button>
+                                                                            <button
+                                                                                onClick={() => handleDeletePlayer(p.id)}
+                                                                                className="btn-icon"
+                                                                                style={{
+                                                                                    padding: '0.25rem 0.45rem',
+                                                                                    borderRadius: 'var(--radius-sm)',
+                                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                                    color: '#ef4444',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.75rem',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center'
+                                                                                }}
+                                                                                title="Remove player from squad"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );
@@ -2911,88 +3071,90 @@ export const DenchDerby = () => {
                                                 </div>
                                             )}
 
-                                            {/* INLINE QUICK-ADD BAR: ADD IN 1 SECOND WITH ENTER */}
-                                            <form
-                                                onSubmit={(e) => handleInlineAdd(team.id, e)}
-                                                style={{
-                                                    marginTop: '0.6rem',
-                                                    paddingTop: '0.6rem',
-                                                    borderTop: '1px dashed var(--color-border)',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '0.35rem'
-                                                }}
-                                            >
-                                                <div className="quick-add-bar">
-                                                    {/* Jersey # Input (auto-suggested) */}
-                                                    <input
-                                                        type="text"
-                                                        value={inlineState.jerseyNumber}
-                                                        onChange={(e) => setInlineField(team.id, 'jerseyNumber', e.target.value)}
-                                                        placeholder="#"
-                                                        className="jersey-pill-input"
-                                                        title="Jersey Number"
-                                                    />
+                                            {/* INLINE QUICK-ADD BAR: ONLY IF AUTHORIZED */}
+                                            {isTeamEditable && (
+                                                <form
+                                                    onSubmit={(e) => handleInlineAdd(team.id, e)}
+                                                    style={{
+                                                        marginTop: '0.6rem',
+                                                        paddingTop: '0.6rem',
+                                                        borderTop: '1px dashed var(--color-border)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '0.35rem'
+                                                    }}
+                                                >
+                                                    <div className="quick-add-bar">
+                                                        {/* Jersey # Input (auto-suggested) */}
+                                                        <input
+                                                            type="text"
+                                                            value={inlineState.jerseyNumber}
+                                                            onChange={(e) => setInlineField(team.id, 'jerseyNumber', e.target.value)}
+                                                            placeholder="#"
+                                                            className="jersey-pill-input"
+                                                            title="Jersey Number"
+                                                        />
 
-                                                    {/* Player Name Input */}
-                                                    <input
-                                                        type="text"
-                                                        value={inlineState.name}
-                                                        onChange={(e) => setInlineField(team.id, 'name', e.target.value)}
-                                                        placeholder="Player name (type & press Enter ↵)"
-                                                        className="quick-add-input"
-                                                    />
+                                                        {/* Player Name Input */}
+                                                        <input
+                                                            type="text"
+                                                            value={inlineState.name}
+                                                            onChange={(e) => setInlineField(team.id, 'name', e.target.value)}
+                                                            placeholder="Player name (type & press Enter ↵)"
+                                                            className="quick-add-input"
+                                                        />
 
-                                                    {/* Position Pills */}
-                                                    <div className="pos-pill-group">
-                                                        {(['GK', 'DEF', 'MID', 'FWD'] as const).map(pos => (
-                                                            <span
-                                                                key={pos}
-                                                                onClick={() => setInlineField(team.id, 'position', pos)}
-                                                                className={`pos-pill ${inlineState.position === pos ? 'active' : ''}`}
-                                                                title={`Select position: ${pos}`}
-                                                            >
-                                                                {pos}
-                                                            </span>
-                                                        ))}
+                                                        {/* Position Pills */}
+                                                        <div className="pos-pill-group">
+                                                            {(['GK', 'DEF', 'MID', 'FWD'] as const).map(pos => (
+                                                                <span
+                                                                    key={pos}
+                                                                    onClick={() => setInlineField(team.id, 'position', pos)}
+                                                                    className={`pos-pill ${inlineState.position === pos ? 'active' : ''}`}
+                                                                    title={`Select position: ${pos}`}
+                                                                >
+                                                                    {pos}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Captain Toggle */}
+                                                        <span
+                                                            onClick={() => setInlineField(team.id, 'isCaptain', !inlineState.isCaptain)}
+                                                            className={`pos-pill ${inlineState.isCaptain ? 'active' : ''}`}
+                                                            style={{
+                                                                backgroundColor: inlineState.isCaptain ? 'var(--color-primary)' : undefined,
+                                                                color: inlineState.isCaptain ? '#050505' : undefined,
+                                                                fontWeight: 800
+                                                            }}
+                                                            title="Mark as Captain"
+                                                        >
+                                                            (C)
+                                                        </span>
+
+                                                        {/* Quick Submit Button */}
+                                                        <button
+                                                            type="submit"
+                                                            className="btn btn-sm btn-primary"
+                                                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                                                            disabled={!inlineState.name.trim()}
+                                                        >
+                                                            <Plus size={13} /> Add
+                                                        </button>
                                                     </div>
 
-                                                    {/* Captain Toggle */}
-                                                    <span
-                                                        onClick={() => setInlineField(team.id, 'isCaptain', !inlineState.isCaptain)}
-                                                        className={`pos-pill ${inlineState.isCaptain ? 'active' : ''}`}
-                                                        style={{
-                                                            backgroundColor: inlineState.isCaptain ? 'var(--color-primary)' : undefined,
-                                                            color: inlineState.isCaptain ? '#050505' : undefined,
-                                                            fontWeight: 800
-                                                        }}
-                                                        title="Mark as Captain"
-                                                    >
-                                                        (C)
-                                                    </span>
-
-                                                    {/* Quick Submit Button */}
-                                                    <button
-                                                        type="submit"
-                                                        className="btn btn-sm btn-primary"
-                                                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
-                                                        disabled={!inlineState.name.trim()}
-                                                    >
-                                                        <Plus size={13} /> Add
-                                                    </button>
-                                                </div>
-
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--color-text-muted)', padding: '0 0.25rem' }}>
-                                                    <span>⚡ Press <strong>Enter ↵</strong> to add player immediately</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenBulkPaste(team.id)}
-                                                        style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline' }}
-                                                    >
-                                                        Or paste full team list
-                                                    </button>
-                                                </div>
-                                            </form>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--color-text-muted)', padding: '0 0.25rem' }}>
+                                                        <span>⚡ Press <strong>Enter ↵</strong> to add player immediately</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenBulkPaste(team.id)}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline' }}
+                                                        >
+                                                            Or paste full team list
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            )}
                                         </div>
                                     </div>
                                 );

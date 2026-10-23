@@ -1,0 +1,41 @@
+import { Request, Response } from 'express';
+export declare const DATA_DIR: string;
+export declare const DATA_FILE: string;
+export declare const DEFAULT_DERBY_TEAMS: Record<string, any>;
+export declare const DEFAULT_DERBY_MATCHES: ({
+    id: string;
+    stage: string;
+    group: string;
+    matchOrder: number;
+    homeTeamKey: string;
+    awayTeamKey: string;
+    homePlaceholder: string;
+    awayPlaceholder: string;
+    time: string;
+    pitch: number;
+    homeScore: null;
+    awayScore: null;
+    status: string;
+    note: string;
+} | {
+    id: string;
+    stage: string;
+    matchOrder: number;
+    homeTeamKey: null;
+    awayTeamKey: null;
+    homePlaceholder: string;
+    awayPlaceholder: string;
+    time: string;
+    pitch: number;
+    homeScore: null;
+    awayScore: null;
+    status: string;
+    note: string;
+    group?: never;
+})[];
+export declare function syncToPrismaDatabase(teams: any, matches: any, players: any): Promise<void>;
+export declare function initDerbyTournament(): Promise<void>;
+export declare const getDerbyData: (req: Request, res: Response) => void;
+export declare const saveDerbyData: (req: any, res: Response) => Promise<void>;
+export declare const resetDerbyData: (req: Request, res: Response) => Promise<void>;
+//# sourceMappingURL=derbyController.d.ts.map

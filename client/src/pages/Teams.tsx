@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Users, Trophy, Plus, CheckCircle2 } from 'lucide-react';
+import { Shield, Users, Trophy, Plus, CheckCircle2, Lock } from 'lucide-react';
 import { getStandings, getTeams, addPlayerToTeam, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
 
 export const Teams = () => {
+    const { role, captainTeamName, canEditTeam, isPastDeadline, deadlineRemaining, openRoleModal } = useRole();
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
@@ -84,6 +86,67 @@ export const Teams = () => {
             <Navbar />
 
             <main className="main-content">
+                {/* ROLE BANNER */}
+                <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '0.85rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                    border: '1px solid',
+                    ...(role === 'ADMIN' && {
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        borderColor: 'rgba(168, 85, 247, 0.3)',
+                        color: '#c084fc'
+                    }),
+                    ...(role === 'CAPTAIN' && {
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderColor: 'rgba(245, 158, 11, 0.35)',
+                        color: '#fbbf24'
+                    }),
+                    ...(role === 'REFEREE' && {
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderColor: 'rgba(6, 182, 212, 0.3)',
+                        color: '#22d3ee'
+                    }),
+                    ...(role === 'SPECTATOR' && {
+                        backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                        borderColor: 'rgba(34, 197, 94, 0.25)',
+                        color: 'var(--color-primary)'
+                    })
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        {role === 'ADMIN' && <span>👑 <strong>Admin Access:</strong> You can edit any team and add/remove players at any time.</span>}
+                        {role === 'CAPTAIN' && (
+                            <span>
+                                🧢 <strong>Captain Mode:</strong> Managing <strong>{captainTeamName || 'Your Team'}</strong> • ⏰ Roster Window: <strong>{isPastDeadline ? 'Closed (28 Oct 18:30)' : `Open (${deadlineRemaining} remaining)`}</strong>
+                            </span>
+                        )}
+                        {role === 'REFEREE' && <span>⏱️ <strong>Referee Mode:</strong> Match official viewing. You can view all fixtures and squads.</span>}
+                        {role === 'SPECTATOR' && <span>⚽ <strong>Participant / Player Mode:</strong> Browsing league teams & squads. (Read-only view).</span>}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={openRoleModal}
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            color: 'white',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: '999px',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Switch Role
+                    </button>
+                </div>
+
                 <div className="flex-between" style={{ marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
                         <h1 style={{ marginBottom: '0.5rem' }}>Teams & Squads</h1>
@@ -91,9 +154,11 @@ export const Teams = () => {
                             {totalTeams} teams registered for the 2025/26 season. Manage squad rosters below.
                         </p>
                     </div>
-                    <NavLink to="/register" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}>
-                        <Plus size={16} /> Register New Team
-                    </NavLink>
+                    {role === 'ADMIN' && (
+                        <NavLink to="/register" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}>
+                            <Plus size={16} /> Register New Team
+                        </NavLink>
+                    )}
                 </div>
 
                 {feedbackMsg && (
@@ -226,36 +291,50 @@ export const Teams = () => {
                                             </div>
                                         )}
 
-                                        {/* Inline Add Player Input */}
-                                        {(!team.players || team.players.length < 9) ? (
-                                            <form onSubmit={(e) => { e.preventDefault(); handleAddPlayer(team.teamId); }} style={{ display: 'flex', gap: '0.35rem' }}>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Add player (e.g. Sipho M.)..."
-                                                    value={inlinePlayerNames[team.teamId] || ''}
-                                                    onChange={(e) => setInlinePlayerNames(prev => ({ ...prev, [team.teamId]: e.target.value }))}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: '0.35rem 0.5rem',
-                                                        fontSize: '0.75rem',
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                                        border: '1px solid var(--color-border)',
-                                                        borderRadius: 'var(--radius-sm)',
-                                                        color: 'white'
-                                                    }}
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    className="btn btn-sm btn-primary"
-                                                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
-                                                    title="Add player to squad"
-                                                >
-                                                    <Plus size={13} />
-                                                </button>
-                                            </form>
+                                        {/* Inline Add Player Input (Only if authorized Captain or Admin) */}
+                                        {canEditTeam(team.teamName) ? (
+                                            (!team.players || team.players.length < 9) ? (
+                                                <form onSubmit={(e) => { e.preventDefault(); handleAddPlayer(team.teamId); }} style={{ display: 'flex', gap: '0.35rem' }}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Add player (e.g. Sipho M.)..."
+                                                        value={inlinePlayerNames[team.teamId] || ''}
+                                                        onChange={(e) => setInlinePlayerNames(prev => ({ ...prev, [team.teamId]: e.target.value }))}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '0.35rem 0.5rem',
+                                                            fontSize: '0.75rem',
+                                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                            border: '1px solid var(--color-border)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'white'
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        className="btn btn-sm btn-primary"
+                                                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
+                                                        title="Add player to squad"
+                                                    >
+                                                        <Plus size={13} />
+                                                    </button>
+                                                </form>
+                                            ) : (
+                                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', textAlign: 'center' }}>
+                                                    Roster full (9/9)
+                                                </div>
+                                            )
                                         ) : (
-                                            <div style={{ fontSize: '0.75rem', color: '#f59e0b', textAlign: 'center' }}>
-                                                Roster full (9/9)
+                                            <div style={{ fontSize: '0.75rem', textAlign: 'center', padding: '0.25rem 0', color: 'var(--color-text-muted)' }}>
+                                                {role === 'CAPTAIN' && isPastDeadline ? (
+                                                    <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                                                        <Lock size={12} /> Squad locked (28 Oct 18:30)
+                                                    </span>
+                                                ) : role === 'CAPTAIN' ? (
+                                                    <span>🧢 Managed by Team Captain</span>
+                                                ) : (
+                                                    <span>👀 Read-Only Squad Roster</span>
+                                                )}
                                             </div>
                                         )}
                                     </div>

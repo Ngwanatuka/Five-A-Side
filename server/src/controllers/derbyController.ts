@@ -515,8 +515,26 @@ export const getDerbyData = (req: Request, res: Response) => {
     }
 };
 
-export const saveDerbyData = async (req: Request, res: Response) => {
+export const saveDerbyData = async (req: any, res: Response) => {
     try {
+        // Enforce role authorization: only CAPTAIN and ADMIN can save changes
+        if (!req.user || req.user.role === 'REFEREE' || req.user.role === 'SPECTATOR') {
+            res.status(403).json({ 
+                error: 'Editing restricted: Participants and Referees have read-only access. Only Team Captains and Admins can save changes.' 
+            });
+            return;
+        }
+
+        if (req.user.role === 'CAPTAIN') {
+            const { isDeadlineExpired } = await import('../services/captainService');
+            if (isDeadlineExpired()) {
+                res.status(403).json({ 
+                    error: 'Roster editing deadline has passed (28 October 18:30). Official tournament rosters are locked. Please contact League Admin.' 
+                });
+                return;
+            }
+        }
+
         const { teams, matches, players, goalEvents } = req.body;
         const payload = {
             teams: teams || DEFAULT_DERBY_TEAMS,
@@ -528,8 +546,10 @@ export const saveDerbyData = async (req: Request, res: Response) => {
 
         fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
 
-        // Sync to database so League Standings, Teams, Fixtures, and Referee Console stay 100% in sync
-        await syncToPrismaDatabase(payload.teams, payload.matches, payload.players);
+        // Sync to database asynchronously so client response is instantaneous
+        syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
+            console.error('Async DB sync notice:', err);
+        });
 
         // Broadcast to all connected devices via Socket.IO
         const io = req.app.get('io');

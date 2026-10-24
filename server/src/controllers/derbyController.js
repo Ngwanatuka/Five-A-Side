@@ -545,6 +545,19 @@ const saveDerbyData = async (req, res) => {
             });
             return;
         }
+        // Read current tournament state
+        let currentData = {
+            teams: exports.DEFAULT_DERBY_TEAMS,
+            matches: exports.DEFAULT_DERBY_MATCHES,
+            players: [],
+            goalEvents: []
+        };
+        if (fs_1.default.existsSync(exports.DATA_FILE)) {
+            try {
+                currentData = JSON.parse(fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8'));
+            }
+            catch { }
+        }
         if (req.user.role === 'CAPTAIN') {
             const { isDeadlineExpired } = await Promise.resolve().then(() => __importStar(require('../services/captainService')));
             if (isDeadlineExpired()) {
@@ -553,13 +566,56 @@ const saveDerbyData = async (req, res) => {
                 });
                 return;
             }
+            const captainTeamKey = req.user.teamKey;
+            if (!captainTeamKey) {
+                res.status(403).json({ error: 'Captain profile missing assigned team key.' });
+                return;
+            }
+            // Verify target team if explicitly specified
+            if (req.body.targetTeamKey && req.body.targetTeamKey !== captainTeamKey) {
+                res.status(403).json({
+                    error: `Forbidden: As Captain of "${req.user.teamName || captainTeamKey}", you can only edit your own squad, not other teams.`
+                });
+                return;
+            }
+            // Verify players: captain can only submit players for their own team
+            if (Array.isArray(req.body.players)) {
+                const unauthorizedPlayer = req.body.players.find((p) => p && p.teamKey && p.teamKey !== captainTeamKey);
+                if (unauthorizedPlayer) {
+                    res.status(403).json({
+                        error: `Forbidden: Captains can only add or edit players for their own squad (${req.user.teamName || captainTeamKey}). Player "${unauthorizedPlayer.name}" belongs to "${unauthorizedPlayer.teamKey}".`
+                    });
+                    return;
+                }
+            }
         }
         const { teams, matches, players, goalEvents } = req.body;
+        let finalTeams = teams || currentData.teams || exports.DEFAULT_DERBY_TEAMS;
+        let finalMatches = matches || currentData.matches || exports.DEFAULT_DERBY_MATCHES;
+        let finalPlayers = players || currentData.players || [];
+        let finalGoalEvents = goalEvents || currentData.goalEvents || [];
+        if (req.user.role === 'CAPTAIN') {
+            const captainTeamKey = req.user.teamKey;
+            const existingTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
+            // Only allow captain to update their own team's details (slogan, colors, captain name)
+            finalTeams = {
+                ...existingTeams,
+                ...(teams && teams[captainTeamKey] ? { [captainTeamKey]: { ...existingTeams[captainTeamKey], ...teams[captainTeamKey] } } : {})
+            };
+            // Matches and tournament fixtures cannot be modified by Captains
+            finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
+            // Safely merge players: preserve all players from other teams, only update captain's team
+            const otherTeamsPlayers = (currentData.players || []).filter((p) => p.teamKey !== captainTeamKey);
+            const myTeamPlayers = (players || []).filter((p) => p.teamKey === captainTeamKey);
+            finalPlayers = [...otherTeamsPlayers, ...myTeamPlayers];
+            // Goal events cannot be altered by Captains
+            finalGoalEvents = currentData.goalEvents || [];
+        }
         const payload = {
-            teams: teams || exports.DEFAULT_DERBY_TEAMS,
-            matches: matches || exports.DEFAULT_DERBY_MATCHES,
-            players: players || [], // Save only real players
-            goalEvents: goalEvents || [],
+            teams: finalTeams,
+            matches: finalMatches,
+            players: finalPlayers,
+            goalEvents: finalGoalEvents,
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');

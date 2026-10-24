@@ -813,6 +813,11 @@ export const DenchDerby = () => {
         e.preventDefault();
         if (!newPlayerName.trim()) return;
 
+        if (!canEditTeam(targetTeamKey)) {
+            alert(`Forbidden: As Captain, you can only add players to your own assigned squad.`);
+            return;
+        }
+
         let updated: TournamentPlayer[] = [];
         if (editingPlayerId) {
             updated = players.map(p => {
@@ -904,6 +909,11 @@ export const DenchDerby = () => {
         const trimmed = curr.name.trim();
         if (!trimmed) return;
 
+        if (!canEditTeam(teamKey)) {
+            alert(`Forbidden: You can only add players to your own assigned squad.`);
+            return;
+        }
+
         const num = parseInt(curr.jerseyNumber, 10) || getNextJerseyNumber(teamKey, players);
         const newP: TournamentPlayer = {
             id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -937,6 +947,11 @@ export const DenchDerby = () => {
         e.preventDefault();
         if (!newPlayerName.trim()) return;
 
+        if (!canEditTeam(targetTeamKey)) {
+            alert(`Forbidden: As Captain, you can only add players to your own assigned squad.`);
+            return;
+        }
+
         const num = parseInt(newPlayerNumber, 10) || getNextJerseyNumber(targetTeamKey, players);
         const newP: TournamentPlayer = {
             id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -965,7 +980,17 @@ export const DenchDerby = () => {
     const [bulkReplaceMode, setBulkReplaceMode] = useState<'append' | 'replace'>('append');
 
     const handleOpenBulkPaste = (teamKey?: string) => {
-        if (teamKey) setBulkTargetTeamKey(teamKey);
+        let myTeamKey = captainTeamKey;
+        if (role === 'CAPTAIN' && (!myTeamKey || !teams[myTeamKey])) {
+            const found = Object.values(teams).find(t => canEditTeam(t.id));
+            if (found) myTeamKey = found.id;
+        }
+        const target = (role === 'CAPTAIN' && myTeamKey) ? myTeamKey : (teamKey || bulkTargetTeamKey);
+        if (role === 'CAPTAIN' && !canEditTeam(target)) {
+            alert(`Forbidden: As Captain, you can only paste players into your own squad.`);
+            return;
+        }
+        setBulkTargetTeamKey(target);
         setBulkRosterText('');
         setBulkReplaceMode('append');
         setIsBulkPasteOpen(true);
@@ -1054,6 +1079,11 @@ export const DenchDerby = () => {
     const handleImportBulkRoster = () => {
         if (parsedBulkPlayers.length === 0) return;
 
+        if (!canEditTeam(bulkTargetTeamKey)) {
+            alert(`Forbidden: As Captain, you cannot import players into another team.`);
+            return;
+        }
+
         const newPlayersList: TournamentPlayer[] = parsedBulkPlayers.map((p, idx) => ({
             id: `p-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
             teamKey: bulkTargetTeamKey,
@@ -1075,9 +1105,19 @@ export const DenchDerby = () => {
     };
 
     const handleOpenAddPlayerModal = (teamKey?: string) => {
+        let myTeamKey = captainTeamKey;
+        if (role === 'CAPTAIN' && (!myTeamKey || !teams[myTeamKey])) {
+            const found = Object.values(teams).find(t => canEditTeam(t.id));
+            if (found) myTeamKey = found.id;
+        }
+        const target = (role === 'CAPTAIN' && myTeamKey) ? myTeamKey : (teamKey || targetTeamKey);
+        if (role === 'CAPTAIN' && !canEditTeam(target)) {
+            alert(`Forbidden: As Captain, you can only register players to your own assigned squad.`);
+            return;
+        }
+
         setEditingPlayerId(null);
-        const target = teamKey || targetTeamKey;
-        if (teamKey) setTargetTeamKey(teamKey);
+        setTargetTeamKey(target);
         setNewPlayerName('');
         const nextNum = getNextJerseyNumber(target, players);
         setNewPlayerNumber(nextNum.toString());
@@ -1089,6 +1129,11 @@ export const DenchDerby = () => {
     };
 
     const handleOpenEditPlayer = (p: TournamentPlayer) => {
+        if (!canEditTeam(p.teamKey)) {
+            alert(`Forbidden: You can only edit players on your own team.`);
+            return;
+        }
+
         setEditingPlayerId(p.id);
         setTargetTeamKey(p.teamKey);
         setNewPlayerName(p.name);
@@ -1099,7 +1144,15 @@ export const DenchDerby = () => {
     };
 
     const handleDeletePlayer = (playerId: string) => {
-        if (window.confirm('Are you sure you want to remove this player from the squad?')) {
+        const playerToDelete = players.find(p => p.id === playerId);
+        if (!playerToDelete) return;
+
+        if (!canEditTeam(playerToDelete.teamKey)) {
+            alert(`Forbidden: You can only remove players from your own team.`);
+            return;
+        }
+
+        if (window.confirm(`Are you sure you want to remove "${playerToDelete.name}" from the squad?`)) {
             const updated = players.filter(p => p.id !== playerId);
             const updatedEvents = goalEvents.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId);
             setPlayers(updated);
@@ -1134,6 +1187,11 @@ export const DenchDerby = () => {
     // Handlers for Editing Teams
     const handleSaveQuickTeams = (e: React.FormEvent) => {
         e.preventDefault();
+        if (role !== 'ADMIN') {
+            alert('Forbidden: Only League Admins can rename all tournament teams.');
+            return;
+        }
+
         const updatedTeams = { ...teams };
         Object.keys(quickTeamNames).forEach(k => {
             if (updatedTeams[k] && quickTeamNames[k]?.trim()) {
@@ -1163,6 +1221,11 @@ export const DenchDerby = () => {
     const handleSaveDetailTeam = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editTeamData.name.trim()) return;
+
+        if (!canEditTeam(selectedEditTeamKey)) {
+            alert('Forbidden: As Captain, you can only edit details for your own assigned squad.');
+            return;
+        }
 
         const updatedTeams = {
             ...teams,
@@ -2739,8 +2802,13 @@ export const DenchDerby = () => {
                                             <>
                                                 <button
                                                     onClick={() => {
-                                                        if (captainTeamKey && teams[captainTeamKey]) {
-                                                            setSelectedEditTeamKey(captainTeamKey);
+                                                        let targetKey = captainTeamKey;
+                                                        if (!targetKey || !teams[targetKey]) {
+                                                            const found = Object.values(teams).find(t => canEditTeam(t.id));
+                                                            if (found) targetKey = found.id;
+                                                        }
+                                                        if (targetKey && teams[targetKey]) {
+                                                            setSelectedEditTeamKey(targetKey);
                                                             setEditTeamsMode('detail');
                                                             setIsEditTeamsOpen(true);
                                                         }
@@ -2860,7 +2928,23 @@ export const DenchDerby = () => {
                                                     <Shield size={20} color={team.color} />
                                                 </div>
                                                 <div>
-                                                    <h3 style={{ fontSize: '1.15rem', color: 'white', margin: 0 }}>{team.name}</h3>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <h3 style={{ fontSize: '1.15rem', color: 'white', margin: 0 }}>{team.name}</h3>
+                                                        {role === 'CAPTAIN' && isTeamEditable && (
+                                                            <span style={{
+                                                                fontSize: '0.68rem',
+                                                                padding: '0.15rem 0.5rem',
+                                                                borderRadius: '999px',
+                                                                background: 'rgba(34, 197, 94, 0.2)',
+                                                                color: '#22c55e',
+                                                                border: '1px solid rgba(34, 197, 94, 0.45)',
+                                                                fontWeight: 700,
+                                                                letterSpacing: '0.03em'
+                                                            }}>
+                                                                👑 YOUR SQUAD
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                                                         Group {team.group} • {team.city || 'Dench Derby'} • {teamPlayers.length} player{teamPlayers.length === 1 ? '' : 's'}
                                                     </span>
@@ -2905,8 +2989,18 @@ export const DenchDerby = () => {
                                                             <Lock size={12} /> Squad locked
                                                         </span>
                                                     ) : role === 'CAPTAIN' ? (
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                                            🧢 {team.captain ? `Capt: ${team.captain}` : 'Club'}
+                                                        <span style={{
+                                                            fontSize: '0.72rem',
+                                                            color: 'var(--color-text-muted)',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.3rem',
+                                                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                                                            padding: '0.25rem 0.55rem',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: '1px solid var(--color-border)'
+                                                        }}>
+                                                            <Lock size={11} /> Locked (Not Your Team)
                                                         </span>
                                                     ) : (
                                                         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
@@ -2932,15 +3026,17 @@ export const DenchDerby = () => {
                                                 }}>
                                                     <Users size={24} style={{ opacity: 0.35, margin: '0 auto 0.4rem auto', display: 'block' }} />
                                                     <div>No registered players in <strong>{team.name}</strong> yet.</div>
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.6rem' }}>
-                                                        <button
-                                                            onClick={() => handleOpenBulkPaste(team.id)}
-                                                            className="btn btn-sm btn-secondary"
-                                                            style={{ fontSize: '0.78rem' }}
-                                                        >
-                                                            <ClipboardList size={12} /> Paste WhatsApp List
-                                                        </button>
-                                                    </div>
+                                                    {isTeamEditable && (
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.6rem' }}>
+                                                            <button
+                                                                onClick={() => handleOpenBulkPaste(team.id)}
+                                                                className="btn btn-sm btn-secondary"
+                                                                style={{ fontSize: '0.78rem' }}
+                                                            >
+                                                                <ClipboardList size={12} /> Paste WhatsApp List
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
@@ -3250,17 +3346,36 @@ export const DenchDerby = () => {
                                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
                                         Select Team
                                     </label>
-                                    <select
-                                        value={targetTeamKey}
-                                        onChange={(e) => setTargetTeamKey(e.target.value)}
-                                        className="derby-input"
-                                    >
-                                        {Object.values(teams).map(t => (
-                                            <option key={t.id} value={t.id}>
-                                                {t.name} (Group {t.group})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {role === 'CAPTAIN' ? (
+                                        <div style={{
+                                            padding: '0.65rem 0.85rem',
+                                            borderRadius: 'var(--radius-sm)',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            border: '1px solid var(--color-border)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            <span style={{ fontWeight: 600 }}>{teams[targetTeamKey]?.name || targetTeamKey}</span>
+                                            <span style={{ fontSize: '0.72rem', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+                                                <Lock size={12} /> Your Squad Only
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={targetTeamKey}
+                                            onChange={(e) => setTargetTeamKey(e.target.value)}
+                                            className="derby-input"
+                                        >
+                                            {Object.values(teams).map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name} (Group {t.group})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
 
                                 <div>
@@ -3618,23 +3733,25 @@ export const DenchDerby = () => {
                                 </button>
                             </div>
 
-                            {/* Sub Tabs */}
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
-                                <button
-                                    onClick={() => setEditTeamsMode('quick')}
-                                    className={`btn btn-sm ${editTeamsMode === 'quick' ? 'btn-primary' : 'btn-secondary'}`}
-                                >
-                                    ⚡ Quick Register All 6 Teams
-                                </button>
-                                <button
-                                    onClick={() => setEditTeamsMode('detail')}
-                                    className={`btn btn-sm ${editTeamsMode === 'detail' ? 'btn-primary' : 'btn-secondary'}`}
-                                >
-                                    🎨 Full Club Customizer
-                                </button>
-                            </div>
+                            {/* Sub Tabs: Only Admins can register all 6 teams */}
+                            {role === 'ADMIN' && (
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
+                                    <button
+                                        onClick={() => setEditTeamsMode('quick')}
+                                        className={`btn btn-sm ${editTeamsMode === 'quick' ? 'btn-primary' : 'btn-secondary'}`}
+                                    >
+                                        ⚡ Quick Register All 6 Teams
+                                    </button>
+                                    <button
+                                        onClick={() => setEditTeamsMode('detail')}
+                                        className={`btn btn-sm ${editTeamsMode === 'detail' ? 'btn-primary' : 'btn-secondary'}`}
+                                    >
+                                        🎨 Full Club Customizer
+                                    </button>
+                                </div>
+                            )}
 
-                            {editTeamsMode === 'quick' ? (
+                            {(editTeamsMode === 'quick' && role === 'ADMIN') ? (
                                 <form onSubmit={handleSaveQuickTeams} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                     <div style={{
                                         backgroundColor: 'rgba(18, 184, 76, 0.08)',
@@ -3748,23 +3865,25 @@ export const DenchDerby = () => {
                                     {/* Club Selector Pill Bar */}
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                                            Select Club to Customize
+                                            {role === 'CAPTAIN' ? 'Your Assigned Club' : 'Select Club to Customize'}
                                         </label>
                                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                            {Object.values(teams).map(t => (
-                                                <button
-                                                    key={t.id}
-                                                    type="button"
-                                                    onClick={() => setSelectedEditTeamKey(t.id)}
-                                                    className={`btn btn-sm ${selectedEditTeamKey === t.id ? 'btn-primary' : 'btn-secondary'}`}
-                                                    style={{
-                                                        borderLeft: `4px solid ${t.color}`,
-                                                        fontSize: '0.85rem'
-                                                    }}
-                                                >
-                                                    {t.name} (Gr {t.group})
-                                                </button>
-                                            ))}
+                                            {Object.values(teams)
+                                                .filter(t => role === 'ADMIN' || canEditTeam(t.id))
+                                                .map(t => (
+                                                    <button
+                                                        key={t.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedEditTeamKey(t.id)}
+                                                        className={`btn btn-sm ${selectedEditTeamKey === t.id ? 'btn-primary' : 'btn-secondary'}`}
+                                                        style={{
+                                                            borderLeft: `4px solid ${t.color}`,
+                                                            fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        {t.name} (Gr {t.group})
+                                                    </button>
+                                                ))}
                                         </div>
                                     </div>
 
@@ -3907,17 +4026,36 @@ export const DenchDerby = () => {
                                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
                                         Import into Club:
                                     </label>
-                                    <select
-                                        value={bulkTargetTeamKey}
-                                        onChange={(e) => setBulkTargetTeamKey(e.target.value)}
-                                        className="derby-input"
-                                    >
-                                        {Object.values(teams).map(t => (
-                                            <option key={t.id} value={t.id}>
-                                                {t.name} (Group {t.group})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {role === 'CAPTAIN' ? (
+                                        <div style={{
+                                            padding: '0.65rem 0.85rem',
+                                            borderRadius: 'var(--radius-sm)',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            border: '1px solid var(--color-border)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            <span style={{ fontWeight: 600 }}>{teams[bulkTargetTeamKey]?.name || bulkTargetTeamKey}</span>
+                                            <span style={{ fontSize: '0.72rem', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+                                                <Lock size={12} /> Your Squad Only
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={bulkTargetTeamKey}
+                                            onChange={(e) => setBulkTargetTeamKey(e.target.value)}
+                                            className="derby-input"
+                                        >
+                                            {Object.values(teams).map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name} (Group {t.group})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
 
                                 {/* Import Mode: Append or Replace */}

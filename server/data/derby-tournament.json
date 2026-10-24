@@ -225,7 +225,16 @@
       "note": "Grand Final - Dench Derby Trophy"
     }
   ],
-  "players": [],
+  "players": [
+    {
+      "id": "p-dench-1",
+      "name": "Bafana Sithole",
+      "jerseyNumber": 10,
+      "position": "MID",
+      "teamKey": "team-dench",
+      "isCaptain": true
+    }
+  ],
   "goalEvents": [],
-  "updatedAt": "2026-10-23T13:20:11.020Z"
+  "updatedAt": "2026-10-23T13:28:13.487Z"
 }

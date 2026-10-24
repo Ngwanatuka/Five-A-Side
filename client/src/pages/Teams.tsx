@@ -60,6 +60,12 @@ export const Teams = () => {
         const rawName = (inlinePlayerNames[teamId] || '').trim();
         if (!rawName) return;
 
+        const team = teams.find(t => t.teamId === teamId);
+        if (role === 'CAPTAIN' && team && !canEditTeam(team.teamName)) {
+            alert('Forbidden: As Captain, you can only add players to your own team.');
+            return;
+        }
+
         const parts = rawName.split(' ');
         const firstName = parts[0] || rawName;
         const lastName = parts.slice(1).join(' ') || '-';
@@ -213,7 +219,22 @@ export const Teams = () => {
 
                                     {/* Team Info */}
                                     <div style={{ marginBottom: '1.25rem' }}>
-                                        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.teamName}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                            <h3 style={{ fontSize: '1.25rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.teamName}</h3>
+                                            {role === 'CAPTAIN' && canEditTeam(team.teamName) && (
+                                                <span style={{
+                                                    fontSize: '0.65rem',
+                                                    padding: '0.15rem 0.45rem',
+                                                    borderRadius: '999px',
+                                                    background: 'rgba(34, 197, 94, 0.2)',
+                                                    color: '#22c55e',
+                                                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                                                    fontWeight: 700
+                                                }}>
+                                                    👑 YOUR SQUAD
+                                                </span>
+                                            )}
+                                        </div>
                                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', margin: 0 }}>
                                             {team.managerContact ? `Manager: ${team.managerContact}` : 'Official Club'}
                                         </p>
@@ -331,7 +352,9 @@ export const Teams = () => {
                                                         <Lock size={12} /> Squad locked (28 Oct 18:30)
                                                     </span>
                                                 ) : role === 'CAPTAIN' ? (
-                                                    <span>🧢 Managed by Team Captain</span>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                                                        <Lock size={12} /> Locked (Not Your Team)
+                                                    </span>
                                                 ) : (
                                                     <span>👀 Read-Only Squad Roster</span>
                                                 )}

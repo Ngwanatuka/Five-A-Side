@@ -196,16 +196,20 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Spectator or Referee cannot edit squads
         if (role === 'SPECTATOR' || role === 'REFEREE') return false;
 
-        // Captain check: only their team, and only before deadline (28 Oct 18:30)
+        // Captain check: ONLY their own team, and ONLY before deadline (28 Oct 18:30)
         if (role === 'CAPTAIN') {
             if (isPastDeadline) return false;
-            if (!teamKeyOrId) return true; // generic check
+            if (!teamKeyOrId) return false; // Must specify team
 
             const target = String(teamKeyOrId).toLowerCase().trim();
             const currentCaptainKey = (captainTeamKey || '').toLowerCase().trim();
             const currentCaptainName = (captainTeamName || '').toLowerCase().trim();
 
-            return target === currentCaptainKey || target === currentCaptainName || currentCaptainKey.includes(target);
+            if (!currentCaptainKey) return false;
+
+            return target === currentCaptainKey || 
+                   target === currentCaptainName || 
+                   currentCaptainKey.replace(/-/g, ' ') === target.replace(/-/g, ' ');
         }
 
         return false;

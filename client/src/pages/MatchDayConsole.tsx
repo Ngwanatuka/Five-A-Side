@@ -62,6 +62,7 @@ export const MatchDayConsole = () => {
 
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const activeMatchIdRef = useRef<string | null>(null);
 
     // Handle clicks outside the dropdown to close it
     useEffect(() => {
@@ -116,9 +117,9 @@ export const MatchDayConsole = () => {
                 console.error("Notice parsing local tournament storage:", e);
             }
 
-            // 2. Fetch matches from API and remote derby data
+            // 2. Fetch matches from API and remote derby data (including completed matches)
             const [apiMatches, derbyRemote] = await Promise.all([
-                getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' }).catch(() => []),
+                getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE,COMPLETED' }).catch(() => []),
                 getDerbyData().catch(() => null)
             ]);
 
@@ -163,8 +164,31 @@ export const MatchDayConsole = () => {
 
             let combinedMatches: any[] = [];
 
-            // Primary source: tournament fixtures from local storage or server derby data
-            const rawTournamentMatches = localMatches.length > 0 ? localMatches : (derbyRemote?.matches || []);
+            // Primary source: intelligently merge server tournament matches with local storage matches
+            const serverMatches: any[] = derbyRemote?.matches || [];
+            const rawTournamentMatches = serverMatches.length > 0
+                ? serverMatches.map(sm => {
+                    const lm = localMatches.find((m: any) => m.id === sm.id || m.id.toString() === sm.id.toString());
+                    if (!lm) return sm;
+                    const isCompleted = sm.status === 'completed' || lm.status === 'completed';
+                    const isLive = sm.status === 'live' || lm.status === 'live';
+                    const effectiveStatus = isCompleted ? 'completed' : (isLive ? 'live' : (lm.status || sm.status || 'scheduled'));
+                    const effectiveHome = sm.homeScore !== null && sm.homeScore !== undefined 
+                        ? (lm.homeScore !== null && lm.homeScore !== undefined ? Math.max(sm.homeScore, lm.homeScore) : sm.homeScore)
+                        : (lm.homeScore ?? null);
+                    const effectiveAway = sm.awayScore !== null && sm.awayScore !== undefined 
+                        ? (lm.awayScore !== null && lm.awayScore !== undefined ? Math.max(sm.awayScore, lm.awayScore) : sm.awayScore)
+                        : (lm.awayScore ?? null);
+
+                    return {
+                        ...sm,
+                        ...lm,
+                        status: effectiveStatus,
+                        homeScore: effectiveHome,
+                        awayScore: effectiveAway
+                    };
+                })
+                : localMatches;
 
             if (rawTournamentMatches.length > 0) {
                 // Calculate standings dynamically for knockout qualification slots
@@ -272,12 +296,27 @@ export const MatchDayConsole = () => {
             if (savedMatchId) {
                 const activeMatch = combinedMatches.find((m: any) => m.id.toString() === savedMatchId);
                 if (activeMatch) {
-                    setSelectedMatch(activeMatch);
+                    setSelectedMatch((prev: any) => {
+                        if (prev && prev.id.toString() === savedMatchId) {
+                            return {
+                                ...activeMatch,
+                                homeScore: prev.homeScore ?? activeMatch.homeScore,
+                                awayScore: prev.awayScore ?? activeMatch.awayScore,
+                                status: prev.status ?? activeMatch.status
+                            };
+                        }
+                        return activeMatch;
+                    });
                 }
             } else if (selectedMatch) {
                 const refreshed = combinedMatches.find((m: any) => m.id.toString() === selectedMatch.id.toString());
                 if (refreshed) {
-                    setSelectedMatch(refreshed);
+                    setSelectedMatch((prev: any) => ({
+                        ...refreshed,
+                        homeScore: prev?.homeScore ?? refreshed.homeScore,
+                        awayScore: prev?.awayScore ?? refreshed.awayScore,
+                        status: prev?.status ?? refreshed.status
+                    }));
                 }
             }
         } catch (error) {
@@ -291,60 +330,120 @@ export const MatchDayConsole = () => {
     useEffect(() => {
         fetchFixtures();
 
-        socket.on('scoreUpdate', (match) => {
+        const handleScoreUpdate = (match: any) => {
             fetchFixtures();
-            if (selectedMatch && match?.id === selectedMatch.id) {
+            if (activeMatchIdRef.current && match?.id?.toString() === activeMatchIdRef.current) {
                 setMatchState(prev => ({
                     ...prev,
                     homeScore: match.homeScore ?? prev.homeScore,
                     awayScore: match.awayScore ?? prev.awayScore
                 }));
             }
-        });
+        };
 
-        socket.on('derbyUpdate', () => {
+        const handleDerbyUpdate = () => {
             fetchFixtures();
-        });
+        };
 
-        socket.on('teamRegistered', () => {
-            fetchFixtures();
-        });
-
-        socket.on('playerAdded', () => {
-            fetchFixtures();
-        });
+        socket.on('scoreUpdate', handleScoreUpdate);
+        socket.on('derbyUpdate', handleDerbyUpdate);
+        socket.on('teamRegistered', fetchFixtures);
+        socket.on('playerAdded', fetchFixtures);
 
         return () => {
-            socket.off('scoreUpdate');
-            socket.off('derbyUpdate');
-            socket.off('teamRegistered');
-            socket.off('playerAdded');
+            socket.off('scoreUpdate', handleScoreUpdate);
+            socket.off('derbyUpdate', handleDerbyUpdate);
+            socket.off('teamRegistered', fetchFixtures);
+            socket.off('playerAdded', fetchFixtures);
         };
-    }, [selectedMatch]);
+    }, []);
 
-    // Save/Restore state from localStorage whenever selectedMatch or state changes
+    // Save/Restore state from localStorage whenever selectedMatch changes
     useEffect(() => {
-        if (!selectedMatch) return;
-
-        const storageKey = `match_state_${selectedMatch.id}`;
-        const saved = localStorage.getItem(storageKey);
-
-        if (saved) {
-            setMatchState(JSON.parse(saved));
-        } else {
-            setMatchState({
-                ...DEFAULT_MATCH_STATE,
-                homeScore: selectedMatch.homeScore || 0,
-                awayScore: selectedMatch.awayScore || 0
-            });
+        if (!selectedMatch) {
+            activeMatchIdRef.current = null;
+            return;
         }
-    }, [selectedMatch]);
 
+        const matchIdStr = selectedMatch.id.toString();
+
+        // Only restore when switching to a DIFFERENT match
+        if (activeMatchIdRef.current !== matchIdStr) {
+            activeMatchIdRef.current = matchIdStr;
+            const storageKey = `match_state_${matchIdStr}`;
+            const saved = localStorage.getItem(storageKey);
+
+            // Reconcile goals recorded in timeline for this match
+            const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
+            const homeGoalsFromEvents = matchEvents.filter(ev => 
+                ev.side === 'home' || 
+                (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
+                (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+            ).length;
+            const awayGoalsFromEvents = matchEvents.filter(ev => 
+                ev.side === 'away' || 
+                (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
+                (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+            ).length;
+
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setMatchState({
+                        ...parsed,
+                        homeScore: Math.max(parsed.homeScore ?? 0, homeGoalsFromEvents, selectedMatch.homeScore ?? 0),
+                        awayScore: Math.max(parsed.awayScore ?? 0, awayGoalsFromEvents, selectedMatch.awayScore ?? 0)
+                    });
+                } catch {
+                    setMatchState({
+                        ...DEFAULT_MATCH_STATE,
+                        homeScore: Math.max(homeGoalsFromEvents, selectedMatch.homeScore ?? 0),
+                        awayScore: Math.max(awayGoalsFromEvents, selectedMatch.awayScore ?? 0)
+                    });
+                }
+            } else {
+                setMatchState({
+                    ...DEFAULT_MATCH_STATE,
+                    homeScore: Math.max(homeGoalsFromEvents, selectedMatch.homeScore ?? 0),
+                    awayScore: Math.max(awayGoalsFromEvents, selectedMatch.awayScore ?? 0)
+                });
+            }
+        }
+    }, [selectedMatch?.id, goalEvents]);
+
+    // Continuously persist current matchState to local storage for the active match
     useEffect(() => {
         if (!selectedMatch) return;
         const storageKey = `match_state_${selectedMatch.id}`;
         localStorage.setItem(storageKey, JSON.stringify(matchState));
-    }, [matchState, selectedMatch]);
+    }, [matchState, selectedMatch?.id]);
+
+    // Automatic reconciliation: If timeline has more goals logged than currently in matchState, sync them immediately
+    useEffect(() => {
+        if (!selectedMatch) return;
+        const matchIdStr = selectedMatch.id.toString();
+
+        const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
+        if (matchEvents.length === 0) return;
+
+        const homeCount = matchEvents.filter(ev => 
+            ev.side === 'home' || 
+            (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
+            (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+        ).length;
+
+        const awayCount = matchEvents.filter(ev => 
+            ev.side === 'away' || 
+            (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
+            (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+        ).length;
+
+        if (homeCount > matchState.homeScore || awayCount > matchState.awayScore) {
+            const nextHome = Math.max(matchState.homeScore, homeCount);
+            const nextAway = Math.max(matchState.awayScore, awayCount);
+            handleUpdateScore(nextHome, nextAway);
+        }
+    }, [selectedMatch?.id, goalEvents, matchState.homeScore, matchState.awayScore]);
 
     // Timer Logic
     useEffect(() => {
@@ -383,25 +482,51 @@ export const MatchDayConsole = () => {
 
     const handleUpdateScore = async (home: number, away: number) => {
         if (!selectedMatch) return;
-        try {
-            await updateMatchScore(selectedMatch.id, home, away);
-            setMatchState(prev => ({ ...prev, homeScore: home, awayScore: away }));
+        const matchIdStr = selectedMatch.id.toString();
+        const currentStatus = matchState.matchEnded ? 'COMPLETED' : 'LIVE';
 
-            // Also synchronize local storage matches so Dench Derby tournament page reflects immediately
+        // 1. Immediately update matchState in memory and localStorage synchronously
+        setMatchState(prev => {
+            const next = { ...prev, homeScore: home, awayScore: away };
             try {
-                const savedMatches = localStorage.getItem('dench_derby_matches_v4');
-                if (savedMatches) {
-                    const parsed = JSON.parse(savedMatches);
-                    const target = parsed.find((m: any) => m.id === selectedMatch.id || m.id.toString() === selectedMatch.id.toString());
-                    if (target) {
-                        target.homeScore = home;
-                        target.awayScore = away;
-                        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
-                    }
-                }
+                localStorage.setItem(`match_state_${matchIdStr}`, JSON.stringify(next));
             } catch {}
+            return next;
+        });
+
+        // 2. Update local matches state in console
+        const updatedMatches = matches.map(m => {
+            if (m.id.toString() === matchIdStr) {
+                return { ...m, homeScore: home, awayScore: away, status: currentStatus };
+            }
+            return m;
+        });
+        setMatches(updatedMatches);
+        setSelectedMatch((prev: any) => prev ? { ...prev, homeScore: home, awayScore: away, status: currentStatus } : null);
+
+        // 3. Synchronize tournament matches so Dench Derby tournament page reflects immediately
+        try {
+            const savedMatches = localStorage.getItem('dench_derby_matches_v4');
+            if (savedMatches) {
+                const parsed = JSON.parse(savedMatches);
+                const target = parsed.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
+                if (target) {
+                    target.homeScore = home;
+                    target.awayScore = away;
+                    target.status = currentStatus.toLowerCase();
+                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
+                    await saveDerbyData({ matches: parsed });
+                }
+            }
+        } catch (syncErr) {
+            console.error("Notice syncing live tournament matches:", syncErr);
+        }
+
+        // 4. Update backend score API
+        try {
+            await updateMatchScore(selectedMatch.id, home, away, currentStatus);
         } catch (e) {
-            console.error('Failed to update score', e);
+            console.error('Failed to update score via API', e);
         }
     };
 
@@ -434,14 +559,12 @@ export const MatchDayConsole = () => {
 
         const minute = getCurrentMatchMinute();
         const isHome = pendingGoalTeam.side === 'home';
-        const newHomeScore = isHome ? matchState.homeScore + 1 : matchState.homeScore;
-        const newAwayScore = !isHome ? matchState.awayScore + 1 : matchState.awayScore;
-
         const effectiveTeamKey = pendingGoalTeam.teamKey || (isHome ? selectedMatch.homeTeamKey : selectedMatch.awayTeamKey) || selectedMatch.id.toString();
 
         const newEvent = {
             id: `ev-${Date.now()}`,
             matchId: selectedMatch.id.toString(),
+            side: pendingGoalTeam.side,
             teamKey: effectiveTeamKey,
             scorerPlayerId: player?.id || 'unassigned',
             scorerPlayerName: player?.name || (customPlayerName.trim() || 'Goal'),
@@ -453,6 +576,22 @@ export const MatchDayConsole = () => {
         try {
             localStorage.setItem('dench_derby_events_v4', JSON.stringify(nextEvents));
         } catch {}
+
+        // Calculate scores from nextEvents
+        const matchEvents = nextEvents.filter(ev => ev.matchId === selectedMatch.id.toString());
+        const homeScoreFromEvents = matchEvents.filter(ev => 
+            ev.side === 'home' || 
+            ev.teamKey === selectedMatch.homeTeamKey ||
+            (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+        ).length;
+        const awayScoreFromEvents = matchEvents.filter(ev => 
+            ev.side === 'away' || 
+            ev.teamKey === selectedMatch.awayTeamKey ||
+            (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+        ).length;
+
+        const newHomeScore = Math.max(matchState.homeScore + (isHome ? 1 : 0), homeScoreFromEvents);
+        const newAwayScore = Math.max(matchState.awayScore + (!isHome ? 1 : 0), awayScoreFromEvents);
 
         await handleUpdateScore(newHomeScore, newAwayScore);
 
@@ -468,15 +607,28 @@ export const MatchDayConsole = () => {
 
     const handleDeleteGoal = async (eventToDelete: any) => {
         if (!selectedMatch) return;
-        const isHome = eventToDelete.teamKey === selectedMatch.homeTeamKey;
-        const newHomeScore = isHome ? Math.max(0, matchState.homeScore - 1) : matchState.homeScore;
-        const newAwayScore = !isHome ? Math.max(0, matchState.awayScore - 1) : matchState.awayScore;
+        const isHome = eventToDelete.side === 'home' || eventToDelete.teamKey === selectedMatch.homeTeamKey;
 
         const nextEvents = goalEvents.filter(ev => ev.id !== eventToDelete.id);
         setGoalEvents(nextEvents);
         try {
             localStorage.setItem('dench_derby_events_v4', JSON.stringify(nextEvents));
         } catch {}
+
+        const matchEvents = nextEvents.filter(ev => ev.matchId === selectedMatch.id.toString());
+        const homeScoreFromEvents = matchEvents.filter(ev => 
+            ev.side === 'home' || 
+            ev.teamKey === selectedMatch.homeTeamKey ||
+            (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+        ).length;
+        const awayScoreFromEvents = matchEvents.filter(ev => 
+            ev.side === 'away' || 
+            ev.teamKey === selectedMatch.awayTeamKey ||
+            (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+        ).length;
+
+        const newHomeScore = isHome ? Math.max(0, homeScoreFromEvents) : matchState.homeScore;
+        const newAwayScore = !isHome ? Math.max(0, awayScoreFromEvents) : matchState.awayScore;
 
         await handleUpdateScore(newHomeScore, newAwayScore);
 
@@ -488,12 +640,11 @@ export const MatchDayConsole = () => {
     };
 
     const togglePlayPause = () => {
+        if (selectedMatch && !matchState.isRunning && !matchState.matchEnded) {
+            handleUpdateScore(matchState.homeScore, matchState.awayScore);
+        }
         setMatchState(prev => {
             if (!prev.isRunning && prev.timerSeconds === 1200) {
-                // First click to start a half
-                if (prev.currentHalf === 1 && selectedMatch) {
-                    updateMatchScore(selectedMatch.id, prev.homeScore, prev.awayScore, 'LIVE').catch(console.error);
-                }
                 return { ...prev, isRunning: true, isPaused: false };
             }
             if (!prev.isRunning) {
@@ -523,29 +674,86 @@ export const MatchDayConsole = () => {
         }
     };
 
-    const finalizeWhistle = () => {
+    const finalizeWhistle = async () => {
+        if (!selectedMatch) return;
         if (window.confirm("Are you sure you want to finalize this match? This cannot be undone.")) {
-            if (selectedMatch) {
-                updateMatchScore(selectedMatch.id, matchState.homeScore, matchState.awayScore, 'COMPLETED').catch(console.error);
+            const matchIdStr = selectedMatch.id.toString();
 
-                try {
-                    const savedMatches = localStorage.getItem('dench_derby_matches_v4');
-                    if (savedMatches) {
-                        const parsed = JSON.parse(savedMatches);
-                        const target = parsed.find((m: any) => m.id === selectedMatch.id || m.id.toString() === selectedMatch.id.toString());
-                        if (target) {
-                            target.homeScore = matchState.homeScore;
-                            target.awayScore = matchState.awayScore;
-                            target.status = 'completed';
-                            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
-                        }
-                    }
-                } catch {}
+            // Reconcile goals from timeline to make 100% sure the final whistle never submits 0 if goals were scored
+            const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
+            const homeGoalCount = matchEvents.filter(ev => 
+                ev.side === 'home' || 
+                (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
+                (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+            ).length;
+            const awayGoalCount = matchEvents.filter(ev => 
+                ev.side === 'away' || 
+                (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
+                (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+            ).length;
 
-                localStorage.removeItem(`match_state_${selectedMatch.id}`);
-                localStorage.removeItem('active_match_id');
+            const finalHome = Math.max(matchState.homeScore, homeGoalCount);
+            const finalAway = Math.max(matchState.awayScore, awayGoalCount);
+
+            // Update in-memory matches state in console immediately
+            const updatedMatches = matches.map(m => {
+                if (m.id.toString() === matchIdStr) {
+                    return { ...m, homeScore: finalHome, awayScore: finalAway, status: 'COMPLETED' };
+                }
+                return m;
+            });
+            setMatches(updatedMatches);
+
+            // Prepare local storage matches array
+            let tournamentMatchesList: any[] = [];
+            try {
+                const saved = localStorage.getItem('dench_derby_matches_v4');
+                if (saved) {
+                    tournamentMatchesList = JSON.parse(saved);
+                }
+            } catch {}
+
+            if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
+                tournamentMatchesList = updatedMatches.map(m => ({
+                    id: m.id,
+                    stage: m.stage,
+                    group: m.group,
+                    homeTeamKey: m.homeTeamKey,
+                    awayTeamKey: m.awayTeamKey,
+                    homePlaceholder: m.homeTeam?.name,
+                    awayPlaceholder: m.awayTeam?.name,
+                    homeScore: m.homeScore,
+                    awayScore: m.awayScore,
+                    status: m.status?.toLowerCase(),
+                    time: m.time,
+                    pitch: m.pitchNumber
+                }));
             }
+
+            const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
+            if (target) {
+                target.homeScore = finalHome;
+                target.awayScore = finalAway;
+                target.status = 'completed';
+            }
+
+            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
+
+            // Sync to server API and Derby Data
+            try {
+                await Promise.all([
+                    updateMatchScore(selectedMatch.id, finalHome, finalAway, 'COMPLETED'),
+                    saveDerbyData({ matches: tournamentMatchesList, goalEvents })
+                ]);
+            } catch (syncErr) {
+                console.error("Notice syncing final score to server:", syncErr);
+            }
+
+            localStorage.removeItem(`match_state_${selectedMatch.id}`);
+            localStorage.removeItem('active_match_id');
+            activeMatchIdRef.current = null;
             setSelectedMatch(null);
+            fetchFixtures();
         }
     };
 
@@ -832,36 +1040,140 @@ export const MatchDayConsole = () => {
                         </div>
 
                         {/* Score Board */}
-                        <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', alignItems: 'center', padding: '1rem 0' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '130px' }}>
-                                <div style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1, color: 'white' }}>{matchState.homeScore}</div>
-                                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', textAlign: 'center', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedMatch.homeTeam?.name}>
+                        <div style={{ display: 'flex', gap: '2.5rem', justifyContent: 'center', alignItems: 'center', padding: '1rem 0' }}>
+                            {/* Home Side */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdateScore(Math.max(0, matchState.homeScore - 1), matchState.awayScore)}
+                                        disabled={matchState.matchEnded || matchState.homeScore <= 0}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.08)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            color: '#fff',
+                                            borderRadius: '6px',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: matchState.homeScore <= 0 ? 'not-allowed' : 'pointer',
+                                            opacity: matchState.homeScore <= 0 ? 0.35 : 1,
+                                            fontWeight: 800,
+                                            fontSize: '1.2rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Decrease Home Score (-1)"
+                                    >
+                                        -
+                                    </button>
+                                    <div style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
+                                        {matchState.homeScore}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdateScore(matchState.homeScore + 1, matchState.awayScore)}
+                                        disabled={matchState.matchEnded}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.08)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            color: '#fff',
+                                            borderRadius: '6px',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            fontWeight: 800,
+                                            fontSize: '1.2rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Quick +1 Home Score"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', textAlign: 'center', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedMatch.homeTeam?.name}>
                                     {selectedMatch.homeTeam?.name || 'HOME'}
                                 </div>
                                 <button
                                     className="btn btn-secondary"
                                     disabled={matchState.matchEnded}
-                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: '100%', fontWeight: 700 }}
+                                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem', width: '100%', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                                     onClick={() => openGoalModal('home')}
                                 >
-                                    + Goal
+                                    <span>⚽</span> + Goal
                                 </button>
                             </div>
 
-                            <div style={{ fontSize: '2rem', color: 'var(--color-border)', fontWeight: 300, paddingBottom: '3rem' }}>-</div>
+                            <div style={{ fontSize: '2.5rem', color: 'var(--color-border)', fontWeight: 300, paddingBottom: '3rem' }}>-</div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '130px' }}>
-                                <div style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1, color: 'white' }}>{matchState.awayScore}</div>
-                                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', textAlign: 'center', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedMatch.awayTeam?.name}>
+                            {/* Away Side */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdateScore(matchState.homeScore, Math.max(0, matchState.awayScore - 1))}
+                                        disabled={matchState.matchEnded || matchState.awayScore <= 0}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.08)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            color: '#fff',
+                                            borderRadius: '6px',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: matchState.awayScore <= 0 ? 'not-allowed' : 'pointer',
+                                            opacity: matchState.awayScore <= 0 ? 0.35 : 1,
+                                            fontWeight: 800,
+                                            fontSize: '1.2rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Decrease Away Score (-1)"
+                                    >
+                                        -
+                                    </button>
+                                    <div style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
+                                        {matchState.awayScore}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdateScore(matchState.homeScore, matchState.awayScore + 1)}
+                                        disabled={matchState.matchEnded}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.08)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            color: '#fff',
+                                            borderRadius: '6px',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            fontWeight: 800,
+                                            fontSize: '1.2rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Quick +1 Away Score"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', textAlign: 'center', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedMatch.awayTeam?.name}>
                                     {selectedMatch.awayTeam?.name || 'AWAY'}
                                 </div>
                                 <button
                                     className="btn btn-secondary"
                                     disabled={matchState.matchEnded}
-                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: '100%', fontWeight: 700 }}
+                                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem', width: '100%', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                                     onClick={() => openGoalModal('away')}
                                 >
-                                    + Goal
+                                    <span>⚽</span> + Goal
                                 </button>
                             </div>
                         </div>

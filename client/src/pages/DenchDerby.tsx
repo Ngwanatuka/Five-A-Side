@@ -763,6 +763,8 @@ export const DenchDerby = () => {
 
     const standingsA = useMemo(() => calculateGroupStandings('A'), [matches, teams]);
     const standingsB = useMemo(() => calculateGroupStandings('B'), [matches, teams]);
+    const isGroupALive = useMemo(() => matches.some(m => m.stage === 'group' && m.group === 'A' && m.status === 'live'), [matches]);
+    const isGroupBLive = useMemo(() => matches.some(m => m.stage === 'group' && m.group === 'B' && m.status === 'live'), [matches]);
 
     // Automatically derive Semi-Final and Final participants based on standings & matches
     const groupA1st = standingsA[0]?.played > 0 ? standingsA[0] : null;
@@ -1839,9 +1841,19 @@ export const DenchDerby = () => {
                                     </div>
 
                                     {/* Group A Box */}
-                                    <div className="glass-card" style={{ padding: '1.25rem' }}>
+                                    <div className="glass-card" style={{
+                                        padding: '1.25rem',
+                                        border: isGroupALive ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--color-border)'
+                                    }}>
                                         <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
-                                            <strong style={{ color: 'white', fontSize: '1rem' }}>Group A</strong>
+                                            <strong style={{ color: 'white', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                                Group A
+                                                {isGroupALive && (
+                                                    <span style={{ fontSize: '0.65rem', color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 800 }}>
+                                                        ● LIVE
+                                                    </span>
+                                                )}
+                                            </strong>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Top 2 Advance</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1877,9 +1889,19 @@ export const DenchDerby = () => {
                                     </div>
 
                                     {/* Group B Box */}
-                                    <div className="glass-card" style={{ padding: '1.25rem' }}>
+                                    <div className="glass-card" style={{
+                                        padding: '1.25rem',
+                                        border: isGroupBLive ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--color-border)'
+                                    }}>
                                         <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
-                                            <strong style={{ color: 'white', fontSize: '1rem' }}>Group B</strong>
+                                            <strong style={{ color: 'white', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                                Group B
+                                                {isGroupBLive && (
+                                                    <span style={{ fontSize: '0.65rem', color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 800 }}>
+                                                        ● LIVE
+                                                    </span>
+                                                )}
+                                            </strong>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Top 2 Advance</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -2234,7 +2256,7 @@ export const DenchDerby = () => {
                                     alignItems: 'center'
                                 }}>
                                     <div>
-                                        <h3 style={{ fontSize: '1.25rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <h3 style={{ fontSize: '1.25rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                             <span style={{
                                                 display: 'inline-block',
                                                 width: '12px',
@@ -2243,6 +2265,11 @@ export const DenchDerby = () => {
                                                 backgroundColor: 'var(--color-primary)'
                                             }}></span>
                                             Group A Table
+                                            {isGroupALive && (
+                                                <span style={{ fontSize: '0.7rem', color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 800 }}>
+                                                    ● LIVE (Virtual Standings)
+                                                </span>
+                                            )}
                                         </h3>
                                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Top 2 qualify for Semi-Finals</p>
                                     </div>
@@ -2336,7 +2363,7 @@ export const DenchDerby = () => {
                                     alignItems: 'center'
                                 }}>
                                     <div>
-                                        <h3 style={{ fontSize: '1.25rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <h3 style={{ fontSize: '1.25rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                             <span style={{
                                                 display: 'inline-block',
                                                 width: '12px',
@@ -2345,6 +2372,11 @@ export const DenchDerby = () => {
                                                 backgroundColor: '#3b82f6'
                                             }}></span>
                                             Group B Table
+                                            {isGroupBLive && (
+                                                <span style={{ fontSize: '0.7rem', color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 800 }}>
+                                                    ● LIVE (Virtual Standings)
+                                                </span>
+                                            )}
                                         </h3>
                                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Top 2 qualify for Semi-Finals</p>
                                     </div>
@@ -2480,21 +2512,33 @@ export const DenchDerby = () => {
                                 }
 
                                 const matchGoals = goalEvents.filter(ev => ev.matchId === m.id);
+                                const homeScore = m.homeScore ?? 0;
+                                const awayScore = m.awayScore ?? 0;
+                                const isLive = m.status === 'live';
+                                const hasScore = m.homeScore !== null && m.awayScore !== null;
+                                const homeLeading = isLive && hasScore && homeScore > awayScore;
+                                const awayLeading = isLive && hasScore && awayScore > homeScore;
 
                                 return (
                                     <div key={m.id} className="glass-card" style={{
                                         padding: '1.25rem 1.5rem',
-                                        border: isFinal ? '1px solid rgba(245, 158, 11, 0.4)' : (isSemi ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--color-border)')
+                                        border: isLive
+                                            ? '1px solid rgba(239, 68, 68, 0.6)'
+                                            : (isFinal ? '1px solid rgba(245, 158, 11, 0.4)' : (isSemi ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--color-border)')),
+                                        boxShadow: isLive ? '0 0 20px rgba(239, 68, 68, 0.15)' : 'none'
                                     }}>
                                         <div className="derby-match-row">
 
                                             {/* Match Info & Timing */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: '180px' }}>
                                                 <div style={{
-                                                    backgroundColor: isFinal ? 'rgba(245, 158, 11, 0.15)' : (isSemi ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)'),
+                                                    backgroundColor: isLive
+                                                        ? 'rgba(239, 68, 68, 0.18)'
+                                                        : (isFinal ? 'rgba(245, 158, 11, 0.15)' : (isSemi ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)')),
                                                     padding: '0.4rem 0.75rem',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    textAlign: 'center'
+                                                    textAlign: 'center',
+                                                    border: isLive ? '1px solid rgba(239, 68, 68, 0.4)' : 'none'
                                                 }}>
                                                     <div style={{ fontSize: '1rem', fontWeight: 700, color: 'white' }}>{m.time}</div>
                                                     <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Pitch {m.pitch}</div>
@@ -2509,29 +2553,72 @@ export const DenchDerby = () => {
                                                     }}>
                                                         {m.note}
                                                     </div>
-                                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                                        {m.status === 'completed' ? 'Full Time' : 'Scheduled'}
-                                                    </div>
+                                                    {isLive ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                                                            <span style={{
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 800,
+                                                                color: '#ef4444',
+                                                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                padding: '0.15rem 0.5rem',
+                                                                borderRadius: '4px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.35rem',
+                                                                letterSpacing: '0.5px'
+                                                            }}>
+                                                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                                                                LIVE
+                                                            </span>
+                                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: homeScore === awayScore ? '#eab308' : '#22c55e' }}>
+                                                                {homeLeading
+                                                                    ? `${homeDisplay} leading`
+                                                                    : (awayLeading
+                                                                        ? `${awayDisplay} leading`
+                                                                        : 'Scores level')}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                            {m.status === 'completed' ? 'Full Time' : 'Scheduled'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
                                             {/* Teams & Scores */}
                                             <div className="derby-score-board">
-                                                <div style={{ flex: 1, textAlign: 'right', fontWeight: 600, color: 'white', fontSize: '1rem' }}>
+                                                <div style={{
+                                                    flex: 1,
+                                                    textAlign: 'right',
+                                                    fontWeight: homeLeading ? 800 : 600,
+                                                    color: homeLeading ? '#22c55e' : 'white',
+                                                    fontSize: '1rem',
+                                                    transition: 'color 0.2s ease'
+                                                }}>
                                                     {homeDisplay}
+                                                    {homeLeading && (
+                                                        <span style={{ fontSize: '0.7rem', color: '#22c55e', marginLeft: '0.4rem', fontWeight: 800 }}>◀ LEADING</span>
+                                                    )}
                                                 </div>
 
                                                 <div style={{
                                                     padding: '0.4rem 1rem',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    backgroundColor: m.homeScore !== null ? 'rgba(18, 184, 76, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                                                    border: m.homeScore !== null ? '1px solid rgba(18, 184, 76, 0.3)' : '1px solid var(--color-border)',
+                                                    backgroundColor: isLive
+                                                        ? 'rgba(239, 68, 68, 0.18)'
+                                                        : (m.homeScore !== null ? 'rgba(18, 184, 76, 0.15)' : 'rgba(255, 255, 255, 0.04)'),
+                                                    border: isLive
+                                                        ? '1px solid rgba(239, 68, 68, 0.5)'
+                                                        : (m.homeScore !== null ? '1px solid rgba(18, 184, 76, 0.3)' : '1px solid var(--color-border)'),
                                                     minWidth: '80px',
-                                                    textAlign: 'center'
+                                                    textAlign: 'center',
+                                                    boxShadow: isLive ? '0 0 15px rgba(239, 68, 68, 0.25)' : 'none'
                                                 }}>
-                                                    {m.homeScore !== null && m.awayScore !== null ? (
-                                                        <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'white' }}>
-                                                            {m.homeScore} - {m.awayScore}
+                                                    {hasScore ? (
+                                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: isLive ? '#ff6b6b' : 'white' }}>
+                                                            {homeScore} - {awayScore}
                                                         </span>
                                                     ) : (
                                                         <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
@@ -2540,7 +2627,17 @@ export const DenchDerby = () => {
                                                     )}
                                                 </div>
 
-                                                <div style={{ flex: 1, textAlign: 'left', fontWeight: 600, color: 'white', fontSize: '1rem' }}>
+                                                <div style={{
+                                                    flex: 1,
+                                                    textAlign: 'left',
+                                                    fontWeight: awayLeading ? 800 : 600,
+                                                    color: awayLeading ? '#22c55e' : 'white',
+                                                    fontSize: '1rem',
+                                                    transition: 'color 0.2s ease'
+                                                }}>
+                                                    {awayLeading && (
+                                                        <span style={{ fontSize: '0.7rem', color: '#22c55e', marginRight: '0.4rem', fontWeight: 800 }}>LEADING ▶</span>
+                                                    )}
                                                     {awayDisplay}
                                                 </div>
                                             </div>

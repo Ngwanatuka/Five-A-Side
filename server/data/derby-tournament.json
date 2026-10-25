@@ -79,9 +79,9 @@
       "awayPlaceholder": "BARCODE FC",
       "time": "18:30",
       "pitch": 1,
-      "homeScore": 0,
-      "awayScore": 0,
-      "status": "scheduled",
+      "homeScore": 3,
+      "awayScore": 2,
+      "status": "completed",
       "note": "Group A Opening Clash"
     },
     {
@@ -236,5 +236,5 @@
     }
   ],
   "goalEvents": [],
-  "updatedAt": "2026-10-25T08:45:42.802Z"
+  "updatedAt": "2026-10-25T11:49:03.054Z"
 }

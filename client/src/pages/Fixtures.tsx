@@ -16,7 +16,7 @@ export const Fixtures = () => {
 
     const fetchFixtures = async () => {
         try {
-            const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING' });
+            const data = await getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE' });
             // Sort by date/time ascending
             data.sort((a: any, b: any) => {
                 const dateA = new Date(`${a.date.split('T')[0]}T${a.time}`);
@@ -102,20 +102,81 @@ export const Fixtures = () => {
                             <CalendarIcon size={18} /> {dateStr}
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {dayMatches.map((match: any) => (
-                                <div key={match.id} className="match-card-grid">
-                                    <div style={{ textAlign: 'right', fontWeight: 600, fontSize: '1.1rem' }}>{match.homeTeam?.name || 'TBD'}</div>
-                                    <div className="flex-center" style={{ flexDirection: 'column', backgroundColor: 'var(--color-bg-panel)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', margin: '0 2rem', minWidth: '100px' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.time}</span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Pitch {match.pitchNumber}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {dayMatches.map((match: any) => {
+                                const isLive = match.status === 'LIVE';
+                                const homeLeading = isLive && match.homeScore > match.awayScore;
+                                const awayLeading = isLive && match.awayScore > match.homeScore;
+
+                                return (
+                                    <div key={match.id} className="match-card-grid" style={{
+                                        border: isLive ? '1px solid rgba(239, 68, 68, 0.45)' : undefined,
+                                        backgroundColor: isLive ? 'rgba(239, 68, 68, 0.05)' : undefined,
+                                        borderRadius: 'var(--radius-sm)',
+                                        padding: '0.75rem 1rem'
+                                    }}>
+                                        <div style={{
+                                            textAlign: 'right',
+                                            fontWeight: homeLeading ? 800 : 600,
+                                            fontSize: '1.05rem',
+                                            color: homeLeading ? '#22c55e' : 'white'
+                                        }}>
+                                            {match.homeTeam?.name || 'TBD'}
+                                            {homeLeading && <span style={{ fontSize: '0.7rem', color: '#22c55e', marginLeft: '0.4rem', fontWeight: 700 }}>◀ LEADING</span>}
+                                        </div>
+
+                                        <div className="flex-center" style={{
+                                            flexDirection: 'column',
+                                            backgroundColor: isLive ? 'rgba(239, 68, 68, 0.15)' : 'var(--color-bg-panel)',
+                                            border: isLive ? '1px solid rgba(239, 68, 68, 0.35)' : 'none',
+                                            padding: '0.4rem 1rem',
+                                            borderRadius: 'var(--radius-sm)',
+                                            margin: '0 1.5rem',
+                                            minWidth: '110px'
+                                        }}>
+                                            {isLive ? (
+                                                <>
+                                                    <span style={{
+                                                        color: '#ef4444',
+                                                        fontSize: '0.7rem',
+                                                        fontWeight: 800,
+                                                        letterSpacing: '1px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.3rem'
+                                                    }}>
+                                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                                                        LIVE
+                                                    </span>
+                                                    <span style={{ fontWeight: 800, fontSize: '1.3rem', color: '#fff' }}>
+                                                        {match.homeScore ?? 0} - {match.awayScore ?? 0}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Pitch {match.pitchNumber}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.time}</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Pitch {match.pitchNumber}</span>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        <div style={{
+                                            textAlign: 'left',
+                                            fontWeight: awayLeading ? 800 : 600,
+                                            fontSize: '1.05rem',
+                                            color: awayLeading ? '#22c55e' : 'white'
+                                        }}>
+                                            {awayLeading && <span style={{ fontSize: '0.7rem', color: '#22c55e', marginRight: '0.4rem', fontWeight: 700 }}>LEADING ▶</span>}
+                                            {match.awayTeam?.name || 'TBD'}
+                                        </div>
+
+                                        <div className="flex-center gap-2" style={{ justifyContent: 'flex-end', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                            <MapPin size={14} /> Pitch {match.pitchNumber}
+                                        </div>
                                     </div>
-                                    <div style={{ textAlign: 'left', fontWeight: 600, fontSize: '1.1rem' }}>{match.awayTeam?.name || 'TBD'}</div>
-                                    <div className="flex-center gap-2" style={{ justifyContent: 'flex-end', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                                        <MapPin size={14} /> Local Arena
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 ))}

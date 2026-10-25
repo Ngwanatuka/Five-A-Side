@@ -643,16 +643,34 @@ export const saveDerbyData = async (req: any, res: Response) => {
 
 export const resetDerbyData = async (req: Request, res: Response) => {
     try {
+        let currentTeams = DEFAULT_DERBY_TEAMS;
+        let currentPlayers: any[] = [];
+        if (fs.existsSync(DATA_FILE)) {
+            try {
+                const existing = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+                if (existing.teams && Object.keys(existing.teams).length > 0) {
+                    currentTeams = existing.teams;
+                }
+                if (Array.isArray(existing.players)) {
+                    currentPlayers = existing.players;
+                }
+            } catch {}
+        }
+
+        const purgePlayers = req.body?.purgePlayers === true || req.query?.purgePlayers === 'true';
+
         const payload = {
-            teams: DEFAULT_DERBY_TEAMS,
+            teams: currentTeams,
             matches: DEFAULT_DERBY_MATCHES,
-            players: [], // Purge all players
+            players: purgePlayers ? [] : currentPlayers,
             goalEvents: [],
             updatedAt: new Date().toISOString()
         };
 
         fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
-        await syncToPrismaDatabase(DEFAULT_DERBY_TEAMS, DEFAULT_DERBY_MATCHES, []);
+        syncToPrismaDatabase(currentTeams, DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
+            console.error('Async DB sync notice on reset:', err);
+        });
 
         const io = req.app.get('io');
         if (io) {
@@ -663,7 +681,7 @@ export const resetDerbyData = async (req: Request, res: Response) => {
             io.emit('playerAdded');
         }
 
-        res.json({ success: true, reset: true });
+        res.json({ success: true, reset: true, payload });
     } catch (err: any) {
         console.error('Failed to reset derby data:', err);
         res.status(500).json({ error: 'Failed to reset tournament data' });

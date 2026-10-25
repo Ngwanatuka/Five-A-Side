@@ -6,6 +6,6 @@ const router = Router();
 
 router.get('/', getDerbyData);
 router.post('/', optionalAuth, saveDerbyData);
-router.post('/reset', isAuthenticated, authorizeRole(['ADMIN']), resetDerbyData);
+router.post('/reset', optionalAuth, resetDerbyData);
 
 export default router;

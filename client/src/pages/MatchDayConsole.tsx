@@ -166,28 +166,45 @@ export const MatchDayConsole = () => {
 
             // Primary source: intelligently merge server tournament matches with local storage matches
             const serverMatches: any[] = derbyRemote?.matches || [];
-            const rawTournamentMatches = serverMatches.length > 0
-                ? serverMatches.map(sm => {
-                    const lm = localMatches.find((m: any) => m.id === sm.id || m.id.toString() === sm.id.toString());
-                    if (!lm) return sm;
-                    const isCompleted = sm.status === 'completed' || lm.status === 'completed';
-                    const isLive = sm.status === 'live' || lm.status === 'live';
-                    const effectiveStatus = isCompleted ? 'completed' : (isLive ? 'live' : (lm.status || sm.status || 'scheduled'));
-                    const effectiveHome = sm.homeScore !== null && sm.homeScore !== undefined 
-                        ? (lm.homeScore !== null && lm.homeScore !== undefined ? Math.max(sm.homeScore, lm.homeScore) : sm.homeScore)
-                        : (lm.homeScore ?? null);
-                    const effectiveAway = sm.awayScore !== null && sm.awayScore !== undefined 
-                        ? (lm.awayScore !== null && lm.awayScore !== undefined ? Math.max(sm.awayScore, lm.awayScore) : sm.awayScore)
-                        : (lm.awayScore ?? null);
+            const anyServerScored = serverMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
 
-                    return {
-                        ...sm,
-                        ...lm,
-                        status: effectiveStatus,
-                        homeScore: effectiveHome,
-                        awayScore: effectiveAway
-                    };
-                })
+            if (!anyServerScored && serverMatches.length > 0) {
+                try {
+                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(serverMatches));
+                    localStorage.removeItem('dench_derby_events_v4');
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const key = localStorage.key(i);
+                        if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
+                            localStorage.removeItem(key);
+                        }
+                    }
+                } catch {}
+            }
+
+            const rawTournamentMatches = serverMatches.length > 0
+                ? (anyServerScored
+                    ? serverMatches.map(sm => {
+                        const lm = localMatches.find((m: any) => m.id === sm.id || m.id.toString() === sm.id.toString());
+                        if (!lm) return sm;
+                        const isCompleted = sm.status === 'completed' || lm.status === 'completed';
+                        const isLive = sm.status === 'live' || lm.status === 'live';
+                        const effectiveStatus = isCompleted ? 'completed' : (isLive ? 'live' : (lm.status || sm.status || 'scheduled'));
+                        const effectiveHome = sm.homeScore !== null && sm.homeScore !== undefined 
+                            ? (lm.homeScore !== null && lm.homeScore !== undefined ? Math.max(sm.homeScore, lm.homeScore) : sm.homeScore)
+                            : (lm.homeScore ?? null);
+                        const effectiveAway = sm.awayScore !== null && sm.awayScore !== undefined 
+                            ? (lm.awayScore !== null && lm.awayScore !== undefined ? Math.max(sm.awayScore, lm.awayScore) : sm.awayScore)
+                            : (lm.awayScore ?? null);
+
+                        return {
+                            ...sm,
+                            ...lm,
+                            status: effectiveStatus,
+                            homeScore: effectiveHome,
+                            awayScore: effectiveAway
+                        };
+                    })
+                    : serverMatches)
                 : localMatches;
 
             if (rawTournamentMatches.length > 0) {
@@ -345,14 +362,31 @@ export const MatchDayConsole = () => {
             fetchFixtures();
         };
 
+        const handleDerbyReset = () => {
+            try {
+                localStorage.removeItem('active_match_id');
+                localStorage.removeItem('dench_derby_events_v4');
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            } catch {}
+            setMatchState(DEFAULT_MATCH_STATE);
+            fetchFixtures();
+        };
+
         socket.on('scoreUpdate', handleScoreUpdate);
         socket.on('derbyUpdate', handleDerbyUpdate);
+        socket.on('derbyReset', handleDerbyReset);
         socket.on('teamRegistered', fetchFixtures);
         socket.on('playerAdded', fetchFixtures);
 
         return () => {
             socket.off('scoreUpdate', handleScoreUpdate);
             socket.off('derbyUpdate', handleDerbyUpdate);
+            socket.off('derbyReset', handleDerbyReset);
             socket.off('teamRegistered', fetchFixtures);
             socket.off('playerAdded', fetchFixtures);
         };
@@ -386,7 +420,14 @@ export const MatchDayConsole = () => {
                 (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
             ).length;
 
-            if (saved) {
+            const isScheduled = (selectedMatch.status || '').toUpperCase() === 'SCHEDULED';
+            if (isScheduled && homeGoalsFromEvents === 0 && awayGoalsFromEvents === 0) {
+                setMatchState({
+                    ...DEFAULT_MATCH_STATE,
+                    homeScore: selectedMatch.homeScore ?? 0,
+                    awayScore: selectedMatch.awayScore ?? 0
+                });
+            } else if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
                     setMatchState({

@@ -79,9 +79,9 @@
       "awayPlaceholder": "BARCODE FC",
       "time": "18:30",
       "pitch": 1,
-      "homeScore": 3,
-      "awayScore": 2,
-      "status": "completed",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
       "note": "Group A Opening Clash"
     },
     {
@@ -225,16 +225,7 @@
       "note": "Grand Final - Dench Derby Trophy"
     }
   ],
-  "players": [
-    {
-      "id": "p-dench-1",
-      "name": "Bafana Sithole",
-      "jerseyNumber": 10,
-      "position": "MID",
-      "teamKey": "team-dench",
-      "isCaptain": true
-    }
-  ],
+  "players": [],
   "goalEvents": [],
-  "updatedAt": "2026-10-25T11:49:03.054Z"
+  "updatedAt": "2026-10-25T12:36:01.298Z"
 }

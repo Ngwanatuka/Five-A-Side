@@ -500,12 +500,9 @@ export const DenchDerby = () => {
                 const data = await getDerbyData();
                 if (data && isMounted) {
                     let localSavedTeams: any = null;
-                    let localSavedMatches: any = null;
                     try {
                         const rawTeams = localStorage.getItem('dench_derby_teams_v4');
                         if (rawTeams) localSavedTeams = JSON.parse(rawTeams);
-                        const rawMatches = localStorage.getItem('dench_derby_matches_v4');
-                        if (rawMatches) localSavedMatches = JSON.parse(rawMatches);
                     } catch {}
 
                     // Combine remote teams with any local edits, prioritizing user's local edits if present
@@ -518,10 +515,24 @@ export const DenchDerby = () => {
                         setTeams(effectiveTeams);
                     }
 
-                    const effectiveMatches = (Array.isArray(localSavedMatches) && localSavedMatches.length > 0)
-                        ? localSavedMatches
-                        : (data.matches && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES);
+                    // The server is the authoritative single source of truth for match fixtures and scores
+                    const serverMatches = Array.isArray(data.matches) && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES;
+                    const anyServerScored = serverMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
+
+                    const effectiveMatches = serverMatches;
                     setMatches(effectiveMatches);
+                    try {
+                        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(effectiveMatches));
+                        if (!anyServerScored) {
+                            localStorage.removeItem('dench_derby_events_v4');
+                            for (let i = localStorage.length - 1; i >= 0; i--) {
+                                const key = localStorage.key(i);
+                                if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
+                                    localStorage.removeItem(key);
+                                }
+                            }
+                        }
+                    } catch {}
 
                     let cleanPlayers: any[] = [];
                     if (Array.isArray(data.players)) {
@@ -558,8 +569,26 @@ export const DenchDerby = () => {
 
         const handleRemoteUpdate = (data: any) => {
             if (!data) return;
-            if (data.teams && Object.keys(data.teams).length > 0) setTeams(data.teams);
-            if (data.matches && data.matches.length > 0) setMatches(data.matches);
+            if (data.teams && Object.keys(data.teams).length > 0) {
+                setTeams(data.teams);
+                try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(data.teams)); } catch {}
+            }
+            if (data.matches && data.matches.length > 0) {
+                setMatches(data.matches);
+                try {
+                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(data.matches));
+                    const anyScored = data.matches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
+                    if (!anyScored) {
+                        localStorage.removeItem('dench_derby_events_v4');
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
+                            const key = localStorage.key(i);
+                            if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                    }
+                } catch {}
+            }
             if (Array.isArray(data.players)) {
                 const cleanPlayers = data.players.filter((p: any) =>
                     p && p.id &&
@@ -571,15 +600,21 @@ export const DenchDerby = () => {
                     !p.id.startsWith('p-arey-')
                 );
                 setPlayers(cleanPlayers);
+                try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(cleanPlayers)); } catch {}
             }
-            if (Array.isArray(data.goalEvents)) setGoalEvents(data.goalEvents);
+            if (Array.isArray(data.goalEvents)) {
+                setGoalEvents(data.goalEvents);
+                try { localStorage.setItem('dench_derby_events_v4', JSON.stringify(data.goalEvents)); } catch {}
+            }
         };
 
         socket.on('derbyUpdate', handleRemoteUpdate);
+        socket.on('derbyReset', handleRemoteUpdate);
 
         return () => {
             isMounted = false;
             socket.off('derbyUpdate', handleRemoteUpdate);
+            socket.off('derbyReset', handleRemoteUpdate);
         };
     }, []);
 

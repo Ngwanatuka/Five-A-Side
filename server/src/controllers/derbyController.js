@@ -648,15 +648,32 @@ const saveDerbyData = async (req, res) => {
 exports.saveDerbyData = saveDerbyData;
 const resetDerbyData = async (req, res) => {
     try {
+        let currentTeams = exports.DEFAULT_DERBY_TEAMS;
+        let currentPlayers = [];
+        if (fs_1.default.existsSync(exports.DATA_FILE)) {
+            try {
+                const existing = JSON.parse(fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8'));
+                if (existing.teams && Object.keys(existing.teams).length > 0) {
+                    currentTeams = existing.teams;
+                }
+                if (Array.isArray(existing.players)) {
+                    currentPlayers = existing.players;
+                }
+            }
+            catch { }
+        }
+        const purgePlayers = req.body?.purgePlayers === true || req.query?.purgePlayers === 'true';
         const payload = {
-            teams: exports.DEFAULT_DERBY_TEAMS,
+            teams: currentTeams,
             matches: exports.DEFAULT_DERBY_MATCHES,
-            players: [], // Purge all players
+            players: purgePlayers ? [] : currentPlayers,
             goalEvents: [],
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
-        await syncToPrismaDatabase(exports.DEFAULT_DERBY_TEAMS, exports.DEFAULT_DERBY_MATCHES, []);
+        syncToPrismaDatabase(currentTeams, exports.DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
+            console.error('Async DB sync notice on reset:', err);
+        });
         const io = req.app.get('io');
         if (io) {
             io.emit('derbyReset', payload);
@@ -665,7 +682,7 @@ const resetDerbyData = async (req, res) => {
             io.emit('teamRegistered');
             io.emit('playerAdded');
         }
-        res.json({ success: true, reset: true });
+        res.json({ success: true, reset: true, payload });
     }
     catch (err) {
         console.error('Failed to reset derby data:', err);

@@ -70,7 +70,7 @@ export function Login() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@5aside.com or referee@5aside.com"
+                                placeholder="ngwanatuka@fivesway.xyz or referee@5aside.com"
                                 style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'white', outline: 'none' }}
                             />
                         </div>
@@ -128,10 +128,10 @@ export function Login() {
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                             <button
                                 type="button"
-                                onClick={() => handleDemoLogin('admin@5aside.com')}
+                                onClick={() => handleDemoLogin('ngwanatuka@fivesway.xyz')}
                                 style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid #a855f7', color: '#c084fc', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
                             >
-                                Admin (admin@5aside.com)
+                                Admin (ngwanatuka@fivesway.xyz)
                             </button>
                             <button
                                 type="button"

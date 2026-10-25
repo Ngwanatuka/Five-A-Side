@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import prisma from '../prisma';
+import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
 
 export const DATA_DIR = path.join(__dirname, '../../data');
 export const DATA_FILE = path.join(DATA_DIR, 'derby-tournament.json');
@@ -608,8 +609,8 @@ export const saveDerbyData = async (req: any, res: Response) => {
 
             // Goal events cannot be altered by Captains
             finalGoalEvents = currentData.goalEvents || [];
-        } else if (!req.user || req.user.role !== 'ADMIN') {
-            // Spectators / unauthenticated clients cannot overwrite matches or goal events
+        } else if (!req.user || req.user.role !== 'ADMIN' || req.user.email?.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+            // Spectators / unauthenticated / non-ngwanatuka clients cannot overwrite matches or goal events
             finalMatches = currentData.matches || DEFAULT_DERBY_MATCHES;
             finalGoalEvents = currentData.goalEvents || [];
         }
@@ -648,8 +649,8 @@ export const saveDerbyData = async (req: any, res: Response) => {
 export const resetDerbyData = async (req: Request, res: Response) => {
     try {
         const authUser = (req as any).user;
-        if (!authUser || authUser.role !== 'ADMIN') {
-            res.status(403).json({ error: 'Forbidden: Only an Administrator can reset tournament matches and scores.' });
+        if (!authUser || authUser.role !== 'ADMIN' || authUser.email?.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+            res.status(403).json({ error: 'Forbidden: Only the league administrator (ngwanatuka@fivesway.xyz) can reset tournament matches and scores.' });
             return;
         }
 

@@ -25,6 +25,8 @@ export interface RoleContextType {
     canAccessAdmin: () => boolean;
 }
 
+export const SOLE_ADMIN_EMAIL = 'ngwanatuka@fivesway.xyz';
+
 const DEFAULT_DEADLINE = '2026-10-28T18:30:00+02:00';
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -33,7 +35,17 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial role state from localStorage or default to SPECTATOR
     const [role, setRole] = useState<UserRole>(() => {
         const storedRole = localStorage.getItem('user_role') as UserRole | null;
-        if (storedRole && ['SPECTATOR', 'CAPTAIN', 'REFEREE', 'ADMIN'].includes(storedRole)) {
+        const storedEmail = (localStorage.getItem('user_email') || '').toLowerCase();
+        if (storedRole === 'ADMIN') {
+            if (storedEmail === SOLE_ADMIN_EMAIL.toLowerCase()) {
+                return 'ADMIN';
+            }
+            // If previous cached role was ADMIN without ngwanatuka@fivesway.xyz, purge it
+            localStorage.setItem('user_role', 'SPECTATOR');
+            localStorage.removeItem('role');
+            return 'SPECTATOR';
+        }
+        if (storedRole && ['SPECTATOR', 'CAPTAIN', 'REFEREE'].includes(storedRole)) {
             return storedRole;
         }
         return 'SPECTATOR';
@@ -143,11 +155,16 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         newRole: UserRole,
         extra?: { email?: string; teamKey?: string; teamName?: string; captainName?: string }
     ) => {
+        // Enforce that only ngwanatuka@fivesway.xyz can hold the ADMIN role
+        const assignedRole: UserRole = (newRole === 'ADMIN' && extra?.email?.toLowerCase() !== SOLE_ADMIN_EMAIL.toLowerCase())
+            ? 'SPECTATOR'
+            : newRole;
+
         setToken(newToken);
-        setRole(newRole);
+        setRole(assignedRole);
         localStorage.setItem('token', newToken);
-        localStorage.setItem('user_role', newRole);
-        localStorage.setItem('role', newRole);
+        localStorage.setItem('user_role', assignedRole);
+        localStorage.setItem('role', assignedRole);
         localStorage.setItem('role_chosen_once', 'true');
 
         if (extra?.email) {
@@ -190,8 +207,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Permission check for editing squads/teams
     const canEditTeam = (teamKeyOrId?: string | number): boolean => {
-        // Admin can edit everything anytime, even after deadline
-        if (role === 'ADMIN') return true;
+        // Admin can edit everything anytime, even after deadline (only ngwanatuka@fivesway.xyz)
+        if (role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase()) return true;
 
         // Spectator or Referee cannot edit squads
         if (role === 'SPECTATOR' || role === 'REFEREE') return false;
@@ -215,8 +232,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
     };
 
-    const canAccessRefereeConsole = () => role === 'REFEREE' || role === 'ADMIN';
-    const canAccessAdmin = () => role === 'ADMIN';
+    const canAccessRefereeConsole = () => role === 'REFEREE' || (role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase());
+    const canAccessAdmin = () => role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase();
 
     return (
         <RoleContext.Provider

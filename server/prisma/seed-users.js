@@ -9,7 +9,7 @@ const prisma = new client_1.PrismaClient();
 async function main() {
     const password = await bcryptjs_1.default.hash('password123', 10);
     const users = [
-        { email: 'admin@5aside.com', role: client_1.Role.ADMIN },
+        { email: 'ngwanatuka@fivesway.xyz', role: client_1.Role.ADMIN },
         { email: 'referee@5aside.com', role: client_1.Role.REFEREE },
         { email: 'cashier@5aside.com', role: client_1.Role.CASHIER },
     ];

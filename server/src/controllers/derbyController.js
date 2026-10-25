@@ -42,6 +42,7 @@ exports.initDerbyTournament = initDerbyTournament;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../prisma"));
+const auth_1 = require("../middleware/auth");
 exports.DATA_DIR = path_1.default.join(__dirname, '../../data');
 exports.DATA_FILE = path_1.default.join(exports.DATA_DIR, 'derby-tournament.json');
 // Ensure data directory exists
@@ -618,8 +619,8 @@ const saveDerbyData = async (req, res) => {
             // Goal events cannot be altered by Captains
             finalGoalEvents = currentData.goalEvents || [];
         }
-        else if (!req.user || req.user.role !== 'ADMIN') {
-            // Spectators / unauthenticated clients cannot overwrite matches or goal events
+        else if (!req.user || req.user.role !== 'ADMIN' || req.user.email?.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
+            // Spectators / unauthenticated / non-ngwanatuka clients cannot overwrite matches or goal events
             finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
             finalGoalEvents = currentData.goalEvents || [];
         }
@@ -654,8 +655,8 @@ exports.saveDerbyData = saveDerbyData;
 const resetDerbyData = async (req, res) => {
     try {
         const authUser = req.user;
-        if (!authUser || authUser.role !== 'ADMIN') {
-            res.status(403).json({ error: 'Forbidden: Only an Administrator can reset tournament matches and scores.' });
+        if (!authUser || authUser.role !== 'ADMIN' || authUser.email?.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
+            res.status(403).json({ error: 'Forbidden: Only the league administrator (ngwanatuka@fivesway.xyz) can reset tournament matches and scores.' });
             return;
         }
         let currentTeams = exports.DEFAULT_DERBY_TEAMS;

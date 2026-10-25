@@ -11,7 +11,7 @@ export const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState<'Update Scores' | 'Manage Captains' | 'Player Payments' | 'Match Status' | 'Add Fixture'>('Update Scores');
 
     // Login Form State
-    const [loginEmail, setLoginEmail] = useState('admin@5aside.com');
+    const [loginEmail, setLoginEmail] = useState('ngwanatuka@fivesway.xyz');
     const [loginPassword, setLoginPassword] = useState('password123');
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginError, setLoginError] = useState('');
@@ -109,8 +109,8 @@ export const AdminDashboard = () => {
         setLoginError('');
         try {
             const res = await apiLogin({ email: loginEmail, password: loginPassword });
-            if (res.user?.role !== 'ADMIN') {
-                throw new Error('This account does not have Administrator privileges');
+            if (res.user?.role !== 'ADMIN' || res.user?.email?.toLowerCase() !== 'ngwanatuka@fivesway.xyz') {
+                throw new Error('Access denied: Only ngwanatuka@fivesway.xyz is authorized as League Administrator');
             }
             setAuthSession(res.token, 'ADMIN', { email: res.user.email });
         } catch (err: any) {
@@ -229,7 +229,9 @@ export const AdminDashboard = () => {
                             <h2 className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', fontSize: '1.25rem', marginBottom: '0.5rem' }}>
                                 <Lock size={20} color="#eab308" /> Administrator Login
                             </h2>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Sign in with administrative credentials.</p>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                Authorized Administrator: <strong style={{ color: '#eab308' }}>ngwanatuka@fivesway.xyz</strong>
+                            </p>
                         </div>
 
                         {loginError && (
@@ -255,7 +257,7 @@ export const AdminDashboard = () => {
                                     type="email"
                                     value={loginEmail}
                                     onChange={(e) => setLoginEmail(e.target.value)}
-                                    placeholder="admin@5aside.com"
+                                    placeholder="ngwanatuka@fivesway.xyz"
                                     required
                                     style={{
                                         width: '100%',

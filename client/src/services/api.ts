@@ -16,10 +16,14 @@ export const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('token');
     const userRole = localStorage.getItem('user_role') || localStorage.getItem('role') || 'SPECTATOR';
     const captainTeamKey = localStorage.getItem('captain_team_key') || '';
+    const userEmail = localStorage.getItem('user_email') || '';
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-User-Role': userRole
     };
+    if (userEmail) {
+        headers['X-User-Email'] = userEmail;
+    }
     if (captainTeamKey) {
         headers['X-Captain-Team-Key'] = captainTeamKey;
     }

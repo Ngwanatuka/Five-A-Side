@@ -161,7 +161,7 @@ export const RoleSelectModal: React.FC = () => {
     };
 
     const handleDemoAdminLogin = async () => {
-        setEmail('admin@5aside.com');
+        setEmail('ngwanatuka@fivesway.xyz');
         setPassword('password123');
         setAuthError(null);
         setAuthLoading(true);
@@ -170,12 +170,12 @@ export const RoleSelectModal: React.FC = () => {
             const res = await fetch(`${API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'admin@5aside.com', password: 'password123' })
+                body: JSON.stringify({ email: 'ngwanatuka@fivesway.xyz', password: 'password123' })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Login failed');
 
-            setAuthSession(data.token, 'ADMIN', { email: 'admin@5aside.com' });
+            setAuthSession(data.token, 'ADMIN', { email: 'ngwanatuka@fivesway.xyz' });
             navigate('/admin');
         } catch (err: any) {
             setAuthError(err.message);
@@ -527,7 +527,7 @@ export const RoleSelectModal: React.FC = () => {
                             {/* CARD 4: LEAGUE ADMIN */}
                             <div
                                 onClick={() => {
-                                    setEmail('admin@5aside.com');
+                                    setEmail('ngwanatuka@fivesway.xyz');
                                     setView('admin');
                                 }}
                                 style={{
@@ -998,7 +998,7 @@ export const RoleSelectModal: React.FC = () => {
                         </div>
 
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                            League administrators have full access to everything: manage teams, assign captains, referees, scores & payments.
+                            Designated league administrator (<strong style={{ color: '#c084fc' }}>ngwanatuka@fivesway.xyz</strong>) has full administrative controls: manage teams, scores, referee assignments & payments.
                         </p>
 
                         <form onSubmit={(e) => { e.preventDefault(); handleCredentialLogin('ADMIN'); }}>
@@ -1010,7 +1010,7 @@ export const RoleSelectModal: React.FC = () => {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="admin@5aside.com"
+                                    placeholder="ngwanatuka@fivesway.xyz"
                                     required
                                     style={{
                                         width: '100%',

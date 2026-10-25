@@ -11,6 +11,8 @@ import {
     getDeadlineStatus 
 } from '../services/captainService';
 
+import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
+
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
 
@@ -39,6 +41,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
         if (!isMatch) {
             res.status(401).json({ error: 'Invalid email or password' });
+            return;
+        }
+
+        // Enforce that only ngwanatuka@fivesway.xyz can log in as ADMIN
+        if (user.role === 'ADMIN' && user.email.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+            res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
             return;
         }
 

@@ -8,6 +8,7 @@ const client_1 = require("@prisma/client");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const captainService_1 = require("../services/captainService");
+const auth_1 = require("../middleware/auth");
 const prisma = new client_1.PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
 /**
@@ -30,6 +31,11 @@ const login = async (req, res) => {
         const isMatch = await bcryptjs_1.default.compare(password, user.password);
         if (!isMatch) {
             res.status(401).json({ error: 'Invalid email or password' });
+            return;
+        }
+        // Enforce that only ngwanatuka@fivesway.xyz can log in as ADMIN
+        if (user.role === 'ADMIN' && user.email.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
+            res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
             return;
         }
         const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });

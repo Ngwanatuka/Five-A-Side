@@ -19,6 +19,8 @@ export interface AuthRequest extends Request {
     user?: AuthUser;
 }
 
+export const SOLE_ADMIN_EMAIL = 'ngwanatuka@fivesway.xyz';
+
 // Middleware to check if user is authenticated
 export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
@@ -28,6 +30,10 @@ export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunct
         if (token) {
             try {
                 const decoded = jwt.verify(token, JWT_SECRET) as unknown as AuthUser;
+                // Enforce that only ngwanatuka@fivesway.xyz can hold the ADMIN role
+                if (decoded.role === 'ADMIN' && decoded.email?.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+                    return res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
+                }
                 req.user = decoded;
                 return next();
             } catch (error) {
@@ -37,9 +43,14 @@ export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunct
     }
 
     const roleHeader = (req.headers['x-user-role'] as string || '').toUpperCase();
+    const emailHeader = (req.headers['x-user-email'] as string || '').toLowerCase();
     if (roleHeader && ['ADMIN', 'REFEREE', 'CAPTAIN'].includes(roleHeader)) {
+        if (roleHeader === 'ADMIN' && emailHeader !== SOLE_ADMIN_EMAIL) {
+            return res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
+        }
         req.user = {
             role: roleHeader as AppRole,
+            email: emailHeader || undefined,
             teamKey: req.headers['x-captain-team-key'] as string | undefined
         };
         return next();
@@ -56,6 +67,9 @@ export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunctio
         if (token) {
             try {
                 const decoded = jwt.verify(token, JWT_SECRET) as unknown as AuthUser;
+                if (decoded.role === 'ADMIN' && decoded.email?.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+                    decoded.role = 'SPECTATOR';
+                }
                 req.user = decoded;
                 return next();
             } catch {
@@ -64,9 +78,12 @@ export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunctio
         }
     }
     const roleHeader = (req.headers['x-user-role'] as string || '').toUpperCase();
+    const emailHeader = (req.headers['x-user-email'] as string || '').toLowerCase();
     if (roleHeader && ['ADMIN', 'REFEREE', 'CAPTAIN', 'SPECTATOR'].includes(roleHeader)) {
+        const finalRole = (roleHeader === 'ADMIN' && emailHeader !== SOLE_ADMIN_EMAIL) ? 'SPECTATOR' : roleHeader;
         req.user = {
-            role: roleHeader as AppRole,
+            role: finalRole as AppRole,
+            email: emailHeader || undefined,
             teamKey: req.headers['x-captain-team-key'] as string | undefined
         };
     }
@@ -84,6 +101,10 @@ export const authorizeRole = (allowedRoles: string[]) => {
             return res.status(403).json({ error: 'Forbidden: Insufficient permissions for this role' });
         }
 
+        if (req.user.role === 'ADMIN' && req.user.email?.toLowerCase() !== SOLE_ADMIN_EMAIL) {
+            return res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
+        }
+
         next();
     };
 };
@@ -97,9 +118,12 @@ export const canEditSquad = (req: AuthRequest, res: Response, next: NextFunction
         });
     }
 
-    // Admin has access to everything anytime
+    // Admin has access to everything anytime (only ngwanatuka@fivesway.xyz)
     if (req.user.role === 'ADMIN') {
-        return next();
+        if (req.user.email?.toLowerCase() === SOLE_ADMIN_EMAIL) {
+            return next();
+        }
+        return res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
     }
 
     // Captain check

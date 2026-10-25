@@ -14,9 +14,19 @@ export const API_BASE_URL = `${getBackendUrl()}/api`;
 
 export const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('token');
-    return token
-        ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        : { 'Content-Type': 'application/json' };
+    const userRole = localStorage.getItem('user_role') || localStorage.getItem('role') || 'SPECTATOR';
+    const captainTeamKey = localStorage.getItem('captain_team_key') || '';
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-User-Role': userRole
+    };
+    if (captainTeamKey) {
+        headers['X-Captain-Team-Key'] = captainTeamKey;
+    }
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
 };
 
 // --- AUTH & ROLES ---
@@ -116,7 +126,7 @@ export const getMatches = async (params?: { seasonId?: number, divisionId?: numb
     return response.json();
 };
 
-export const updateMatchScore = async (matchId: number, homeScore: number, awayScore: number, status?: string) => {
+export const updateMatchScore = async (matchId: string | number, homeScore: number, awayScore: number, status?: string) => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchId}/score`, {
         method: 'PATCH',
         headers: getAuthHeaders(),

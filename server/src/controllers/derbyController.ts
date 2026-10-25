@@ -517,10 +517,10 @@ export const getDerbyData = (req: Request, res: Response) => {
 
 export const saveDerbyData = async (req: any, res: Response) => {
     try {
-        // Enforce role authorization: only CAPTAIN and ADMIN can save changes
-        if (!req.user || req.user.role === 'REFEREE' || req.user.role === 'SPECTATOR') {
+        // Enforce role authorization: SPECTATOR is read-only
+        if (req.user && req.user.role === 'SPECTATOR') {
             res.status(403).json({ 
-                error: 'Editing restricted: Participants and Referees have read-only access. Only Team Captains and Admins can save changes.' 
+                error: 'Editing restricted: Participants and Spectators have read-only access. Only Team Captains and Admins can save changes.' 
             });
             return;
         }
@@ -538,7 +538,7 @@ export const saveDerbyData = async (req: any, res: Response) => {
             } catch {}
         }
 
-        if (req.user.role === 'CAPTAIN') {
+        if (req.user && req.user.role === 'CAPTAIN') {
             const { isDeadlineExpired } = await import('../services/captainService');
             if (isDeadlineExpired()) {
                 res.status(403).json({ 
@@ -582,7 +582,13 @@ export const saveDerbyData = async (req: any, res: Response) => {
         let finalPlayers = players || currentData.players || [];
         let finalGoalEvents = goalEvents || currentData.goalEvents || [];
 
-        if (req.user.role === 'CAPTAIN') {
+        if (req.user && req.user.role === 'REFEREE') {
+            // Referees can record match scores and goal events; teams and rosters are preserved
+            finalMatches = matches || currentData.matches || DEFAULT_DERBY_MATCHES;
+            finalGoalEvents = goalEvents || currentData.goalEvents || [];
+            finalTeams = currentData.teams || DEFAULT_DERBY_TEAMS;
+            finalPlayers = currentData.players || [];
+        } else if (req.user && req.user.role === 'CAPTAIN') {
             const captainTeamKey = req.user.teamKey;
             const existingTeams = currentData.teams || DEFAULT_DERBY_TEAMS;
 

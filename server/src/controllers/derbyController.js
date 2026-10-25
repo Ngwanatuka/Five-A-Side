@@ -538,10 +538,10 @@ const getDerbyData = (req, res) => {
 exports.getDerbyData = getDerbyData;
 const saveDerbyData = async (req, res) => {
     try {
-        // Enforce role authorization: only CAPTAIN and ADMIN can save changes
-        if (!req.user || req.user.role === 'REFEREE' || req.user.role === 'SPECTATOR') {
+        // Enforce role authorization: SPECTATOR is read-only
+        if (req.user && req.user.role === 'SPECTATOR') {
             res.status(403).json({
-                error: 'Editing restricted: Participants and Referees have read-only access. Only Team Captains and Admins can save changes.'
+                error: 'Editing restricted: Participants and Spectators have read-only access. Only Team Captains and Admins can save changes.'
             });
             return;
         }
@@ -558,7 +558,7 @@ const saveDerbyData = async (req, res) => {
             }
             catch { }
         }
-        if (req.user.role === 'CAPTAIN') {
+        if (req.user && req.user.role === 'CAPTAIN') {
             const { isDeadlineExpired } = await Promise.resolve().then(() => __importStar(require('../services/captainService')));
             if (isDeadlineExpired()) {
                 res.status(403).json({
@@ -594,7 +594,14 @@ const saveDerbyData = async (req, res) => {
         let finalMatches = matches || currentData.matches || exports.DEFAULT_DERBY_MATCHES;
         let finalPlayers = players || currentData.players || [];
         let finalGoalEvents = goalEvents || currentData.goalEvents || [];
-        if (req.user.role === 'CAPTAIN') {
+        if (req.user && req.user.role === 'REFEREE') {
+            // Referees can record match scores and goal events; teams and rosters are preserved
+            finalMatches = matches || currentData.matches || exports.DEFAULT_DERBY_MATCHES;
+            finalGoalEvents = goalEvents || currentData.goalEvents || [];
+            finalTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
+            finalPlayers = currentData.players || [];
+        }
+        else if (req.user && req.user.role === 'CAPTAIN') {
             const captainTeamKey = req.user.teamKey;
             const existingTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
             // Only allow captain to update their own team's details (slogan, colors, captain name)

@@ -468,14 +468,33 @@ export const DenchDerby = () => {
             try {
                 const data = await getDerbyData();
                 if (data && isMounted) {
-                    if (data.teams && Object.keys(data.teams).length > 0) {
-                        setTeams(data.teams);
+                    let localSavedTeams: any = null;
+                    let localSavedMatches: any = null;
+                    try {
+                        const rawTeams = localStorage.getItem('dench_derby_teams_v4');
+                        if (rawTeams) localSavedTeams = JSON.parse(rawTeams);
+                        const rawMatches = localStorage.getItem('dench_derby_matches_v4');
+                        if (rawMatches) localSavedMatches = JSON.parse(rawMatches);
+                    } catch {}
+
+                    // Combine remote teams with any local edits, prioritizing user's local edits if present
+                    const effectiveTeams = {
+                        ...(data.teams || {}),
+                        ...(localSavedTeams || {})
+                    };
+
+                    if (Object.keys(effectiveTeams).length > 0) {
+                        setTeams(effectiveTeams);
                     }
-                    if (data.matches && data.matches.length > 0) {
-                        setMatches(data.matches);
-                    }
+
+                    const effectiveMatches = (Array.isArray(localSavedMatches) && localSavedMatches.length > 0)
+                        ? localSavedMatches
+                        : (data.matches && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES);
+                    setMatches(effectiveMatches);
+
+                    let cleanPlayers: any[] = [];
                     if (Array.isArray(data.players)) {
-                        const cleanPlayers = data.players.filter((p: any) =>
+                        cleanPlayers = data.players.filter((p: any) =>
                             p && p.id &&
                             !p.id.startsWith('p-dench-') &&
                             !p.id.startsWith('p-cpt-') &&
@@ -488,6 +507,16 @@ export const DenchDerby = () => {
                     }
                     if (Array.isArray(data.goalEvents)) {
                         setGoalEvents(data.goalEvents);
+                    }
+
+                    // If local teams had custom names not yet on the server, sync them to backend so referee console gets them
+                    if (localSavedTeams && JSON.stringify(localSavedTeams) !== JSON.stringify(data.teams)) {
+                        saveDerbyData({
+                            teams: effectiveTeams,
+                            matches: effectiveMatches,
+                            players: cleanPlayers,
+                            goalEvents: data.goalEvents || []
+                        }).catch(() => {});
                     }
                 }
             } catch (e) {

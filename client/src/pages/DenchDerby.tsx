@@ -770,15 +770,15 @@ export const DenchDerby = () => {
     const groupB1st = standingsB[0]?.played > 0 ? standingsB[0] : null;
     const groupB2nd = standingsB[1]?.played > 0 ? standingsB[1] : null;
 
-    // SF 1: Group A (1st spot) vs Group B (2nd spot)
+    // SF 1: Group A (1st spot) vs Group B (2nd spot) (or referee override)
     const sf1Match = matches.find(m => m.id === 'sf-1');
-    const sf1HomeKey = groupA1st ? groupA1st.teamKey : null;
-    const sf1AwayKey = groupB2nd ? groupB2nd.teamKey : null;
+    const sf1HomeKey = sf1Match?.homeTeamKey || (groupA1st ? groupA1st.teamKey : null);
+    const sf1AwayKey = sf1Match?.awayTeamKey || (groupB2nd ? groupB2nd.teamKey : null);
 
-    // SF 2: Group A (2nd spot) vs Group B (1st spot)
+    // SF 2: Group A (2nd spot) vs Group B (1st spot) (or referee override)
     const sf2Match = matches.find(m => m.id === 'sf-2');
-    const sf2HomeKey = groupA2nd ? groupA2nd.teamKey : null;
-    const sf2AwayKey = groupB1st ? groupB1st.teamKey : null;
+    const sf2HomeKey = sf2Match?.homeTeamKey || (groupA2nd ? groupA2nd.teamKey : null);
+    const sf2AwayKey = sf2Match?.awayTeamKey || (groupB1st ? groupB1st.teamKey : null);
 
     // Determine SF winners & losers
     const getMatchOutcome = (match: TournamentMatch | undefined, homeKey: string | null, awayKey: string | null) => {
@@ -796,16 +796,16 @@ export const DenchDerby = () => {
     const sf1Outcome = getMatchOutcome(sf1Match, sf1HomeKey, sf1AwayKey);
     const sf2Outcome = getMatchOutcome(sf2Match, sf2HomeKey, sf2AwayKey);
 
-    // 3rd place match: Loser SF 1 vs Loser SF 2
+    // 3rd place match: Loser SF 1 vs Loser SF 2 (or referee override)
     const thirdMatch = matches.find(m => m.id === 'fn-3rd');
-    const thirdHomeKey = sf1Outcome.loserKey;
-    const thirdAwayKey = sf2Outcome.loserKey;
+    const thirdHomeKey = thirdMatch?.homeTeamKey || sf1Outcome.loserKey;
+    const thirdAwayKey = thirdMatch?.awayTeamKey || sf2Outcome.loserKey;
     const thirdOutcome = getMatchOutcome(thirdMatch, thirdHomeKey, thirdAwayKey);
 
-    // Final match (1st spot): Winner SF 1 vs Winner SF 2
+    // Final match (1st spot): Winner SF 1 vs Winner SF 2 (or referee override)
     const finalMatch = matches.find(m => m.id === 'fn-gold');
-    const finalHomeKey = sf1Outcome.winnerKey;
-    const finalAwayKey = sf2Outcome.winnerKey;
+    const finalHomeKey = finalMatch?.homeTeamKey || sf1Outcome.winnerKey;
+    const finalAwayKey = finalMatch?.awayTeamKey || sf2Outcome.winnerKey;
     const finalOutcome = getMatchOutcome(finalMatch, finalHomeKey, finalAwayKey);
 
     // Calculate individual player stats (Goals & Assists)

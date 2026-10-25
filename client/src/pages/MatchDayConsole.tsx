@@ -28,6 +28,15 @@ const DEFAULT_MATCH_STATE: MatchState = {
     matchEnded: false
 };
 
+const OFFICIAL_TEAMS_FALLBACK: Record<string, { name: string; group: 'A' | 'B' }> = {
+    'team-dench': { name: 'Dench City FC', group: 'A' },
+    'cpt-superstars': { name: 'BARCODE FC', group: 'A' },
+    'bras-ba-kasi': { name: 'GSW FC', group: 'A' },
+    'gauteng-warriors': { name: 'Mambisa FC', group: 'B' },
+    'woza-madzala': { name: 'Ayoba fc', group: 'B' },
+    'areyeng-fc': { name: 'Areyeng fc', group: 'B' },
+};
+
 export const MatchDayConsole = () => {
     const [matches, setMatches] = useState<any[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
@@ -115,6 +124,7 @@ export const MatchDayConsole = () => {
 
             // Effective tournament teams: remote first, then local browser storage takes highest priority
             const effectiveTeams: Record<string, any> = {
+                ...OFFICIAL_TEAMS_FALLBACK,
                 ...(derbyRemote?.teams || {}),
                 ...localTeams
             };
@@ -729,8 +739,8 @@ export const MatchDayConsole = () => {
                         {/* Match Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
-                                {selectedMatch.stageBadge && (
-                                    <div style={{ marginBottom: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                    {selectedMatch.stageBadge && (
                                         <span style={{
                                             fontSize: '0.75rem',
                                             fontWeight: 700,
@@ -743,8 +753,34 @@ export const MatchDayConsole = () => {
                                         }}>
                                             {selectedMatch.stageBadge}
                                         </span>
-                                    </div>
-                                )}
+                                    )}
+                                    {/* Referee override button for knockout matches */}
+                                    {(selectedMatch.stage !== 'group' || selectedMatch.id.startsWith('sf-') || selectedMatch.id.startsWith('fn-')) && (
+                                        <button
+                                            onClick={openKnockoutTeamPicker}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.35rem',
+                                                backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                                                border: '1px solid rgba(59, 130, 246, 0.45)',
+                                                color: '#60a5fa',
+                                                padding: '0.2rem 0.65rem',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.18)'}
+                                            title="Manually choose or override which teams advanced to this stage"
+                                        >
+                                            <Sliders size={13} />
+                                            Choose Advancing Teams
+                                        </button>
+                                    )}
+                                </div>
                                 <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
                                     {selectedMatch.homeTeam?.name} vs {selectedMatch.awayTeam?.name}
                                 </h3>
@@ -1129,6 +1165,189 @@ export const MatchDayConsole = () => {
                             >
                                 Cancel
                             </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Knockout Stage Advancing Teams Selector Modal */}
+                {isKnockoutPickerOpen && selectedMatch && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1rem'
+                    }}>
+                        <div className="glass-card animate-scale-up" style={{
+                            width: '100%',
+                            maxWidth: '520px',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+                            padding: '1.75rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.25rem'
+                        }}>
+                            {/* Modal Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#60a5fa'
+                                    }}>
+                                        <Sliders size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Choose Advancing Teams</h3>
+                                        <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600 }}>
+                                            {selectedMatch.stageBadge || 'Knockout Stage'} • Pitch {selectedMatch.pitchNumber}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsKnockoutPickerOpen(false)}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0.25rem' }}
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)', lineHeight: '1.4' }}>
+                                The referee can manually choose or change the two clubs advancing to this stage (e.g. following group stage deciders or penalty shootouts).
+                            </p>
+
+                            {/* Home Team Selector */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                                    Home Team
+                                </label>
+                                <select
+                                    value={selectedKnockoutHomeKey}
+                                    onChange={(e) => setSelectedKnockoutHomeKey(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: '#fff',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 600,
+                                        outline: 'none'
+                                    }}
+                                >
+                                    <option value="" disabled>-- Select Home Team --</option>
+                                    <optgroup label="Group A">
+                                        {Object.entries(availableTeamsMap)
+                                            .filter(([_, t]: any) => t?.group === 'A')
+                                            .map(([key, t]: any) => (
+                                                <option key={key} value={key}>{t?.name || key}</option>
+                                            ))}
+                                    </optgroup>
+                                    <optgroup label="Group B">
+                                        {Object.entries(availableTeamsMap)
+                                            .filter(([_, t]: any) => t?.group === 'B')
+                                            .map(([key, t]: any) => (
+                                                <option key={key} value={key}>{t?.name || key}</option>
+                                            ))}
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            {/* Away Team Selector */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                                    Away Team
+                                </label>
+                                <select
+                                    value={selectedKnockoutAwayKey}
+                                    onChange={(e) => setSelectedKnockoutAwayKey(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: '#fff',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 600,
+                                        outline: 'none'
+                                    }}
+                                >
+                                    <option value="" disabled>-- Select Away Team --</option>
+                                    <optgroup label="Group A">
+                                        {Object.entries(availableTeamsMap)
+                                            .filter(([_, t]: any) => t?.group === 'A')
+                                            .map(([key, t]: any) => (
+                                                <option key={key} value={key}>{t?.name || key}</option>
+                                            ))}
+                                    </optgroup>
+                                    <optgroup label="Group B">
+                                        {Object.entries(availableTeamsMap)
+                                            .filter(([_, t]: any) => t?.group === 'B')
+                                            .map(([key, t]: any) => (
+                                                <option key={key} value={key}>{t?.name || key}</option>
+                                            ))}
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            {/* Warning if same team selected */}
+                            {selectedKnockoutHomeKey && selectedKnockoutAwayKey && selectedKnockoutHomeKey === selectedKnockoutAwayKey && (
+                                <div style={{
+                                    padding: '0.6rem 0.8rem',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    color: '#f87171',
+                                    fontSize: '0.8rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem'
+                                }}>
+                                    ⚠️ Home and Away teams cannot be the same club.
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                <button
+                                    onClick={() => setIsKnockoutPickerOpen(false)}
+                                    className="btn btn-outline"
+                                    style={{ flex: 1, padding: '0.65rem', color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveKnockoutTeams}
+                                    disabled={!selectedKnockoutHomeKey || !selectedKnockoutAwayKey || selectedKnockoutHomeKey === selectedKnockoutAwayKey}
+                                    className="btn btn-primary"
+                                    style={{
+                                        flex: 2,
+                                        padding: '0.65rem',
+                                        fontWeight: 700,
+                                        opacity: (!selectedKnockoutHomeKey || !selectedKnockoutAwayKey || selectedKnockoutHomeKey === selectedKnockoutAwayKey) ? 0.5 : 1,
+                                        cursor: (!selectedKnockoutHomeKey || !selectedKnockoutAwayKey || selectedKnockoutHomeKey === selectedKnockoutAwayKey) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Confirm Advancing Teams
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

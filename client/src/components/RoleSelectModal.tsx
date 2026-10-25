@@ -766,7 +766,7 @@ export const RoleSelectModal: React.FC = () => {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    Team Dench (1111)
+                                    Dench City FC (1111)
                                 </button>
                                 <button
                                     type="button"
@@ -781,7 +781,7 @@ export const RoleSelectModal: React.FC = () => {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    CPT Superstars (2222)
+                                    BARCODE FC (2222)
                                 </button>
                                 <button
                                     type="button"
@@ -796,7 +796,52 @@ export const RoleSelectModal: React.FC = () => {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    Bras ba kasi (3333)
+                                    GSW FC (3333)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuickCaptainDemo('gauteng-warriors', '4444')}
+                                    style={{
+                                        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                                        border: '1px solid #8b5cf6',
+                                        color: '#c084fc',
+                                        borderRadius: 'var(--radius-sm)',
+                                        padding: '0.3rem 0.6rem',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Mambisa FC (4444)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuickCaptainDemo('woza-madzala', '5555')}
+                                    style={{
+                                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid #ef4444',
+                                        color: '#f87171',
+                                        borderRadius: 'var(--radius-sm)',
+                                        padding: '0.3rem 0.6rem',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Ayoba fc (5555)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuickCaptainDemo('areyeng-fc', '6666')}
+                                    style={{
+                                        backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                                        border: '1px solid #06b6d4',
+                                        color: '#22d3ee',
+                                        borderRadius: 'var(--radius-sm)',
+                                        padding: '0.3rem 0.6rem',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Areyeng fc (6666)
                                 </button>
                             </div>
                         </div>

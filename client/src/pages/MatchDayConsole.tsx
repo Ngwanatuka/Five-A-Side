@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
-import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X } from 'lucide-react';
+import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders } from 'lucide-react';
 
 const socket = io(getBackendUrl());
 
@@ -45,6 +45,12 @@ export const MatchDayConsole = () => {
     } | null>(null);
     const [customPlayerName, setCustomPlayerName] = useState('');
 
+    // Knockout team override picker states
+    const [isKnockoutPickerOpen, setIsKnockoutPickerOpen] = useState(false);
+    const [selectedKnockoutHomeKey, setSelectedKnockoutHomeKey] = useState('');
+    const [selectedKnockoutAwayKey, setSelectedKnockoutAwayKey] = useState('');
+    const [availableTeamsMap, setAvailableTeamsMap] = useState<Record<string, any>>({});
+
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -69,9 +75,30 @@ export const MatchDayConsole = () => {
             let localGoalEvents: any[] = [];
             try {
                 const savedTeams = localStorage.getItem('dench_derby_teams_v4');
-                if (savedTeams) localTeams = JSON.parse(savedTeams);
+                if (savedTeams) {
+                    localTeams = JSON.parse(savedTeams);
+                    if (localTeams['team-dench']?.name === 'Team Dench') localTeams['team-dench'].name = 'Dench City FC';
+                    if (localTeams['cpt-superstars']?.name === 'CPT superstars fc') localTeams['cpt-superstars'].name = 'BARCODE FC';
+                    if (localTeams['bras-ba-kasi']?.name === 'Bras ba kasi') localTeams['bras-ba-kasi'].name = 'GSW FC';
+                    if (localTeams['gauteng-warriors']?.name === 'Gauteng state warriors') localTeams['gauteng-warriors'].name = 'Mambisa FC';
+                    if (localTeams['woza-madzala']?.name === 'Woza madzala fc') localTeams['woza-madzala'].name = 'Ayoba fc';
+                }
                 const savedMatches = localStorage.getItem('dench_derby_matches_v4');
-                if (savedMatches) localMatches = JSON.parse(savedMatches);
+                if (savedMatches) {
+                    localMatches = JSON.parse(savedMatches);
+                    localMatches.forEach((m: any) => {
+                        if (m.homePlaceholder === 'Team Dench') m.homePlaceholder = 'Dench City FC';
+                        if (m.awayPlaceholder === 'CPT superstars fc') m.awayPlaceholder = 'BARCODE FC';
+                        if (m.homePlaceholder === 'CPT superstars fc') m.homePlaceholder = 'BARCODE FC';
+                        if (m.awayPlaceholder === 'Bras ba kasi') m.awayPlaceholder = 'GSW FC';
+                        if (m.homePlaceholder === 'Bras ba kasi') m.homePlaceholder = 'GSW FC';
+                        if (m.awayPlaceholder === 'Team Dench') m.awayPlaceholder = 'Dench City FC';
+                        if (m.homePlaceholder === 'Gauteng state warriors') m.homePlaceholder = 'Mambisa FC';
+                        if (m.awayPlaceholder === 'Woza madzala fc') m.awayPlaceholder = 'Ayoba fc';
+                        if (m.homePlaceholder === 'Woza madzala fc') m.homePlaceholder = 'Ayoba fc';
+                        if (m.awayPlaceholder === 'Gauteng state warriors') m.awayPlaceholder = 'Mambisa FC';
+                    });
+                }
                 const savedPlayers = localStorage.getItem('dench_derby_players_v4');
                 if (savedPlayers) localPlayers = JSON.parse(savedPlayers);
                 const savedGoalEvents = localStorage.getItem('dench_derby_events_v4');
@@ -97,6 +124,7 @@ export const MatchDayConsole = () => {
 
             setTournamentPlayers(effectivePlayers);
             setGoalEvents(effectiveGoalEvents);
+            setAvailableTeamsMap(effectiveTeams);
 
             // Helper to get latest edited name for any team
             const getTeamName = (teamKey?: string | null, placeholder?: string, fallback?: string): string => {
@@ -516,6 +544,46 @@ export const MatchDayConsole = () => {
             localStorage.removeItem('active_match_id');
         }
         setSelectedMatch(null);
+    };
+
+    const openKnockoutTeamPicker = () => {
+        if (!selectedMatch) return;
+        setSelectedKnockoutHomeKey(selectedMatch.homeTeamKey || '');
+        setSelectedKnockoutAwayKey(selectedMatch.awayTeamKey || '');
+        setIsKnockoutPickerOpen(true);
+    };
+
+    const handleSaveKnockoutTeams = async () => {
+        if (!selectedMatch) return;
+
+        const updatedMatches = matches.map(m => {
+            if (m.id.toString() === selectedMatch.id.toString()) {
+                const homeName = availableTeamsMap[selectedKnockoutHomeKey]?.name || m.homeTeam?.name;
+                const awayName = availableTeamsMap[selectedKnockoutAwayKey]?.name || m.awayTeam?.name;
+                return {
+                    ...m,
+                    homeTeamKey: selectedKnockoutHomeKey,
+                    awayTeamKey: selectedKnockoutAwayKey,
+                    homeTeam: { id: selectedKnockoutHomeKey, name: homeName },
+                    awayTeam: { id: selectedKnockoutAwayKey, name: awayName }
+                };
+            }
+            return m;
+        });
+
+        setMatches(updatedMatches);
+
+        const refreshed = updatedMatches.find(m => m.id.toString() === selectedMatch.id.toString());
+        if (refreshed) setSelectedMatch(refreshed);
+
+        try {
+            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(updatedMatches));
+            await saveDerbyData({ matches: updatedMatches });
+        } catch (e) {
+            console.error("Failed to save knockout teams", e);
+        }
+
+        setIsKnockoutPickerOpen(false);
     };
 
     // Formatters

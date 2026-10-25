@@ -95,58 +95,58 @@ export type GroupStanding = {
 export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
     'team-dench': {
         id: 'team-dench',
-        name: 'Team Dench',
+        name: 'Dench City FC',
         group: 'A',
         color: '#12b84c',
         secondaryColor: '#0ea141',
         city: 'Dench Grounds',
-        slogan: 'Relentless Pace, Pure Passion',
+        slogan: 'The Pride of Dench City',
         founded: '2023',
-        captain: ''
+        captain: 'Bafana Sithole'
     },
     'cpt-superstars': {
         id: 'cpt-superstars',
-        name: 'CPT superstars fc',
+        name: 'BARCODE FC',
         group: 'A',
         color: '#3b82f6',
         secondaryColor: '#1d4ed8',
         city: 'Cape Town',
-        slogan: 'Mother City Maestros',
+        slogan: 'Scanning The Field, Striking With Precision',
         founded: '2022',
-        captain: ''
+        captain: 'Mo Hendricks'
     },
     'bras-ba-kasi': {
         id: 'bras-ba-kasi',
-        name: 'Bras ba kasi',
+        name: 'GSW FC',
         group: 'A',
         color: '#f59e0b',
         secondaryColor: '#d97706',
-        city: 'Kasi Local',
-        slogan: 'Flavour, Flair & Brotherhood',
+        city: 'Gauteng',
+        slogan: 'Golden State Warriors on Pitch',
         founded: '2021',
-        captain: ''
+        captain: 'Thabo Dlamini'
     },
     'gauteng-warriors': {
         id: 'gauteng-warriors',
-        name: 'Gauteng state warriors',
+        name: 'Mambisa FC',
         group: 'B',
         color: '#8b5cf6',
         secondaryColor: '#6d28d9',
-        city: 'Gauteng',
-        slogan: 'The Golden Province Titans',
+        city: 'Mambisa',
+        slogan: 'Royal Purple, Pure Football Flair',
         founded: '2022',
-        captain: ''
+        captain: 'Sipho Zulu'
     },
     'woza-madzala': {
         id: 'woza-madzala',
-        name: 'Woza madzala fc',
+        name: 'Ayoba fc',
         group: 'B',
         color: '#ef4444',
         secondaryColor: '#b91c1c',
         city: 'Ekurhuleni',
-        slogan: 'Wisdom, Power & Tactical Fire',
+        slogan: 'Ayoba! Pure Kasi Magic & Speed',
         founded: '2020',
-        captain: ''
+        captain: 'Mandla Nkosi'
     },
     'areyeng-fc': {
         id: 'areyeng-fc',
@@ -157,7 +157,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         city: 'Tshwane',
         slogan: 'Forward Together, Never Back',
         founded: '2024',
-        captain: ''
+        captain: 'Kagiso Molefe'
     }
 };
 
@@ -174,8 +174,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         matchOrder: 1,
         homeTeamKey: 'team-dench',
         awayTeamKey: 'cpt-superstars',
-        homePlaceholder: 'Team Dench',
-        awayPlaceholder: 'CPT superstars fc',
+        homePlaceholder: 'Dench City FC',
+        awayPlaceholder: 'BARCODE FC',
         time: '18:30',
         pitch: 1,
         homeScore: null,
@@ -190,8 +190,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         matchOrder: 3,
         homeTeamKey: 'cpt-superstars',
         awayTeamKey: 'bras-ba-kasi',
-        homePlaceholder: 'CPT superstars fc',
-        awayPlaceholder: 'Bras ba kasi',
+        homePlaceholder: 'BARCODE FC',
+        awayPlaceholder: 'GSW FC',
         time: '19:05',
         pitch: 1,
         homeScore: null,
@@ -206,8 +206,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         matchOrder: 5,
         homeTeamKey: 'bras-ba-kasi',
         awayTeamKey: 'team-dench',
-        homePlaceholder: 'Bras ba kasi',
-        awayPlaceholder: 'Team Dench',
+        homePlaceholder: 'GSW FC',
+        awayPlaceholder: 'Dench City FC',
         time: '19:40',
         pitch: 1,
         homeScore: null,
@@ -224,8 +224,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         matchOrder: 2,
         homeTeamKey: 'gauteng-warriors',
         awayTeamKey: 'woza-madzala',
-        homePlaceholder: 'Gauteng state warriors',
-        awayPlaceholder: 'Woza madzala fc',
+        homePlaceholder: 'Mambisa FC',
+        awayPlaceholder: 'Ayoba fc',
         time: '18:30',
         pitch: 2,
         homeScore: null,
@@ -240,7 +240,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         matchOrder: 4,
         homeTeamKey: 'woza-madzala',
         awayTeamKey: 'areyeng-fc',
-        homePlaceholder: 'Woza madzala fc',
+        homePlaceholder: 'Ayoba fc',
         awayPlaceholder: 'Areyeng fc',
         time: '19:05',
         pitch: 2,
@@ -257,7 +257,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         homeTeamKey: 'areyeng-fc',
         awayTeamKey: 'gauteng-warriors',
         homePlaceholder: 'Areyeng fc',
-        awayPlaceholder: 'Gauteng state warriors',
+        awayPlaceholder: 'Mambisa FC',
         time: '19:40',
         pitch: 2,
         homeScore: null,
@@ -366,7 +366,19 @@ export const DenchDerby = () => {
     const [teams, setTeams] = useState<Record<string, TeamInfo>>(() => {
         try {
             const saved = localStorage.getItem('dench_derby_teams_v4');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                let changed = false;
+                if (parsed['team-dench']?.name === 'Team Dench') { parsed['team-dench'].name = 'Dench City FC'; changed = true; }
+                if (parsed['cpt-superstars']?.name === 'CPT superstars fc') { parsed['cpt-superstars'].name = 'BARCODE FC'; changed = true; }
+                if (parsed['bras-ba-kasi']?.name === 'Bras ba kasi') { parsed['bras-ba-kasi'].name = 'GSW FC'; changed = true; }
+                if (parsed['gauteng-warriors']?.name === 'Gauteng state warriors') { parsed['gauteng-warriors'].name = 'Mambisa FC'; changed = true; }
+                if (parsed['woza-madzala']?.name === 'Woza madzala fc') { parsed['woza-madzala'].name = 'Ayoba fc'; changed = true; }
+                if (changed) {
+                    localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
+                }
+                return parsed;
+            }
         } catch {
             // fallback
         }
@@ -377,7 +389,26 @@ export const DenchDerby = () => {
     const [matches, setMatches] = useState<TournamentMatch[]>(() => {
         try {
             const saved = localStorage.getItem('dench_derby_matches_v4');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                let changed = false;
+                parsed.forEach((m: any) => {
+                    if (m.homePlaceholder === 'Team Dench') { m.homePlaceholder = 'Dench City FC'; changed = true; }
+                    if (m.awayPlaceholder === 'CPT superstars fc') { m.awayPlaceholder = 'BARCODE FC'; changed = true; }
+                    if (m.homePlaceholder === 'CPT superstars fc') { m.homePlaceholder = 'BARCODE FC'; changed = true; }
+                    if (m.awayPlaceholder === 'Bras ba kasi') { m.awayPlaceholder = 'GSW FC'; changed = true; }
+                    if (m.homePlaceholder === 'Bras ba kasi') { m.homePlaceholder = 'GSW FC'; changed = true; }
+                    if (m.awayPlaceholder === 'Team Dench') { m.awayPlaceholder = 'Dench City FC'; changed = true; }
+                    if (m.homePlaceholder === 'Gauteng state warriors') { m.homePlaceholder = 'Mambisa FC'; changed = true; }
+                    if (m.awayPlaceholder === 'Woza madzala fc') { m.awayPlaceholder = 'Ayoba fc'; changed = true; }
+                    if (m.homePlaceholder === 'Woza madzala fc') { m.homePlaceholder = 'Ayoba fc'; changed = true; }
+                    if (m.awayPlaceholder === 'Gauteng state warriors') { m.awayPlaceholder = 'Mambisa FC'; changed = true; }
+                });
+                if (changed) {
+                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
+                }
+                return parsed;
+            }
         } catch {
             // fallback
         }

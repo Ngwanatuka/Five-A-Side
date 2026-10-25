@@ -41,6 +41,9 @@ export const RoleSelectModal: React.FC = () => {
 
     useEffect(() => {
         if (isRoleModalOpen) {
+            const originalOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+
             getPublicCaptains()
                 .then(list => {
                     if (Array.isArray(list) && list.length > 0) {
@@ -49,6 +52,10 @@ export const RoleSelectModal: React.FC = () => {
                     }
                 })
                 .catch(() => {});
+
+            return () => {
+                document.body.style.overflow = originalOverflow;
+            };
         }
     }, [isRoleModalOpen]);
 
@@ -178,40 +185,58 @@ export const RoleSelectModal: React.FC = () => {
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
-            overflowY: 'auto'
-        }}>
+        <div 
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    closeRoleModal();
+                }
+            }}
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                minHeight: '100vh',
+                height: '100dvh',
+                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 'clamp(0.5rem, 2.5vw, 1.25rem)',
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehavior: 'contain',
+                touchAction: 'pan-y'
+            }}
+        >
             <div style={{
                 backgroundColor: '#0d1117',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '1.25rem',
                 width: '100%',
                 maxWidth: view === 'choose' ? '860px' : '520px',
-                padding: '2rem',
+                maxHeight: 'min(92vh, 92dvh)',
                 boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)',
                 position: 'relative',
                 animation: 'fadeIn 0.25s ease-out',
-                color: 'white'
+                color: 'white',
+                display: 'flex',
+                flexDirection: 'column',
+                margin: 'auto',
+                overflow: 'hidden'
             }}>
                 {/* Close Button (if role already set) */}
                 <button
                     onClick={closeRoleModal}
                     style={{
                         position: 'absolute',
-                        top: '1.25rem',
-                        right: '1.25rem',
+                        top: '1rem',
+                        right: '1rem',
                         background: 'rgba(255, 255, 255, 0.08)',
                         border: 'none',
                         color: 'var(--color-text-muted)',
@@ -221,47 +246,61 @@ export const RoleSelectModal: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.2s',
+                        zIndex: 20
                     }}
                     title="Close"
                 >
                     <X size={18} />
                 </button>
 
-                {/* VIEW 1: ROLE SELECTION (SIMPLE & CHILD FRIENDLY) */}
-                {view === 'choose' && (
-                    <div>
-                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                            <div style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                                border: '1px solid rgba(34, 197, 94, 0.3)',
-                                padding: '0.35rem 0.85rem',
-                                borderRadius: '999px',
-                                fontSize: '0.85rem',
-                                color: 'var(--color-primary)',
-                                fontWeight: 600,
-                                marginBottom: '0.75rem'
-                            }}>
-                                <Sparkles size={14} /> 5-A-Side Soccer Platform
+                {/* SCROLLABLE INNER BODY FOR PHONES & DESKTOPS */}
+                <div 
+                    className="role-modal-scroll"
+                    style={{
+                        padding: 'clamp(1rem, 3.5vw, 2.25rem)',
+                        overflowY: 'auto',
+                        WebkitOverflowScrolling: 'touch',
+                        overscrollBehavior: 'contain',
+                        touchAction: 'pan-y',
+                        flex: 1,
+                        width: '100%'
+                    }}
+                >
+                    {/* VIEW 1: ROLE SELECTION (SIMPLE & CHILD FRIENDLY) */}
+                    {view === 'choose' && (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: '1.5rem', paddingRight: '1.5rem' }}>
+                                <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    padding: '0.35rem 0.85rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.85rem',
+                                    color: 'var(--color-primary)',
+                                    fontWeight: 600,
+                                    marginBottom: '0.5rem'
+                                }}>
+                                    <Sparkles size={14} /> 5-A-Side Soccer Platform
+                                </div>
+                                <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: 800, margin: '0 0 0.35rem 0', color: 'white' }}>
+                                    Who Are You? ⚽
+                                </h2>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: 'clamp(0.85rem, 2.5vw, 0.95rem)', margin: 0 }}>
+                                    Pick your role to get started. Even a child can navigate with ease!
+                                </p>
                             </div>
-                            <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: 'white' }}>
-                                Who Are You? ⚽
-                            </h2>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem', margin: 0 }}>
-                                Pick your role to get started. Even a child can navigate with ease!
-                            </p>
-                        </div>
 
-                        {/* 4 Big Role Cards Grid */}
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                            gap: '1.25rem',
-                            marginBottom: '1.5rem'
-                        }}>
+                            {/* 4 Big Role Cards Grid */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '1rem',
+                                marginBottom: '1.25rem'
+                            }}>
                             {/* CARD 1: PARTICIPANT / PLAYER */}
                             <div
                                 onClick={() => {
@@ -272,13 +311,15 @@ export const RoleSelectModal: React.FC = () => {
                                     backgroundColor: 'rgba(34, 197, 94, 0.06)',
                                     border: '2px solid rgba(34, 197, 94, 0.3)',
                                     borderRadius: '1rem',
-                                    padding: '1.5rem',
+                                    padding: 'clamp(1rem, 2.5vw, 1.4rem)',
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s, border-color 0.2s, background-color 0.2s',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
-                                    textAlign: 'left'
+                                    textAlign: 'left',
+                                    touchAction: 'pan-y',
+                                    WebkitTapHighlightColor: 'transparent'
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -338,13 +379,15 @@ export const RoleSelectModal: React.FC = () => {
                                     backgroundColor: 'rgba(245, 158, 11, 0.06)',
                                     border: '2px solid rgba(245, 158, 11, 0.35)',
                                     borderRadius: '1rem',
-                                    padding: '1.5rem',
+                                    padding: 'clamp(1rem, 2.5vw, 1.4rem)',
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s, border-color 0.2s, background-color 0.2s',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
-                                    textAlign: 'left'
+                                    textAlign: 'left',
+                                    touchAction: 'pan-y',
+                                    WebkitTapHighlightColor: 'transparent'
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -416,13 +459,15 @@ export const RoleSelectModal: React.FC = () => {
                                     backgroundColor: 'rgba(6, 182, 212, 0.06)',
                                     border: '2px solid rgba(6, 182, 212, 0.35)',
                                     borderRadius: '1rem',
-                                    padding: '1.5rem',
+                                    padding: 'clamp(1rem, 2.5vw, 1.4rem)',
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s, border-color 0.2s, background-color 0.2s',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
-                                    textAlign: 'left'
+                                    textAlign: 'left',
+                                    touchAction: 'pan-y',
+                                    WebkitTapHighlightColor: 'transparent'
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -489,13 +534,15 @@ export const RoleSelectModal: React.FC = () => {
                                     backgroundColor: 'rgba(168, 85, 247, 0.06)',
                                     border: '2px solid rgba(168, 85, 247, 0.35)',
                                     borderRadius: '1rem',
-                                    padding: '1.5rem',
+                                    padding: 'clamp(1rem, 2.5vw, 1.4rem)',
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s, border-color 0.2s, background-color 0.2s',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
-                                    textAlign: 'left'
+                                    textAlign: 'left',
+                                    touchAction: 'pan-y',
+                                    WebkitTapHighlightColor: 'transparent'
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -1007,6 +1054,7 @@ export const RoleSelectModal: React.FC = () => {
                         </div>
                     </div>
                 )}
+                </div>
             </div>
         </div>
     );

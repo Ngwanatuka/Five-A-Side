@@ -725,3 +725,30 @@ tbody tr:last-child td {
   border-color: var(--color-primary);
 }
 
+/* Role Modal Scrollbar & Smooth Touch */
+.role-modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.role-modal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.role-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.role-modal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.role-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+

@@ -618,6 +618,11 @@ const saveDerbyData = async (req, res) => {
             // Goal events cannot be altered by Captains
             finalGoalEvents = currentData.goalEvents || [];
         }
+        else if (!req.user || req.user.role !== 'ADMIN') {
+            // Spectators / unauthenticated clients cannot overwrite matches or goal events
+            finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
+            finalGoalEvents = currentData.goalEvents || [];
+        }
         const payload = {
             teams: finalTeams,
             matches: finalMatches,
@@ -648,6 +653,11 @@ const saveDerbyData = async (req, res) => {
 exports.saveDerbyData = saveDerbyData;
 const resetDerbyData = async (req, res) => {
     try {
+        const authUser = req.user;
+        if (!authUser || authUser.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Forbidden: Only an Administrator can reset tournament matches and scores.' });
+            return;
+        }
         let currentTeams = exports.DEFAULT_DERBY_TEAMS;
         let currentPlayers = [];
         if (fs_1.default.existsSync(exports.DATA_FILE)) {
@@ -674,6 +684,18 @@ const resetDerbyData = async (req, res) => {
         syncToPrismaDatabase(currentTeams, exports.DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
             console.error('Async DB sync notice on reset:', err);
         });
+        // Also reset matches in prisma database if reachable
+        try {
+            await prisma_1.default.match.updateMany({
+                where: { seasonId: 1 },
+                data: {
+                    homeScore: null,
+                    awayScore: null,
+                    status: 'UPCOMING'
+                }
+            });
+        }
+        catch { }
         const io = req.app.get('io');
         if (io) {
             io.emit('derbyReset', payload);

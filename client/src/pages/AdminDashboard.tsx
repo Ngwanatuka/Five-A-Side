@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Lock, LogOut, ChevronDown, Users, BadgeCheck, XCircle, Key, Clock, Save, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-import { getAllFinances, getMatches, updateMatchScore, login as apiLogin, getAdminCaptains, updateCaptainAdmin, updateDeadlineAdmin } from '../services/api';
+import { Shield, Lock, LogOut, ChevronDown, Users, BadgeCheck, XCircle, Key, Clock, Save, CheckCircle2, AlertCircle, RefreshCw, RotateCcw } from 'lucide-react';
+import { getAllFinances, getMatches, updateMatchScore, login as apiLogin, getAdminCaptains, updateCaptainAdmin, updateDeadlineAdmin, resetDerbyData } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 export const AdminDashboard = () => {
@@ -21,6 +21,26 @@ export const AdminDashboard = () => {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
+    const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+
+    const handleResetAllScores = async () => {
+        if (!window.confirm('⚠️ WARNING: This will reset all match scores, goals, and results back to scheduled (0-0) across all devices. Official teams and rosters will be preserved. Proceed?')) {
+            return;
+        }
+        setResetLoading(true);
+        setResetSuccessMsg('');
+        try {
+            await resetDerbyData();
+            setResetSuccessMsg('Tournament scores and match states have been successfully reset across all devices.');
+            fetchAdminData();
+            setTimeout(() => setResetSuccessMsg(''), 5000);
+        } catch (err: any) {
+            alert(err.message || 'Failed to reset tournament scores. Only Administrators have permission.');
+        } finally {
+            setResetLoading(false);
+        }
+    };
 
     // Score update form state
     const [selectedMatchId, setSelectedMatchId] = useState('');
@@ -812,11 +832,39 @@ export const AdminDashboard = () => {
 
                 {/* Tab: MATCH STATUS */}
                 {activeTab === 'Match Status' && (
-                    <div className="glass-card" style={{ padding: '2rem' }}>
-                        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Match Status Controls</h2>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                            Control scheduled matches, kick-off statuses, and post-game reviews.
-                        </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="glass-card" style={{ padding: '2rem' }}>
+                            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Match Status Controls</h2>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                Control scheduled matches, kick-off statuses, and post-game reviews.
+                            </p>
+                        </div>
+
+                        <div className="glass-card" style={{ padding: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                            <div className="flex-between" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: resetSuccessMsg ? '1rem' : 0 }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1.1rem', color: '#ef4444', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <RotateCcw size={18} /> Reset All Tournament Scores
+                                    </h3>
+                                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                                        Purge all goals, completed scores, and live match timers across all connected devices. All 10 fixtures return to Scheduled status.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleResetAllScores}
+                                    disabled={resetLoading}
+                                    className="btn btn-secondary"
+                                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444', cursor: resetLoading ? 'not-allowed' : 'pointer' }}
+                                >
+                                    <RotateCcw size={16} /> {resetLoading ? 'Resetting...' : 'Reset Match Scores'}
+                                </button>
+                            </div>
+                            {resetSuccessMsg && (
+                                <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <CheckCircle2 size={16} /> {resetSuccessMsg}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

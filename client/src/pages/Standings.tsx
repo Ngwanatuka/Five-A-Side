@@ -42,10 +42,15 @@ export const Standings = () => {
             fetchStandingsAndFixtures();
         });
 
+        socket.on('derbyReset', () => {
+            fetchStandingsAndFixtures();
+        });
+
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
             socket.off('derbyUpdate');
+            socket.off('derbyReset');
         };
     }, []);
 

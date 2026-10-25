@@ -172,6 +172,7 @@ export const MatchDayConsole = () => {
                 try {
                     localStorage.setItem('dench_derby_matches_v4', JSON.stringify(serverMatches));
                     localStorage.removeItem('dench_derby_events_v4');
+                    localStorage.removeItem('active_match_id');
                     for (let i = localStorage.length - 1; i >= 0; i--) {
                         const key = localStorage.key(i);
                         if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
@@ -179,6 +180,9 @@ export const MatchDayConsole = () => {
                         }
                     }
                 } catch {}
+                activeMatchIdRef.current = null;
+                setSelectedMatch(null);
+                setMatchState(DEFAULT_MATCH_STATE);
             }
 
             const rawTournamentMatches = serverMatches.length > 0
@@ -314,6 +318,9 @@ export const MatchDayConsole = () => {
                 const activeMatch = combinedMatches.find((m: any) => m.id.toString() === savedMatchId);
                 if (activeMatch) {
                     setSelectedMatch((prev: any) => {
+                        if (activeMatch.status === 'SCHEDULED' || activeMatch.status === 'UPCOMING' || (activeMatch.homeScore === 0 && activeMatch.awayScore === 0)) {
+                            return activeMatch;
+                        }
                         if (prev && prev.id.toString() === savedMatchId) {
                             return {
                                 ...activeMatch,
@@ -328,12 +335,17 @@ export const MatchDayConsole = () => {
             } else if (selectedMatch) {
                 const refreshed = combinedMatches.find((m: any) => m.id.toString() === selectedMatch.id.toString());
                 if (refreshed) {
-                    setSelectedMatch((prev: any) => ({
-                        ...refreshed,
-                        homeScore: prev?.homeScore ?? refreshed.homeScore,
-                        awayScore: prev?.awayScore ?? refreshed.awayScore,
-                        status: prev?.status ?? refreshed.status
-                    }));
+                    setSelectedMatch((prev: any) => {
+                        if (refreshed.status === 'SCHEDULED' || refreshed.status === 'UPCOMING' || (refreshed.homeScore === 0 && refreshed.awayScore === 0)) {
+                            return refreshed;
+                        }
+                        return {
+                            ...refreshed,
+                            homeScore: prev?.homeScore ?? refreshed.homeScore,
+                            awayScore: prev?.awayScore ?? refreshed.awayScore,
+                            status: prev?.status ?? refreshed.status
+                        };
+                    });
                 }
             }
         } catch (error) {
@@ -366,6 +378,7 @@ export const MatchDayConsole = () => {
             try {
                 localStorage.removeItem('active_match_id');
                 localStorage.removeItem('dench_derby_events_v4');
+                localStorage.removeItem('dench_derby_matches_v4');
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const key = localStorage.key(i);
                     if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
@@ -373,7 +386,10 @@ export const MatchDayConsole = () => {
                     }
                 }
             } catch {}
+            activeMatchIdRef.current = null;
+            setSelectedMatch(null);
             setMatchState(DEFAULT_MATCH_STATE);
+            setGoalEvents([]);
             fetchFixtures();
         };
 

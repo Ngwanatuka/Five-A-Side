@@ -55,10 +55,15 @@ export const Fixtures = () => {
             fetchFixtures();
         });
 
+        socket.on('derbyReset', () => {
+            fetchFixtures();
+        });
+
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
             socket.off('derbyUpdate');
+            socket.off('derbyReset');
         };
     }, []);
 

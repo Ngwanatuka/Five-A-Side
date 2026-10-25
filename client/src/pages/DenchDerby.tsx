@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '../components/Navbar';
 import { 
     Trophy, 
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { getDerbyData, saveDerbyData, getBackendUrl } from '../services/api';
+import { getDerbyData, saveDerbyData, resetDerbyData, getBackendUrl } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
@@ -464,8 +464,6 @@ export const DenchDerby = () => {
         return [];
     });
 
-    const initialLoadRef = useRef(true);
-
     // Helper for direct, instant persistence across local storage, REST, and DB
     const persistTournamentData = (
         newTeams: Record<string, TeamInfo>,
@@ -677,7 +675,7 @@ export const DenchDerby = () => {
     // Notification / Share
     const [copied, setCopied] = useState(false);
 
-    // Secondary save safety debounce
+    // Secondary save safety: keep local storage updated
     useEffect(() => {
         try {
             localStorage.setItem('dench_derby_teams_v4', JSON.stringify(teams));
@@ -687,19 +685,6 @@ export const DenchDerby = () => {
         } catch (e) {
             console.error('Failed to save to localStorage', e);
         }
-
-        if (initialLoadRef.current) {
-            initialLoadRef.current = false;
-            return;
-        }
-
-        const timeout = setTimeout(() => {
-            saveDerbyData({ teams, matches, players, goalEvents }).catch(err => {
-                console.error('Failed to sync derby data to backend:', err);
-            });
-        }, 500);
-
-        return () => clearTimeout(timeout);
     }, [teams, matches, players, goalEvents]);
 
     // Countdown Timer calculation to 28 October 2026 18:30:00 SAST
@@ -1458,6 +1443,11 @@ export const DenchDerby = () => {
     };
 
     const handleSimulateTournament = () => {
+        if (role !== 'ADMIN') {
+            alert('Access Denied: Only an Administrator can simulate tournament scores.');
+            return;
+        }
+
         const updatedMatches = matches.map(m => {
             const sim = SIMULATED_SCORES[m.id];
             if (sim) {
@@ -1475,10 +1465,37 @@ export const DenchDerby = () => {
         persistTournamentData(teams, updatedMatches, players, []);
     };
 
-    const handleResetTournament = () => {
-        setMatches(DEFAULT_MATCHES);
-        setGoalEvents([]);
-        persistTournamentData(teams, DEFAULT_MATCHES, players, []);
+    const handleResetTournament = async () => {
+        if (role !== 'ADMIN') {
+            alert('Access Denied: Only an Administrator can reset tournament matches and scores.');
+            return;
+        }
+
+        if (!window.confirm('Are you sure you want to reset all matches, scores, and goal records? All fixtures will return to scheduled status with zero scores across all devices.')) {
+            return;
+        }
+
+        try {
+            const res = await resetDerbyData();
+            const resetMatches = res?.payload?.matches || DEFAULT_MATCHES;
+            setMatches(resetMatches);
+            setGoalEvents([]);
+
+            try {
+                localStorage.setItem('dench_derby_matches_v4', JSON.stringify(resetMatches));
+                localStorage.removeItem('dench_derby_events_v4');
+                localStorage.removeItem('active_match_id');
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith('match_state_') || key === 'active_match_id')) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            } catch {}
+        } catch (err: any) {
+            console.error('Failed to reset tournament:', err);
+            alert(err.message || 'Failed to reset tournament. Make sure you are logged in as an Administrator.');
+        }
     };
 
     const handleShare = () => {
@@ -2510,14 +2527,16 @@ export const DenchDerby = () => {
                                     Click <strong>"Log Goals & Assists"</strong> on any match to record who scored and assisted!
                                 </p>
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button onClick={handleSimulateTournament} className="btn btn-sm btn-primary">
-                                    <Sparkles size={14} /> Simulate Sample Results
-                                </button>
-                                <button onClick={handleResetTournament} className="btn btn-sm btn-secondary">
-                                    <RotateCcw size={14} /> Clear Scores
-                                </button>
-                            </div>
+                            {role === 'ADMIN' && (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={handleSimulateTournament} className="btn btn-sm btn-primary">
+                                        <Sparkles size={14} /> Simulate Sample Results
+                                    </button>
+                                    <button onClick={handleResetTournament} className="btn btn-sm btn-secondary">
+                                        <RotateCcw size={14} /> Clear Scores
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Schedule List */}

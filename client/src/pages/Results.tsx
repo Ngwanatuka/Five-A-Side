@@ -47,10 +47,12 @@ export const Results = () => {
 
         socket.on('scoreUpdate', () => { fetchResults(); });
         socket.on('derbyUpdate', () => { fetchResults(); });
+        socket.on('derbyReset', () => { fetchResults(); });
 
         return () => {
             socket.off('scoreUpdate');
             socket.off('derbyUpdate');
+            socket.off('derbyReset');
         };
     }, []);
 

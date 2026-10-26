@@ -8,8 +8,8 @@ const prisma_1 = __importDefault(require("./prisma"));
 const derbyController_1 = require("./controllers/derbyController");
 const PORT = process.env.PORT || 5000;
 async function bootstrap() {
-    app_1.httpServer.listen(PORT, () => {
-        console.log(`Server is running with WebSockets on port ${PORT}`);
+    app_1.httpServer.listen(Number(PORT), '0.0.0.0', () => {
+        console.log(`Server is running with WebSockets on http://0.0.0.0:${PORT}`);
     });
     try {
         await prisma_1.default.season.upsert({

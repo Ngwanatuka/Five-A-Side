@@ -9,9 +9,9 @@ const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
 const derbyController_1 = require("./derbyController");
 const updateScoreSchema = zod_1.z.object({
-    homeScore: zod_1.z.number().int().nonnegative(),
-    awayScore: zod_1.z.number().int().nonnegative(),
-    status: zod_1.z.enum(['UPCOMING', 'LIVE', 'COMPLETED']).optional()
+    homeScore: zod_1.z.number().int().nonnegative().nullable(),
+    awayScore: zod_1.z.number().int().nonnegative().nullable(),
+    status: zod_1.z.enum(['UPCOMING', 'LIVE', 'COMPLETED', 'SCHEDULED', 'scheduled', 'upcoming', 'live', 'completed']).optional()
 });
 const createMatchSchema = zod_1.z.object({
     seasonId: zod_1.z.number().int().positive(),
@@ -114,13 +114,18 @@ const updateMatchScore = async (req, res) => {
         }
         // 2. Numeric DB match ID handling
         let updatedMatch = null;
+        let prismaStatus = undefined;
+        if (status) {
+            const lower = status.toLowerCase();
+            prismaStatus = lower === 'completed' ? 'COMPLETED' : (lower === 'live' ? 'LIVE' : 'UPCOMING');
+        }
         try {
             updatedMatch = await prisma_1.default.match.update({
                 where: { id: matchId },
                 data: {
                     homeScore,
                     awayScore,
-                    ...(status && { status }),
+                    ...(prismaStatus && { status: prismaStatus }),
                 },
                 include: {
                     homeTeam: true,

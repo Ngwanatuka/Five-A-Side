@@ -5,9 +5,9 @@ import prisma from '../prisma';
 import { DATA_FILE } from './derbyController';
 
 const updateScoreSchema = z.object({
-    homeScore: z.number().int().nonnegative(),
-    awayScore: z.number().int().nonnegative(),
-    status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED']).optional()
+    homeScore: z.number().int().nonnegative().nullable(),
+    awayScore: z.number().int().nonnegative().nullable(),
+    status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED', 'SCHEDULED', 'scheduled', 'upcoming', 'live', 'completed']).optional()
 });
 
 const createMatchSchema = z.object({
@@ -122,13 +122,19 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
 
         // 2. Numeric DB match ID handling
         let updatedMatch: any = null;
+        let prismaStatus: 'UPCOMING' | 'LIVE' | 'COMPLETED' | undefined = undefined;
+        if (status) {
+            const lower = status.toLowerCase();
+            prismaStatus = lower === 'completed' ? 'COMPLETED' : (lower === 'live' ? 'LIVE' : 'UPCOMING');
+        }
+
         try {
             updatedMatch = await prisma.match.update({
                 where: { id: matchId },
                 data: {
                     homeScore,
                     awayScore,
-                    ...(status && { status }),
+                    ...(prismaStatus && { status: prismaStatus }),
                 },
                 include: {
                     homeTeam: true,

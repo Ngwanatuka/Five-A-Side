@@ -33,9 +33,9 @@ const login = async (req, res) => {
             res.status(401).json({ error: 'Invalid email or password' });
             return;
         }
-        // Enforce that only ngwanatuka@fivesway.xyz can log in as ADMIN
-        if (user.role === 'ADMIN' && user.email.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
-            res.status(403).json({ error: 'Forbidden: Only ngwanatuka@fivesway.xyz is authorized as administrator' });
+        // Enforce that only authorized admin emails can log in as ADMIN
+        if (user.role === 'ADMIN' && !(0, auth_1.isAuthorizedAdminEmail)(user.email)) {
+            res.status(403).json({ error: 'Forbidden: You are not authorized as administrator' });
             return;
         }
         const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });

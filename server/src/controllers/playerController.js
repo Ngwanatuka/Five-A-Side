@@ -151,12 +151,51 @@ const getPlayers = async (req, res) => {
     try {
         const teamId = req.query.teamId ? parseInt(req.query.teamId, 10) : undefined;
         const whereClause = teamId && !isNaN(teamId) ? { teamId } : {};
-        const players = await prisma_1.default.player.findMany({
+        const dbPlayers = await prisma_1.default.player.findMany({
             where: whereClause,
             include: { team: true },
             orderBy: { id: 'asc' }
         });
-        res.status(200).json(players);
+        let allPlayers = [...dbPlayers];
+        if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
+            try {
+                const derbyData = JSON.parse(fs_1.default.readFileSync(derbyController_1.DATA_FILE, 'utf-8'));
+                if (Array.isArray(derbyData.players)) {
+                    const dbTeams = await prisma_1.default.team.findMany();
+                    const teamKeyToId = {};
+                    dbTeams.forEach(t => {
+                        if (t.managerContact && t.managerContact.endsWith('@tournament.local')) {
+                            const key = t.managerContact.replace('@tournament.local', '');
+                            teamKeyToId[key] = t;
+                        }
+                    });
+                    for (const tp of derbyData.players) {
+                        const team = teamKeyToId[tp.teamKey];
+                        const matchedTeamId = team?.id;
+                        if (teamId && matchedTeamId !== teamId)
+                            continue;
+                        const exists = allPlayers.some(p => (p.teamId === matchedTeamId || p.team?.name === team?.name) &&
+                            `${p.firstName} ${p.lastName}`.trim().toLowerCase() === tp.name.trim().toLowerCase());
+                        if (!exists && tp.name) {
+                            const parts = tp.name.trim().split(' ');
+                            allPlayers.push({
+                                id: tp.id,
+                                teamId: matchedTeamId || 0,
+                                firstName: parts[0] || tp.name,
+                                lastName: parts.slice(1).join(' ') || '-',
+                                team: team || { id: 0, name: tp.teamKey, managerContact: '' },
+                                createdAt: new Date(),
+                                updatedAt: new Date()
+                            });
+                        }
+                    }
+                }
+            }
+            catch (err) {
+                console.error('Notice merging derby players in getPlayers:', err);
+            }
+        }
+        res.status(200).json(allPlayers);
     }
     catch (error) {
         res.status(500).json({ error: 'Internal server error' });

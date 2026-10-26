@@ -225,7 +225,16 @@
       "note": "Grand Final - Dench Derby Trophy"
     }
   ],
-  "players": [],
+  "players": [
+    {
+      "id": "p-test-1",
+      "teamKey": "team-dench",
+      "name": "Kagiso Sithole",
+      "jerseyNumber": 7,
+      "position": "FWD",
+      "isCaptain": false
+    }
+  ],
   "goalEvents": [],
-  "updatedAt": "2026-10-25T17:22:35.884Z"
+  "updatedAt": "2026-10-26T08:38:49.581Z"
 }

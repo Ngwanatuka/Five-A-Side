@@ -35,7 +35,8 @@ export declare const DEFAULT_DERBY_MATCHES: ({
 })[];
 export declare function syncToPrismaDatabase(teams: any, matches: any, players: any): Promise<void>;
 export declare function initDerbyTournament(): Promise<void>;
-export declare const getDerbyData: (req: Request, res: Response) => void;
+export declare const getDerbyData: (req: Request, res: Response) => Promise<void>;
 export declare const saveDerbyData: (req: any, res: Response) => Promise<void>;
+export declare const resetSingleMatch: (req: Request, res: Response) => Promise<void>;
 export declare const resetDerbyData: (req: Request, res: Response) => Promise<void>;
 //# sourceMappingURL=derbyController.d.ts.map

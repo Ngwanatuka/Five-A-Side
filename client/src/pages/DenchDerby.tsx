@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { getDerbyData, saveDerbyData, resetDerbyData, getBackendUrl } from '../services/api';
+import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getPlayers, getBackendUrl } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
@@ -495,17 +495,24 @@ export const DenchDerby = () => {
         let isMounted = true;
         const fetchRemote = async () => {
             try {
-                const data = await getDerbyData();
-                if (data && isMounted) {
+                const [data, apiPlayers] = await Promise.all([
+                    getDerbyData().catch(() => null),
+                    getPlayers().catch(() => [])
+                ]);
+
+                if (isMounted) {
                     let localSavedTeams: any = null;
+                    let localSavedPlayers: any[] = [];
                     try {
                         const rawTeams = localStorage.getItem('dench_derby_teams_v4');
                         if (rawTeams) localSavedTeams = JSON.parse(rawTeams);
+                        const rawPlayers = localStorage.getItem('dench_derby_players_v4');
+                        if (rawPlayers) localSavedPlayers = JSON.parse(rawPlayers);
                     } catch {}
 
                     // Combine remote teams with any local edits, prioritizing user's local edits if present
                     const effectiveTeams = {
-                        ...(data.teams || {}),
+                        ...(data?.teams || {}),
                         ...(localSavedTeams || {})
                     };
 
@@ -514,7 +521,7 @@ export const DenchDerby = () => {
                     }
 
                     // The server is the authoritative single source of truth for match fixtures and scores
-                    const serverMatches = Array.isArray(data.matches) && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES;
+                    const serverMatches = Array.isArray(data?.matches) && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES;
                     const anyServerScored = serverMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
 
                     const effectiveMatches = serverMatches;
@@ -532,30 +539,87 @@ export const DenchDerby = () => {
                         }
                     } catch {}
 
-                    let cleanPlayers: any[] = [];
-                    if (Array.isArray(data.players)) {
-                        cleanPlayers = data.players.filter((p: any) =>
-                            p && p.id &&
-                            !p.id.startsWith('p-dench-') &&
-                            !p.id.startsWith('p-cpt-') &&
-                            !p.id.startsWith('p-bras-') &&
-                            !p.id.startsWith('p-gaut-') &&
-                            !p.id.startsWith('p-woza-') &&
-                            !p.id.startsWith('p-arey-')
-                        );
-                        setPlayers(cleanPlayers);
+                    // Unify and merge players from remote tournament, database, and local browser storage
+                    const playerMap = new Map<string, TournamentPlayer>();
+
+                    // 1. Remote derby-tournament.json players
+                    if (Array.isArray(data?.players)) {
+                        for (const p of data.players) {
+                            if (p && p.name && p.teamKey) {
+                                const normKey = `${p.teamKey}_${p.name.trim().toLowerCase()}`;
+                                playerMap.set(normKey, {
+                                    id: p.id || `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                    teamKey: p.teamKey,
+                                    name: p.name.trim(),
+                                    jerseyNumber: typeof p.jerseyNumber === 'number' ? p.jerseyNumber : 1,
+                                    position: p.position || 'MID',
+                                    isCaptain: !!p.isCaptain
+                                });
+                            }
+                        }
                     }
-                    if (Array.isArray(data.goalEvents)) {
+
+                    // 2. Database players from /api/players
+                    if (Array.isArray(apiPlayers)) {
+                        for (const ap of apiPlayers) {
+                            const name = `${ap.firstName || ''} ${ap.lastName || ''}`.trim() || ap.name;
+                            let teamKey = ap.teamKey;
+                            if (!teamKey && ap.team) {
+                                if (ap.team.managerContact && ap.team.managerContact.endsWith('@tournament.local')) {
+                                    teamKey = ap.team.managerContact.replace('@tournament.local', '');
+                                } else if (ap.team.name) {
+                                    const foundKey = Object.keys(effectiveTeams).find(
+                                        k => effectiveTeams[k].name.toLowerCase() === ap.team.name.toLowerCase()
+                                    );
+                                    if (foundKey) teamKey = foundKey;
+                                }
+                            }
+                            if (name && teamKey) {
+                                const normKey = `${teamKey}_${name.toLowerCase()}`;
+                                if (!playerMap.has(normKey)) {
+                                    playerMap.set(normKey, {
+                                        id: ap.id ? `p-${ap.id}` : `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                        teamKey,
+                                        name,
+                                        jerseyNumber: ap.jerseyNumber || (Array.from(playerMap.values()).filter(p => p.teamKey === teamKey).length + 1),
+                                        position: ap.position || 'MID',
+                                        isCaptain: !!ap.isCaptain
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Local browser players from this device's localStorage
+                    if (Array.isArray(localSavedPlayers)) {
+                        for (const lp of localSavedPlayers) {
+                            if (lp && lp.name && lp.teamKey) {
+                                const normKey = `${lp.teamKey}_${lp.name.trim().toLowerCase()}`;
+                                if (!playerMap.has(normKey)) {
+                                    playerMap.set(normKey, lp);
+                                }
+                            }
+                        }
+                    }
+
+                    const unifiedPlayers = Array.from(playerMap.values());
+                    setPlayers(unifiedPlayers);
+                    try {
+                        localStorage.setItem('dench_derby_players_v4', JSON.stringify(unifiedPlayers));
+                    } catch {}
+
+                    if (Array.isArray(data?.goalEvents)) {
                         setGoalEvents(data.goalEvents);
                     }
 
-                    // If local teams had custom names not yet on the server, sync them to backend so referee console gets them
-                    if (localSavedTeams && JSON.stringify(localSavedTeams) !== JSON.stringify(data.teams)) {
+                    // If this device had new players that server didn't have, safely sync them to server
+                    const remotePlayerCount = Array.isArray(data?.players) ? data.players.length : 0;
+                    if (unifiedPlayers.length > remotePlayerCount) {
                         saveDerbyData({
                             teams: effectiveTeams,
                             matches: effectiveMatches,
-                            players: cleanPlayers,
-                            goalEvents: data.goalEvents || []
+                            players: unifiedPlayers,
+                            goalEvents: data?.goalEvents || []
                         }).catch(() => {});
                     }
                 }
@@ -588,17 +652,23 @@ export const DenchDerby = () => {
                 } catch {}
             }
             if (Array.isArray(data.players)) {
-                const cleanPlayers = data.players.filter((p: any) =>
-                    p && p.id &&
-                    !p.id.startsWith('p-dench-') &&
-                    !p.id.startsWith('p-cpt-') &&
-                    !p.id.startsWith('p-bras-') &&
-                    !p.id.startsWith('p-gaut-') &&
-                    !p.id.startsWith('p-woza-') &&
-                    !p.id.startsWith('p-arey-')
-                );
-                setPlayers(cleanPlayers);
-                try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(cleanPlayers)); } catch {}
+                setPlayers(prevPlayers => {
+                    const map = new Map<string, TournamentPlayer>();
+                    for (const p of data.players) {
+                        if (p && p.name && p.teamKey) {
+                            map.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                        }
+                    }
+                    for (const p of prevPlayers) {
+                        if (p && p.name && p.teamKey) {
+                            const key = `${p.teamKey}_${p.name.trim().toLowerCase()}`;
+                            if (!map.has(key)) map.set(key, p);
+                        }
+                    }
+                    const merged = Array.from(map.values());
+                    try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(merged)); } catch {}
+                    return merged;
+                });
             }
             if (Array.isArray(data.goalEvents)) {
                 setGoalEvents(data.goalEvents);
@@ -608,11 +678,13 @@ export const DenchDerby = () => {
 
         socket.on('derbyUpdate', handleRemoteUpdate);
         socket.on('derbyReset', handleRemoteUpdate);
+        socket.on('playerAdded', () => { fetchRemote(); });
 
         return () => {
             isMounted = false;
             socket.off('derbyUpdate', handleRemoteUpdate);
             socket.off('derbyReset', handleRemoteUpdate);
+            socket.off('playerAdded');
         };
     }, []);
 
@@ -1428,11 +1500,19 @@ export const DenchDerby = () => {
 
         const updatedMatches = matches.map(m => {
             if (m.id === matchId) {
+                if (matchEvs.length === 0) {
+                    return {
+                        ...m,
+                        homeScore: null,
+                        awayScore: null,
+                        status: 'scheduled' as const
+                    };
+                }
                 return {
                     ...m,
                     homeScore: homeGoals,
                     awayScore: awayGoals,
-                    status: (matchEvs.length > 0 ? 'completed' : m.status) as 'scheduled' | 'live' | 'completed'
+                    status: 'completed' as const
                 };
             }
             return m;
@@ -1440,6 +1520,47 @@ export const DenchDerby = () => {
 
         setMatches(updatedMatches);
         persistTournamentData(teams, updatedMatches, players, currentEvents);
+    };
+
+    // Reset a single match back to scheduled (0-0, 0 played)
+    const handleResetMatch = async (matchId: string) => {
+        const match = matches.find(m => m.id === matchId);
+        const homeName = (match?.homeTeamKey && teams[match.homeTeamKey]?.name) || match?.homePlaceholder || 'Home Team';
+        const awayName = (match?.awayTeamKey && teams[match.awayTeamKey]?.name) || match?.awayPlaceholder || 'Away Team';
+
+        if (!window.confirm(`Reset "${homeName} vs ${awayName}" to Scheduled (tournament not started yet)?`)) {
+            return;
+        }
+
+        try {
+            await resetSingleMatch(matchId);
+        } catch (apiErr) {
+            console.warn('Backend single match reset notice, applying local fallback:', apiErr);
+        }
+
+        try {
+            localStorage.removeItem(`match_state_${matchId}`);
+            if (localStorage.getItem('active_match_id') === matchId) {
+                localStorage.removeItem('active_match_id');
+            }
+        } catch {}
+
+        const updatedMatches = matches.map(m => {
+            if (m.id === matchId) {
+                return {
+                    ...m,
+                    homeScore: null,
+                    awayScore: null,
+                    status: 'scheduled' as const
+                };
+            }
+            return m;
+        });
+
+        const updatedEvents = goalEvents.filter(ev => ev.matchId !== matchId);
+        setMatches(updatedMatches);
+        setGoalEvents(updatedEvents);
+        persistTournamentData(teams, updatedMatches, players, updatedEvents);
     };
 
     const handleSimulateTournament = () => {
@@ -1526,7 +1647,16 @@ export const DenchDerby = () => {
     else if (activeModalMatch?.id === 'fn-gold') { modalHomeKey = finalHomeKey; modalAwayKey = finalAwayKey; }
 
     const activeMatchGoalEvents = goalEvents.filter(e => e.matchId === activeEventMatchId);
-    const eventTeamPlayers = players.filter(p => p.teamKey === eventTeamKey);
+    const selectedEventTeam = teams[eventTeamKey];
+    const eventTeamPlayers = players.filter(p =>
+        p && (
+            p.teamKey === eventTeamKey ||
+            (selectedEventTeam && (
+                p.teamKey === selectedEventTeam.name ||
+                (p as any).team?.name === selectedEventTeam.name
+            ))
+        )
+    );
 
     return (
         <div className="app-container">
@@ -2697,7 +2827,7 @@ export const DenchDerby = () => {
                                             </div>
 
                                             {/* Action Button */}
-                                            <div>
+                                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                                 <button
                                                     onClick={() => handleOpenMatchEvents(m.id)}
                                                     className="btn btn-sm btn-secondary"
@@ -2705,6 +2835,16 @@ export const DenchDerby = () => {
                                                 >
                                                     <Sliders size={13} /> Log Goals & Assists ({matchGoals.length})
                                                 </button>
+                                                {(role === 'ADMIN' || role === 'REFEREE') && (m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.id === 'ga-m1' || matchGoals.length > 0) && (
+                                                    <button
+                                                        onClick={() => handleResetMatch(m.id)}
+                                                        className="btn btn-sm btn-outline"
+                                                        style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                                        title="Reset match back to Scheduled (0-0, 0 played)"
+                                                    >
+                                                        <RotateCcw size={13} /> Reset
+                                                    </button>
+                                                )}
                                             </div>
 
                                         </div>
@@ -3908,10 +4048,26 @@ export const DenchDerby = () => {
                                 )}
                             </div>
 
-                            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+                            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {(role === 'ADMIN' || role === 'REFEREE') && (
+                                    <button
+                                        onClick={() => {
+                                            if (activeEventMatchId) {
+                                                const idToReset = activeEventMatchId;
+                                                setActiveEventMatchId(null);
+                                                handleResetMatch(idToReset);
+                                            }
+                                        }}
+                                        className="btn btn-sm btn-outline"
+                                        style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                    >
+                                        <RotateCcw size={14} /> Reset Match to Scheduled (0-0, 0 played)
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setActiveEventMatchId(null)}
                                     className="btn btn-sm btn-primary"
+                                    style={{ marginLeft: 'auto' }}
                                 >
                                     Done
                                 </button>

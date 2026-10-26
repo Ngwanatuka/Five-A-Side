@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getBackendUrl } from '../services/api';
+import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getPlayers, resetSingleMatch, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
-import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders } from 'lucide-react';
+import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw } from 'lucide-react';
 
 const socket = io(getBackendUrl());
 
@@ -117,10 +117,11 @@ export const MatchDayConsole = () => {
                 console.error("Notice parsing local tournament storage:", e);
             }
 
-            // 2. Fetch matches from API and remote derby data (including completed matches)
-            const [apiMatches, derbyRemote] = await Promise.all([
+            // 2. Fetch matches from API, remote derby data, and database players
+            const [apiMatches, derbyRemote, dbPlayers] = await Promise.all([
                 getMatches({ seasonId: 1, divisionId: 1, status: 'UPCOMING,LIVE,COMPLETED' }).catch(() => []),
-                getDerbyData().catch(() => null)
+                getDerbyData().catch(() => null),
+                getPlayers().catch(() => [])
             ]);
 
             // Effective tournament teams: remote first, then local browser storage takes highest priority
@@ -130,7 +131,56 @@ export const MatchDayConsole = () => {
                 ...localTeams
             };
 
-            const effectivePlayers: any[] = localPlayers.length > 0 ? localPlayers : (derbyRemote?.players || []);
+            // Merge all players from derbyRemote, dbPlayers, and local browser storage
+            const playerMap = new Map<string, any>();
+            if (Array.isArray(derbyRemote?.players)) {
+                for (const p of derbyRemote.players) {
+                    if (p && p.name && p.teamKey) {
+                        playerMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                }
+            }
+            if (Array.isArray(dbPlayers)) {
+                for (const dp of dbPlayers) {
+                    const name = `${dp.firstName || ''} ${dp.lastName || ''}`.trim() || dp.name;
+                    let teamKey = dp.teamKey;
+                    if (!teamKey && dp.team) {
+                        if (dp.team.managerContact && dp.team.managerContact.endsWith('@tournament.local')) {
+                            teamKey = dp.team.managerContact.replace('@tournament.local', '');
+                        } else if (dp.team.name) {
+                            const foundKey = Object.keys(effectiveTeams).find(
+                                k => effectiveTeams[k].name.toLowerCase() === dp.team.name.toLowerCase()
+                            );
+                            if (foundKey) teamKey = foundKey;
+                        }
+                    }
+                    if (name && teamKey) {
+                        const key = `${teamKey}_${name.toLowerCase()}`;
+                        if (!playerMap.has(key)) {
+                            playerMap.set(key, {
+                                id: dp.id ? `p-${dp.id}` : `p-${Date.now()}`,
+                                teamKey,
+                                name,
+                                jerseyNumber: dp.jerseyNumber || (Array.from(playerMap.values()).filter(p => p.teamKey === teamKey).length + 1),
+                                position: dp.position || 'MID',
+                                team: dp.team
+                            });
+                        }
+                    }
+                }
+            }
+            if (Array.isArray(localPlayers)) {
+                for (const lp of localPlayers) {
+                    if (lp && lp.name && lp.teamKey) {
+                        const key = `${lp.teamKey}_${lp.name.trim().toLowerCase()}`;
+                        if (!playerMap.has(key)) {
+                            playerMap.set(key, lp);
+                        }
+                    }
+                }
+            }
+
+            const effectivePlayers = Array.from(playerMap.values());
             const effectiveGoalEvents: any[] = localGoalEvents.length > 0 ? localGoalEvents : (derbyRemote?.goalEvents || []);
 
             setTournamentPlayers(effectivePlayers);
@@ -821,6 +871,32 @@ export const MatchDayConsole = () => {
         setSelectedMatch(null);
     };
 
+    const handleResetSelectedMatch = async () => {
+        if (!selectedMatch) return;
+        const homeName = availableTeamsMap[selectedMatch.homeTeamKey]?.name || selectedMatch.homePlaceholder || 'Home Team';
+        const awayName = availableTeamsMap[selectedMatch.awayTeamKey]?.name || selectedMatch.awayPlaceholder || 'Away Team';
+
+        if (!window.confirm(`Reset match "${homeName} vs ${awayName}" to Scheduled (0-0, 0 played)?`)) {
+            return;
+        }
+
+        try {
+            await resetSingleMatch(selectedMatch.id.toString());
+        } catch (err) {
+            console.warn('Backend reset single match notice, applying local fallback:', err);
+        }
+
+        try {
+            localStorage.removeItem(`match_state_${selectedMatch.id}`);
+            localStorage.removeItem('active_match_id');
+        } catch {}
+
+        activeMatchIdRef.current = null;
+        setMatchState(DEFAULT_MATCH_STATE);
+        setSelectedMatch(null);
+        fetchFixtures();
+    };
+
     const openKnockoutTeamPicker = () => {
         if (!selectedMatch) return;
         setSelectedKnockoutHomeKey(selectedMatch.homeTeamKey || '');
@@ -1325,9 +1401,12 @@ export const MatchDayConsole = () => {
                         })()}
 
                         {/* Bottom Actions */}
-                        <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
+                        <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem', flexWrap: 'wrap' }}>
                             <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: 'var(--color-text-muted)', color: 'var(--color-text-muted)' }} onClick={handleExitMatch}>
                                 <LogOut size={16} /> Exit Match
+                            </button>
+                            <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }} onClick={handleResetSelectedMatch} title="Reset match back to Scheduled (0-0, 0 played)">
+                                <RotateCcw size={16} /> Reset to Scheduled
                             </button>
                             <button className="btn btn-primary" disabled={!matchState.matchEnded} style={{ flex: 2, backgroundColor: matchState.matchEnded ? '#16a34a' : 'var(--color-bg-card)', color: matchState.matchEnded ? '#fff' : 'var(--color-text-muted)', border: 'none' }} onClick={finalizeWhistle}>
                                 Submit Final Result
@@ -1417,15 +1496,23 @@ export const MatchDayConsole = () => {
                                     Or Attribute to Squad Player:
                                 </div>
                                 {(() => {
-                                    const availableSquadPlayers = tournamentPlayers.filter(p =>
-                                        p && (
-                                            p.teamKey === pendingGoalTeam.teamKey ||
+                                    const availableSquadPlayers = tournamentPlayers.filter(p => {
+                                        if (!p) return false;
+                                        const matchKey = pendingGoalTeam.teamKey;
+                                        const matchName = (pendingGoalTeam.teamName || '').toLowerCase().trim();
+                                        const pTeamKey = p.teamKey;
+                                        const pTeamName = (p.team?.name || availableTeamsMap[p.teamKey]?.name || '').toLowerCase().trim();
+
+                                        return (
+                                            pTeamKey === matchKey ||
+                                            (matchName && pTeamName === matchName) ||
+                                            (matchName && (p.teamKey || '').toLowerCase() === matchName) ||
                                             (selectedMatch && (
-                                                (pendingGoalTeam.side === 'home' && p.teamKey === selectedMatch.homeTeamKey) ||
-                                                (pendingGoalTeam.side === 'away' && p.teamKey === selectedMatch.awayTeamKey)
+                                                (pendingGoalTeam.side === 'home' && (pTeamKey === selectedMatch.homeTeamKey || (selectedMatch.homePlaceholder && pTeamName === selectedMatch.homePlaceholder.toLowerCase()))) ||
+                                                (pendingGoalTeam.side === 'away' && (pTeamKey === selectedMatch.awayTeamKey || (selectedMatch.awayPlaceholder && pTeamName === selectedMatch.awayPlaceholder.toLowerCase())))
                                             ))
-                                        )
-                                    );
+                                        );
+                                    });
 
                                     if (availableSquadPlayers.length === 0) {
                                         return (

@@ -5,8 +5,8 @@ import { initDerbyTournament } from './controllers/derbyController';
 const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
-    httpServer.listen(PORT, () => {
-        console.log(`Server is running with WebSockets on port ${PORT}`);
+    httpServer.listen(Number(PORT), '0.0.0.0', () => {
+        console.log(`Server is running with WebSockets on http://0.0.0.0:${PORT}`);
     });
 
     try {

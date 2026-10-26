@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { getPublicCaptains, API_BASE_URL } from '../services/api';
+import { getPublicCaptains, getStoredOrFallbackCaptains, DEFAULT_CAPTAINS, API_BASE_URL } from '../services/api';
 import { 
     ChevronRight, 
     AlertCircle, 
@@ -23,11 +23,11 @@ export const RoleSelectModal: React.FC = () => {
 
     const navigate = useNavigate();
 
-    // Active sub-view inside the modal: 'choose' | 'captain_login' | 'referee_login' | 'admin_login'
+    // Active sub-view inside the modal: 'choose' | 'captain' | 'referee' | 'admin'
     const [view, setView] = useState<'choose' | 'captain' | 'referee' | 'admin'>('choose');
 
-    // Captain selection state
-    const [captainsList, setCaptainsList] = useState<any[]>([]);
+    // Captain selection state - initialized with stored/fallback teams so dropdown is NEVER empty
+    const [captainsList, setCaptainsList] = useState<any[]>(() => getStoredOrFallbackCaptains());
     const [selectedTeamKey, setSelectedTeamKey] = useState<string>('team-dench');
     const [captainPin, setCaptainPin] = useState<string>('1111');
     const [captainError, setCaptainError] = useState<string | null>(null);
@@ -44,11 +44,23 @@ export const RoleSelectModal: React.FC = () => {
             const originalOverflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
 
+            // Ensure captains list has fallback immediately
+            const initialList = getStoredOrFallbackCaptains();
+            if (initialList && initialList.length > 0) {
+                setCaptainsList(initialList);
+                if (!selectedTeamKey) {
+                    setSelectedTeamKey(initialList[0].teamKey);
+                }
+            }
+
             getPublicCaptains()
                 .then(list => {
                     if (Array.isArray(list) && list.length > 0) {
                         setCaptainsList(list);
-                        setSelectedTeamKey(list[0].teamKey);
+                        setSelectedTeamKey(prev => {
+                            const stillExists = list.some(c => c.teamKey === prev);
+                            return stillExists ? prev : list[0].teamKey;
+                        });
                     }
                 })
                 .catch(() => {});
@@ -58,6 +70,12 @@ export const RoleSelectModal: React.FC = () => {
             };
         }
     }, [isRoleModalOpen]);
+
+    useEffect(() => {
+        if (view === 'captain' && (!captainsList || captainsList.length === 0)) {
+            setCaptainsList(getStoredOrFallbackCaptains());
+        }
+    }, [view, captainsList]);
 
     if (!isRoleModalOpen) return null;
 
@@ -645,38 +663,48 @@ export const RoleSelectModal: React.FC = () => {
                                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
                                     Select Your Team:
                                 </label>
-                                <select
-                                    value={selectedTeamKey}
-                                    onChange={(e) => {
-                                        setSelectedTeamKey(e.target.value);
-                                        // Auto-fill demo PIN for convenience
-                                        const found = captainsList.find(c => c.teamKey === e.target.value);
-                                        if (found) {
-                                            if (e.target.value === 'team-dench') setCaptainPin('1111');
-                                            else if (e.target.value === 'cpt-superstars') setCaptainPin('2222');
-                                            else if (e.target.value === 'bras-ba-kasi') setCaptainPin('3333');
-                                            else if (e.target.value === 'gauteng-warriors') setCaptainPin('4444');
-                                            else if (e.target.value === 'woza-madzala') setCaptainPin('5555');
-                                            else if (e.target.value === 'areyeng-fc') setCaptainPin('6666');
-                                        }
-                                    }}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.85rem 1rem',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                        border: '1px solid var(--color-border)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: 'white',
-                                        fontSize: '1rem',
-                                        outline: 'none'
-                                    }}
-                                >
-                                    {captainsList.map(c => (
-                                        <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
-                                            {c.teamName} (Captain: {c.captainName || 'Assigned'})
-                                        </option>
-                                    ))}
-                                </select>
+                                {(() => {
+                                    const displayList = (captainsList && captainsList.length > 0) ? captainsList : DEFAULT_CAPTAINS;
+                                    return (
+                                        <select
+                                            value={selectedTeamKey}
+                                            onChange={(e) => {
+                                                const newKey = e.target.value;
+                                                setSelectedTeamKey(newKey);
+                                                // Auto-fill demo PIN for convenience
+                                                const found = displayList.find(c => c.teamKey === newKey);
+                                                if (found?.pin) {
+                                                    setCaptainPin(found.pin);
+                                                } else {
+                                                    if (newKey === 'team-dench') setCaptainPin('1111');
+                                                    else if (newKey === 'cpt-superstars') setCaptainPin('2222');
+                                                    else if (newKey === 'bras-ba-kasi') setCaptainPin('3333');
+                                                    else if (newKey === 'gauteng-warriors') setCaptainPin('4444');
+                                                    else if (newKey === 'woza-madzala') setCaptainPin('5555');
+                                                    else if (newKey === 'areyeng-fc') setCaptainPin('6666');
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.85rem 1rem',
+                                                backgroundColor: '#161b22',
+                                                border: '1px solid var(--color-border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: 'white',
+                                                fontSize: '1rem',
+                                                outline: 'none',
+                                                cursor: 'pointer',
+                                                colorScheme: 'dark'
+                                            }}
+                                        >
+                                            {displayList.map(c => (
+                                                <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
+                                                    {c.teamName} (Captain: {c.captainName || 'Assigned'})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    );
+                                })()}
                             </div>
 
                             <div style={{ marginBottom: '1.5rem' }}>

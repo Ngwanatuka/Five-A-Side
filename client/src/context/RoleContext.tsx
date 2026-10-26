@@ -25,7 +25,13 @@ export interface RoleContextType {
     canAccessAdmin: () => boolean;
 }
 
+export const ADMIN_EMAILS = ['ngwanatuka@fivesway.xyz', 'dench@fivesway.xyz'];
 export const SOLE_ADMIN_EMAIL = 'ngwanatuka@fivesway.xyz';
+
+export const isAuthorizedAdminEmail = (email?: string | null): boolean => {
+    if (!email) return false;
+    return ADMIN_EMAILS.includes(email.toLowerCase().trim());
+};
 
 const DEFAULT_DEADLINE = '2026-10-28T18:30:00+02:00';
 
@@ -37,10 +43,10 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedRole = localStorage.getItem('user_role') as UserRole | null;
         const storedEmail = (localStorage.getItem('user_email') || '').toLowerCase();
         if (storedRole === 'ADMIN') {
-            if (storedEmail === SOLE_ADMIN_EMAIL.toLowerCase()) {
+            if (isAuthorizedAdminEmail(storedEmail)) {
                 return 'ADMIN';
             }
-            // If previous cached role was ADMIN without ngwanatuka@fivesway.xyz, purge it
+            // If previous cached role was ADMIN without an authorized email, purge it
             localStorage.setItem('user_role', 'SPECTATOR');
             localStorage.removeItem('role');
             return 'SPECTATOR';
@@ -155,8 +161,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         newRole: UserRole,
         extra?: { email?: string; teamKey?: string; teamName?: string; captainName?: string }
     ) => {
-        // Enforce that only ngwanatuka@fivesway.xyz can hold the ADMIN role
-        const assignedRole: UserRole = (newRole === 'ADMIN' && extra?.email?.toLowerCase() !== SOLE_ADMIN_EMAIL.toLowerCase())
+        // Enforce that only authorized admin emails can hold the ADMIN role
+        const assignedRole: UserRole = (newRole === 'ADMIN' && !isAuthorizedAdminEmail(extra?.email))
             ? 'SPECTATOR'
             : newRole;
 
@@ -207,8 +213,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Permission check for editing squads/teams
     const canEditTeam = (teamKeyOrId?: string | number): boolean => {
-        // Admin can edit everything anytime, even after deadline (only ngwanatuka@fivesway.xyz)
-        if (role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase()) return true;
+        // Admin can edit everything anytime, even after deadline
+        if (role === 'ADMIN' && isAuthorizedAdminEmail(userEmail)) return true;
 
         // Spectator or Referee cannot edit squads
         if (role === 'SPECTATOR' || role === 'REFEREE') return false;
@@ -232,8 +238,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
     };
 
-    const canAccessRefereeConsole = () => role === 'REFEREE' || (role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase());
-    const canAccessAdmin = () => role === 'ADMIN' && userEmail?.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase();
+    const canAccessRefereeConsole = () => role === 'REFEREE' || (role === 'ADMIN' && isAuthorizedAdminEmail(userEmail));
+    const canAccessAdmin = () => role === 'ADMIN' && isAuthorizedAdminEmail(userEmail);
 
     return (
         <RoleContext.Provider

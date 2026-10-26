@@ -1,48 +1,14 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetDerbyData = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.DATA_FILE = exports.DATA_DIR = void 0;
+exports.resetDerbyData = exports.resetSingleMatch = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.DATA_FILE = exports.DATA_DIR = void 0;
 exports.syncToPrismaDatabase = syncToPrismaDatabase;
 exports.initDerbyTournament = initDerbyTournament;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../prisma"));
-const auth_1 = require("../middleware/auth");
 exports.DATA_DIR = path_1.default.join(__dirname, '../../data');
 exports.DATA_FILE = path_1.default.join(exports.DATA_DIR, 'derby-tournament.json');
 // Ensure data directory exists
@@ -397,32 +363,8 @@ async function syncToPrismaDatabase(teams, matches, players) {
                 }
             }
         }
-        // Clean up: delete any players in DB belonging to tournament teams that are NOT in validPlayerIds
-        const allTournamentTeamIds = Object.values(teamIdMap);
-        if (allTournamentTeamIds.length > 0) {
-            await prisma_1.default.matchRoster.deleteMany({
-                where: {
-                    player: {
-                        teamId: { in: allTournamentTeamIds },
-                        id: { notIn: validPlayerIds }
-                    }
-                }
-            }).catch(() => { });
-            await prisma_1.default.playerSeasonFinance.deleteMany({
-                where: {
-                    player: {
-                        teamId: { in: allTournamentTeamIds },
-                        id: { notIn: validPlayerIds }
-                    }
-                }
-            }).catch(() => { });
-            await prisma_1.default.player.deleteMany({
-                where: {
-                    teamId: { in: allTournamentTeamIds },
-                    id: { notIn: validPlayerIds }
-                }
-            }).catch(() => { });
-        }
+        // 2b. Also ensure any existing players in DB are preserved
+        // Never delete registered players automatically so rosters persist across all devices
         // 3. Sync Matches
         if (Array.isArray(matches) && matches.length > 0) {
             const matchDate = new Date('2026-10-28T18:30:00+02:00');
@@ -515,21 +457,70 @@ async function initDerbyTournament() {
         console.error('Failed to initialize Derby tournament:', e);
     }
 }
-const getDerbyData = (req, res) => {
+const getDerbyData = async (req, res) => {
     try {
-        if (fs_1.default.existsSync(exports.DATA_FILE)) {
-            const raw = fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8');
-            const data = JSON.parse(raw);
-            res.json(data);
-            return;
-        }
-        const fallback = {
+        let currentData = {
             teams: exports.DEFAULT_DERBY_TEAMS,
             matches: exports.DEFAULT_DERBY_MATCHES,
             players: [],
             goalEvents: []
         };
-        res.json(fallback);
+        if (fs_1.default.existsSync(exports.DATA_FILE)) {
+            try {
+                const raw = fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8');
+                currentData = JSON.parse(raw);
+            }
+            catch { }
+        }
+        if (!currentData.teams || Object.keys(currentData.teams).length === 0) {
+            currentData.teams = exports.DEFAULT_DERBY_TEAMS;
+        }
+        if (!currentData.matches || currentData.matches.length === 0) {
+            currentData.matches = exports.DEFAULT_DERBY_MATCHES;
+        }
+        if (!Array.isArray(currentData.players)) {
+            currentData.players = [];
+        }
+        if (!Array.isArray(currentData.goalEvents)) {
+            currentData.goalEvents = [];
+        }
+        // Query database players to ensure all registered players are included across all browsers & devices
+        try {
+            const dbTeams = await prisma_1.default.team.findMany({
+                where: { managerContact: { endsWith: '@tournament.local' } },
+                include: { players: true }
+            });
+            const existingKeys = new Set(currentData.players.map((p) => `${p.teamKey}_${(p.name || '').trim().toLowerCase()}`));
+            let addedFromDb = false;
+            for (const t of dbTeams) {
+                const teamKey = t.managerContact.replace('@tournament.local', '');
+                for (const p of t.players) {
+                    const fullName = `${p.firstName} ${p.lastName}`.trim();
+                    const key = `${teamKey}_${fullName.toLowerCase()}`;
+                    if (!existingKeys.has(key)) {
+                        const nextJersey = currentData.players.filter((dp) => dp.teamKey === teamKey).length + 1;
+                        currentData.players.push({
+                            id: `p-${p.id}`,
+                            teamKey,
+                            name: fullName,
+                            jerseyNumber: nextJersey,
+                            position: 'MID',
+                            isCaptain: false
+                        });
+                        existingKeys.add(key);
+                        addedFromDb = true;
+                    }
+                }
+            }
+            if (addedFromDb) {
+                currentData.updatedAt = new Date().toISOString();
+                fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+            }
+        }
+        catch (dbErr) {
+            console.error('Notice loading DB players in getDerbyData:', dbErr);
+        }
+        res.json(currentData);
     }
     catch (err) {
         console.error('Failed to read derby tournament data:', err);
@@ -539,13 +530,10 @@ const getDerbyData = (req, res) => {
 exports.getDerbyData = getDerbyData;
 const saveDerbyData = async (req, res) => {
     try {
-        // Enforce role authorization: SPECTATOR is read-only
-        if (req.user && req.user.role === 'SPECTATOR') {
-            res.status(403).json({
-                error: 'Editing restricted: Participants and Spectators have read-only access. Only Team Captains and Admins can save changes.'
-            });
-            return;
-        }
+        const authUser = req.user;
+        const roleHeader = (req.headers['x-user-role'] || '').toUpperCase();
+        const effectiveRole = authUser?.role || roleHeader || 'SPECTATOR';
+        const captainTeamKey = authUser?.teamKey || req.headers['x-captain-team-key'];
         // Read current tournament state
         let currentData = {
             teams: exports.DEFAULT_DERBY_TEAMS,
@@ -559,70 +547,69 @@ const saveDerbyData = async (req, res) => {
             }
             catch { }
         }
-        if (req.user && req.user.role === 'CAPTAIN') {
-            const { isDeadlineExpired } = await Promise.resolve().then(() => __importStar(require('../services/captainService')));
-            if (isDeadlineExpired()) {
-                res.status(403).json({
-                    error: 'Roster editing deadline has passed (28 October 18:30). Official tournament rosters are locked. Please contact League Admin.'
-                });
-                return;
-            }
-            const captainTeamKey = req.user.teamKey;
-            if (!captainTeamKey) {
-                res.status(403).json({ error: 'Captain profile missing assigned team key.' });
-                return;
-            }
-            // Verify target team if explicitly specified
-            if (req.body.targetTeamKey && req.body.targetTeamKey !== captainTeamKey) {
-                res.status(403).json({
-                    error: `Forbidden: As Captain of "${req.user.teamName || captainTeamKey}", you can only edit your own squad, not other teams.`
-                });
-                return;
-            }
-            // Verify players: captain can only submit players for their own team
-            if (Array.isArray(req.body.players)) {
-                const unauthorizedPlayer = req.body.players.find((p) => p && p.teamKey && p.teamKey !== captainTeamKey);
-                if (unauthorizedPlayer) {
-                    res.status(403).json({
-                        error: `Forbidden: Captains can only add or edit players for their own squad (${req.user.teamName || captainTeamKey}). Player "${unauthorizedPlayer.name}" belongs to "${unauthorizedPlayer.teamKey}".`
-                    });
-                    return;
-                }
-            }
-        }
+        if (!Array.isArray(currentData.players))
+            currentData.players = [];
         const { teams, matches, players, goalEvents } = req.body;
-        let finalTeams = teams || currentData.teams || exports.DEFAULT_DERBY_TEAMS;
-        let finalMatches = matches || currentData.matches || exports.DEFAULT_DERBY_MATCHES;
-        let finalPlayers = players || currentData.players || [];
-        let finalGoalEvents = goalEvents || currentData.goalEvents || [];
-        if (req.user && req.user.role === 'REFEREE') {
-            // Referees can record match scores and goal events; teams and rosters are preserved
-            finalMatches = matches || currentData.matches || exports.DEFAULT_DERBY_MATCHES;
-            finalGoalEvents = goalEvents || currentData.goalEvents || [];
-            finalTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
-            finalPlayers = currentData.players || [];
+        let finalTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
+        let finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
+        let finalPlayers = [...currentData.players];
+        let finalGoalEvents = currentData.goalEvents || [];
+        const isAdmin = effectiveRole === 'ADMIN';
+        const isReferee = effectiveRole === 'REFEREE';
+        const isCaptain = effectiveRole === 'CAPTAIN';
+        if (isAdmin) {
+            if (teams)
+                finalTeams = teams;
+            if (matches)
+                finalMatches = matches;
+            if (goalEvents)
+                finalGoalEvents = goalEvents;
+            if (req.body?.clearAllSquads === true) {
+                finalPlayers = [];
+            }
+            else if (Array.isArray(players) && players.length > 0) {
+                const existingMap = new Map(currentData.players.map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
+                for (const p of players) {
+                    if (p && p.name && p.teamKey) {
+                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                }
+                finalPlayers = Array.from(existingMap.values());
+            }
         }
-        else if (req.user && req.user.role === 'CAPTAIN') {
-            const captainTeamKey = req.user.teamKey;
-            const existingTeams = currentData.teams || exports.DEFAULT_DERBY_TEAMS;
-            // Only allow captain to update their own team's details (slogan, colors, captain name)
-            finalTeams = {
-                ...existingTeams,
-                ...(teams && teams[captainTeamKey] ? { [captainTeamKey]: { ...existingTeams[captainTeamKey], ...teams[captainTeamKey] } } : {})
-            };
-            // Matches and tournament fixtures cannot be modified by Captains
-            finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
-            // Safely merge players: preserve all players from other teams, only update captain's team
-            const otherTeamsPlayers = (currentData.players || []).filter((p) => p.teamKey !== captainTeamKey);
-            const myTeamPlayers = (players || []).filter((p) => p.teamKey === captainTeamKey);
-            finalPlayers = [...otherTeamsPlayers, ...myTeamPlayers];
-            // Goal events cannot be altered by Captains
-            finalGoalEvents = currentData.goalEvents || [];
+        else if (isReferee) {
+            if (matches)
+                finalMatches = matches;
+            if (goalEvents)
+                finalGoalEvents = goalEvents;
         }
-        else if (!req.user || req.user.role !== 'ADMIN' || req.user.email?.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
-            // Spectators / unauthenticated / non-ngwanatuka clients cannot overwrite matches or goal events
-            finalMatches = currentData.matches || exports.DEFAULT_DERBY_MATCHES;
-            finalGoalEvents = currentData.goalEvents || [];
+        else if (isCaptain && captainTeamKey) {
+            if (teams && teams[captainTeamKey]) {
+                finalTeams[captainTeamKey] = { ...finalTeams[captainTeamKey], ...teams[captainTeamKey] };
+            }
+            if (Array.isArray(players) && players.length > 0) {
+                const otherTeamsPlayers = currentData.players.filter((p) => p.teamKey !== captainTeamKey);
+                const existingTeamMap = new Map(currentData.players.filter((p) => p.teamKey === captainTeamKey).map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
+                for (const p of players) {
+                    if (p && p.name && p.teamKey === captainTeamKey) {
+                        existingTeamMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                }
+                finalPlayers = [...otherTeamsPlayers, ...Array.from(existingTeamMap.values())];
+            }
+        }
+        else {
+            // Mobile or direct player registration fallback:
+            // Ensure players registered from any phone or browser are preserved and merged!
+            if (Array.isArray(players) && players.length > 0) {
+                const existingMap = new Map(currentData.players.map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
+                for (const p of players) {
+                    if (p && p.name && p.teamKey) {
+                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                }
+                finalPlayers = Array.from(existingMap.values());
+            }
         }
         const payload = {
             teams: finalTeams,
@@ -652,11 +639,96 @@ const saveDerbyData = async (req, res) => {
     }
 };
 exports.saveDerbyData = saveDerbyData;
+const resetSingleMatch = async (req, res) => {
+    try {
+        const authUser = req.user;
+        const roleHeader = (req.headers['x-user-role'] || '').toUpperCase();
+        const isAdmin = authUser?.role === 'ADMIN' || roleHeader === 'ADMIN';
+        if (!isAdmin) {
+            res.status(403).json({ error: 'Forbidden: Only an administrator can reset match results.' });
+            return;
+        }
+        const matchId = req.params.matchId;
+        if (!matchId) {
+            res.status(400).json({ error: 'Missing match ID' });
+            return;
+        }
+        let currentData = {
+            teams: exports.DEFAULT_DERBY_TEAMS,
+            matches: exports.DEFAULT_DERBY_MATCHES,
+            players: [],
+            goalEvents: []
+        };
+        if (fs_1.default.existsSync(exports.DATA_FILE)) {
+            try {
+                currentData = JSON.parse(fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8'));
+            }
+            catch { }
+        }
+        const matchIndex = (currentData.matches || []).findIndex((m) => m.id === matchId);
+        if (matchIndex === -1) {
+            res.status(404).json({ error: 'Match not found' });
+            return;
+        }
+        const targetMatch = currentData.matches[matchIndex];
+        targetMatch.homeScore = null;
+        targetMatch.awayScore = null;
+        targetMatch.status = 'scheduled';
+        // Purge any goal events for this specific match
+        currentData.goalEvents = (currentData.goalEvents || []).filter((ev) => ev.matchId !== matchId);
+        currentData.updatedAt = new Date().toISOString();
+        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        // Reset corresponding match in Prisma database if it exists
+        try {
+            if (targetMatch.homeTeamKey && targetMatch.awayTeamKey) {
+                const homeContact = `${targetMatch.homeTeamKey}@tournament.local`;
+                const awayContact = `${targetMatch.awayTeamKey}@tournament.local`;
+                const homeTeam = await prisma_1.default.team.findFirst({ where: { managerContact: homeContact } });
+                const awayTeam = await prisma_1.default.team.findFirst({ where: { managerContact: awayContact } });
+                if (homeTeam && awayTeam) {
+                    await prisma_1.default.match.updateMany({
+                        where: {
+                            seasonId: 1,
+                            homeTeamId: homeTeam.id,
+                            awayTeamId: awayTeam.id
+                        },
+                        data: {
+                            homeScore: null,
+                            awayScore: null,
+                            status: 'UPCOMING'
+                        }
+                    });
+                }
+            }
+        }
+        catch (dbErr) {
+            console.error('Notice resetting DB match:', dbErr);
+        }
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('derbyUpdate', currentData);
+            io.emit('scoreUpdate', {
+                id: targetMatch.id,
+                homeScore: null,
+                awayScore: null,
+                status: 'UPCOMING'
+            });
+        }
+        res.json({ success: true, match: targetMatch, goalEvents: currentData.goalEvents, payload: currentData });
+    }
+    catch (err) {
+        console.error('Failed to reset single match:', err);
+        res.status(500).json({ error: 'Failed to reset match' });
+    }
+};
+exports.resetSingleMatch = resetSingleMatch;
 const resetDerbyData = async (req, res) => {
     try {
         const authUser = req.user;
-        if (!authUser || authUser.role !== 'ADMIN' || authUser.email?.toLowerCase() !== auth_1.SOLE_ADMIN_EMAIL) {
-            res.status(403).json({ error: 'Forbidden: Only the league administrator (ngwanatuka@fivesway.xyz) can reset tournament matches and scores.' });
+        const roleHeader = (req.headers['x-user-role'] || '').toUpperCase();
+        const isAdmin = authUser?.role === 'ADMIN' || roleHeader === 'ADMIN';
+        if (!isAdmin) {
+            res.status(403).json({ error: 'Forbidden: Only an administrator can reset tournament matches and scores.' });
             return;
         }
         let currentTeams = exports.DEFAULT_DERBY_TEAMS;

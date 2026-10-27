@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getPlayers, resetSingleMatch, getBackendUrl } from '../services/api';
+import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getPlayers, resetSingleMatch, claimRefereeMatch, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
-import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw } from 'lucide-react';
-import { useConfirm } from '../components/Toast';
+import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw, Lock, ShieldAlert } from 'lucide-react';
+import { useToast, useConfirm } from '../components/Toast';
+import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
 
@@ -48,12 +49,31 @@ const OFFICIAL_TEAMS_FALLBACK: Record<string, { name: string; group: 'A' | 'B' }
 };
 
 export const MatchDayConsole = () => {
+    const { toast } = useToast();
     const { confirm, ConfirmUI } = useConfirm();
+    const { role } = useRole();
+    const isAdmin = role === 'ADMIN';
     const [matches, setMatches] = useState<any[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
     const [matchState, setMatchState] = useState<MatchState>(DEFAULT_MATCH_STATE);
     const [loading, setLoading] = useState(true);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    // Referee Official Station: Pitch 1 or Pitch 2
+    const [refereePitchStation, setRefereePitchStation] = useState<number>(() => {
+        const saved = localStorage.getItem('referee_pitch_station');
+        if (saved === '1' || saved === '2') return Number(saved);
+        const email = (localStorage.getItem('user_email') || '').toLowerCase();
+        if (email.includes('referee2') || email.includes('admin@5aside')) return 2;
+        return 1;
+    });
+    const [activeReferees, setActiveReferees] = useState<Record<string, any>>({});
+    const [blockedMatchConflict, setBlockedMatchConflict] = useState<{
+        match: any;
+        message: string;
+        recommendedMatch?: any;
+    } | null>(null);
+    const [pitchFilter, setPitchFilter] = useState<'my_pitch' | '1' | '2' | 'all'>('my_pitch');
 
     // Goal recording & squad players states
     const [tournamentPlayers, setTournamentPlayers] = useState<any[]>([]);
@@ -197,6 +217,9 @@ export const MatchDayConsole = () => {
             setTournamentPlayers(effectivePlayers);
             setGoalEvents(effectiveGoalEvents);
             setAvailableTeamsMap(effectiveTeams);
+            if (derbyRemote?.activeReferees) {
+                setActiveReferees(derbyRemote.activeReferees);
+            }
 
             // Helper to get latest edited name for any team
             const getTeamName = (teamKey?: string | null, placeholder?: string, fallback?: string): string => {
@@ -339,6 +362,10 @@ export const MatchDayConsole = () => {
                     const homeName = getTeamName(resolvedHomeKey, m.homePlaceholder, m.homeTeam?.name);
                     const awayName = getTeamName(resolvedAwayKey, m.awayPlaceholder, m.awayTeam?.name);
                     const stageBadge = getStageBadge(m.stage, m.group, m.id);
+                    const mPitch = m.pitch || m.pitchNumber || 1;
+                    const assignedClaim = (derbyRemote?.activeReferees && derbyRemote.activeReferees[String(mPitch)]?.matchId === m.id)
+                        ? derbyRemote.activeReferees[String(mPitch)]
+                        : (m.officiatedBy || null);
 
                     return {
                         id: m.id,
@@ -346,10 +373,12 @@ export const MatchDayConsole = () => {
                         group: m.group,
                         stageBadge,
                         time: m.time || '18:30',
-                        pitchNumber: m.pitch || m.pitchNumber || 1,
+                        pitchNumber: mPitch,
+                        pitch: mPitch,
                         homeScore: m.homeScore ?? 0,
                         awayScore: m.awayScore ?? 0,
                         status: (m.status || 'scheduled').toUpperCase(),
+                        officiatedBy: assignedClaim,
                         homeTeamKey: resolvedHomeKey,
                         awayTeamKey: resolvedAwayKey,
                         homeTeam: { id: resolvedHomeKey || m.id, name: homeName },
@@ -361,10 +390,17 @@ export const MatchDayConsole = () => {
                     const homeName = getTeamName(m.homeTeam?.id?.toString(), m.homeTeam?.name, m.homeTeam?.name);
                     const awayName = getTeamName(m.awayTeam?.id?.toString(), m.awayTeam?.name, m.awayTeam?.name);
                     const stageBadge = getStageBadge(m.stage, m.group, m.id?.toString());
+                    const mPitch = m.pitchNumber || m.pitch || 1;
+                    const assignedClaim = (derbyRemote?.activeReferees && derbyRemote.activeReferees[String(mPitch)]?.matchId === m.id?.toString())
+                        ? derbyRemote.activeReferees[String(mPitch)]
+                        : (m.officiatedBy || null);
 
                     return {
                         ...m,
+                        pitchNumber: mPitch,
+                        pitch: mPitch,
                         stageBadge,
+                        officiatedBy: assignedClaim,
                         homeTeam: { ...m.homeTeam, name: homeName },
                         awayTeam: { ...m.awayTeam, name: awayName }
                     };
@@ -387,7 +423,8 @@ export const MatchDayConsole = () => {
                                 ...activeMatch,
                                 homeScore: prev.homeScore ?? activeMatch.homeScore,
                                 awayScore: prev.awayScore ?? activeMatch.awayScore,
-                                status: prev.status ?? activeMatch.status
+                                status: prev.status ?? activeMatch.status,
+                                officiatedBy: activeMatch.officiatedBy || prev.officiatedBy
                             };
                         }
                         return activeMatch;
@@ -404,7 +441,8 @@ export const MatchDayConsole = () => {
                             ...refreshed,
                             homeScore: prev?.homeScore ?? refreshed.homeScore,
                             awayScore: prev?.awayScore ?? refreshed.awayScore,
-                            status: prev?.status ?? refreshed.status
+                            status: prev?.status ?? refreshed.status,
+                            officiatedBy: refreshed.officiatedBy || prev?.officiatedBy
                         };
                     });
                 }
@@ -435,6 +473,11 @@ export const MatchDayConsole = () => {
             fetchFixtures();
         };
 
+        const handleRefereeClaimUpdate = (claims: any) => {
+            if (claims) setActiveReferees(claims);
+            fetchFixtures();
+        };
+
         const handleDerbyReset = () => {
             try {
                 localStorage.removeItem('active_match_id');
@@ -451,11 +494,13 @@ export const MatchDayConsole = () => {
             setSelectedMatch(null);
             setMatchState(DEFAULT_MATCH_STATE);
             setGoalEvents([]);
+            setActiveReferees({});
             fetchFixtures();
         };
 
         socket.on('scoreUpdate', handleScoreUpdate);
         socket.on('derbyUpdate', handleDerbyUpdate);
+        socket.on('refereeClaimUpdate', handleRefereeClaimUpdate);
         socket.on('derbyReset', handleDerbyReset);
         socket.on('teamRegistered', fetchFixtures);
         socket.on('playerAdded', fetchFixtures);
@@ -463,6 +508,7 @@ export const MatchDayConsole = () => {
         return () => {
             socket.off('scoreUpdate', handleScoreUpdate);
             socket.off('derbyUpdate', handleDerbyUpdate);
+            socket.off('refereeClaimUpdate', handleRefereeClaimUpdate);
             socket.off('derbyReset', handleDerbyReset);
             socket.off('teamRegistered', fetchFixtures);
             socket.off('playerAdded', fetchFixtures);
@@ -603,18 +649,67 @@ export const MatchDayConsole = () => {
         };
     }, [matchState.isRunning, matchState.isPaused, matchState.matchEnded]);
 
-    const handleSelectMatch = (matchId: string) => {
-        const match = matches.find(m => m.id.toString() === matchId);
-        if (match) {
-            setSelectedMatch(match);
-            localStorage.setItem('active_match_id', match.id.toString());
+    const handleSwitchStation = (pitch: number) => {
+        if (matchState.isRunning) {
+            toast.error("Cannot change official pitch station while a match clock is actively running.");
+            return;
         }
+        setRefereePitchStation(pitch);
+        localStorage.setItem('referee_pitch_station', String(pitch));
+        // If current match belongs to the other pitch, exit it safely
+        if (selectedMatch && Number(selectedMatch.pitchNumber || selectedMatch.pitch || 1) !== pitch) {
+            setSelectedMatch(null);
+            localStorage.removeItem('active_match_id');
+            activeMatchIdRef.current = null;
+        }
+        toast.success(`Active Station: Referee ${pitch} (Pitch ${pitch} Official)`);
     };
 
-    const handleUpdateScore = async (home: number, away: number) => {
+    const handleSelectMatch = (matchId: string) => {
+        const match = matches.find(m => m.id.toString() === matchId);
+        if (!match) return;
+
+        const matchPitch = Number(match.pitchNumber || match.pitch || 1);
+        const currentPitch = Number(refereePitchStation);
+        const isMatchLive = (match.status || '').toUpperCase() === 'LIVE';
+
+        // Check if the other pitch referee is currently officiating/playing this match
+        const claimOnOtherPitch = activeReferees[String(matchPitch)]?.matchId === match.id.toString() && matchPitch !== currentPitch;
+        const isOfficiatedByOther = (isMatchLive || claimOnOtherPitch) && (
+            matchPitch !== currentPitch ||
+            (match.officiatedBy && Number(match.officiatedBy.pitch) !== currentPitch)
+        );
+
+        if (isOfficiatedByOther) {
+            const otherRefName = match.officiatedBy?.refereeName || activeReferees[String(matchPitch)]?.refereeName || `Referee ${matchPitch}`;
+            const myPitchMatches = matches.filter(m => Number(m.pitchNumber || m.pitch || 1) === currentPitch);
+            const myRecommended = myPitchMatches.find(m => (m.status || '').toUpperCase() === 'LIVE') ||
+                                  myPitchMatches.find(m => (m.status || '').toUpperCase() !== 'COMPLETED') ||
+                                  myPitchMatches[0];
+
+            setBlockedMatchConflict({
+                match,
+                message: `This match (${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}) is currently playing on Pitch ${matchPitch} and is actively being officiated by ${otherRefName}. Two simultaneous matches can only be officiated by two separate referees. You cannot officiate another referee's active match.`,
+                recommendedMatch: myRecommended
+            });
+            setIsDropdownOpen(false);
+            return;
+        }
+
+        setSelectedMatch(match);
+        localStorage.setItem('active_match_id', match.id.toString());
+        setIsDropdownOpen(false);
+    };
+
+    const handleUpdateScore = async (home: number, away: number, claimOverride?: any) => {
         if (!selectedMatch) return;
         const matchIdStr = selectedMatch.id.toString();
         const currentStatus = matchState.matchEnded ? 'COMPLETED' : 'LIVE';
+        const effectiveClaim = claimOverride || selectedMatch.officiatedBy || {
+            refereeName: `Referee ${refereePitchStation}`,
+            pitch: refereePitchStation,
+            startedAt: new Date().toISOString()
+        };
 
         // 1. Immediately update matchState in memory and localStorage synchronously
         setMatchState(prev => {
@@ -628,12 +723,24 @@ export const MatchDayConsole = () => {
         // 2. Update local matches state in console
         const updatedMatches = matches.map(m => {
             if (m.id.toString() === matchIdStr) {
-                return { ...m, homeScore: home, awayScore: away, status: currentStatus };
+                return {
+                    ...m,
+                    homeScore: home,
+                    awayScore: away,
+                    status: currentStatus,
+                    officiatedBy: currentStatus === 'LIVE' ? effectiveClaim : m.officiatedBy
+                };
             }
             return m;
         });
         setMatches(updatedMatches);
-        setSelectedMatch((prev: any) => prev ? { ...prev, homeScore: home, awayScore: away, status: currentStatus } : null);
+        setSelectedMatch((prev: any) => prev ? {
+            ...prev,
+            homeScore: home,
+            awayScore: away,
+            status: currentStatus,
+            officiatedBy: currentStatus === 'LIVE' ? effectiveClaim : prev.officiatedBy
+        } : null);
 
         // 3. Synchronize tournament matches so Dench Derby tournament page reflects immediately
         try {
@@ -645,6 +752,9 @@ export const MatchDayConsole = () => {
                     target.homeScore = home;
                     target.awayScore = away;
                     target.status = currentStatus.toLowerCase();
+                    if (currentStatus === 'LIVE') {
+                        target.officiatedBy = effectiveClaim;
+                    }
                     localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
                     await saveDerbyData({ matches: parsed });
                 }
@@ -773,9 +883,32 @@ export const MatchDayConsole = () => {
     };
 
     const togglePlayPause = () => {
-        if (selectedMatch && !matchState.isRunning && !matchState.matchEnded) {
-            handleUpdateScore(matchState.homeScore, matchState.awayScore);
+        if (!selectedMatch) return;
+        const matchPitch = Number(selectedMatch.pitchNumber || selectedMatch.pitch || 1);
+
+        if (matchPitch !== refereePitchStation) {
+            toast.error(`You are assigned to Pitch ${refereePitchStation}. You cannot officiate or start matches for Pitch ${matchPitch}.`);
+            return;
         }
+
+        if (!matchState.isRunning && !matchState.matchEnded) {
+            const refName = `Referee ${refereePitchStation}`;
+            const claimInfo = {
+                refereeName: refName,
+                pitch: refereePitchStation,
+                startedAt: new Date().toISOString()
+            };
+
+            claimRefereeMatch({
+                matchId: selectedMatch.id.toString(),
+                pitch: refereePitchStation,
+                refereeName: refName,
+                action: 'claim'
+            }).catch(err => console.warn('Notice claiming match:', err));
+
+            handleUpdateScore(matchState.homeScore, matchState.awayScore, claimInfo);
+        }
+
         setMatchState(prev => {
             if (!prev.isRunning) {
                 return { ...prev, isRunning: true, isPaused: false };
@@ -887,6 +1020,13 @@ export const MatchDayConsole = () => {
             console.error("Notice syncing final score to server:", syncErr);
         }
 
+        // Release referee claim on server
+        claimRefereeMatch({
+            matchId: selectedMatch.id.toString(),
+            pitch: refereePitchStation,
+            action: 'release'
+        }).catch(() => {});
+
         localStorage.removeItem(`match_state_${selectedMatch.id}`);
         localStorage.removeItem('active_match_id');
         activeMatchIdRef.current = null;
@@ -903,6 +1043,11 @@ export const MatchDayConsole = () => {
 
     const handleResetSelectedMatch = async () => {
         if (!selectedMatch) return;
+        if (!isAdmin) {
+            toast.error('Only an administrator can reset match results.');
+            return;
+        }
+
         const homeName = availableTeamsMap[selectedMatch.homeTeamKey]?.name || selectedMatch.homePlaceholder || 'Home Team';
         const awayName = availableTeamsMap[selectedMatch.awayTeamKey]?.name || selectedMatch.awayPlaceholder || 'Away Team';
 
@@ -914,12 +1059,22 @@ export const MatchDayConsole = () => {
             return;
         }
 
+        claimRefereeMatch({
+            matchId: selectedMatch.id.toString(),
+            pitch: Number(selectedMatch.pitchNumber || selectedMatch.pitch || 1),
+            action: 'release'
+        }).catch(() => {});
+
+        let resetResult: Awaited<ReturnType<typeof resetSingleMatch>>;
         try {
-            await resetSingleMatch(selectedMatch.id.toString());
+            resetResult = await resetSingleMatch(selectedMatch.id.toString());
         } catch (err) {
-            console.warn('Backend reset single match notice, applying local fallback:', err);
+            toast.error(err instanceof Error ? err.message : 'Failed to reset match.');
+            return;
         }
 
+        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(resetResult.payload.matches));
+        localStorage.setItem('dench_derby_events_v4', JSON.stringify(resetResult.payload.goalEvents));
         try {
             localStorage.removeItem(`match_state_${selectedMatch.id}`);
             localStorage.removeItem('active_match_id');
@@ -928,6 +1083,7 @@ export const MatchDayConsole = () => {
         activeMatchIdRef.current = null;
         setMatchState(DEFAULT_MATCH_STATE);
         setSelectedMatch(null);
+        toast.success('Match reset to scheduled.');
         fetchFixtures();
     };
 
@@ -978,27 +1134,188 @@ export const MatchDayConsole = () => {
         return `${m}:${s}`;
     };
 
+    // Referee & Station Lock Calculations
+    const selectedMatchPitch = selectedMatch ? Number(selectedMatch.pitchNumber || selectedMatch.pitch || 1) : 1;
+    const isSelectedMatchLive = selectedMatch ? (selectedMatch.status || '').toUpperCase() === 'LIVE' : false;
+    const claimOnOtherPitch = selectedMatch ? ((activeReferees[String(selectedMatchPitch)]?.matchId === selectedMatch.id.toString()) && selectedMatchPitch !== refereePitchStation) : false;
+    const isLockedToOtherRef = Boolean(selectedMatch && (isSelectedMatchLive || claimOnOtherPitch) && (
+        selectedMatchPitch !== refereePitchStation ||
+        (selectedMatch.officiatedBy && Number(selectedMatch.officiatedBy.pitch) !== refereePitchStation)
+    ));
+    const otherRefName = selectedMatch ? (selectedMatch.officiatedBy?.refereeName || activeReferees[String(selectedMatchPitch)]?.refereeName || `Referee ${selectedMatchPitch}`) : '';
+
     return (
         <div className="app-container">
             <Navbar />
             <ConfirmUI />
 
             <main className="main-content flex-center animate-fade-in" style={{ flex: 1, flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                    <div className="flex-center" style={{ width: '64px', height: '64px', backgroundColor: 'var(--color-primary)', borderRadius: '1rem', margin: '0 auto 1.5rem auto' }}>
+                <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+                    <div className="flex-center" style={{ width: '64px', height: '64px', backgroundColor: 'var(--color-primary)', borderRadius: '1rem', margin: '0 auto 1.25rem auto' }}>
                         <Flag size={32} color="#050505" />
                     </div>
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>Match Day Console</h1>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '1.1rem' }}>Manage live timing and official tournament match scores.</p>
+                    <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Match Day Console</h1>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+                        Official Referee Console • Two matches can only be officiated by two separate referees simultaneously.
+                    </p>
+                </div>
+
+                {/* Designated Official Station Bar */}
+                <div style={{
+                    width: '100%',
+                    maxWidth: selectedMatch ? '700px' : '560px',
+                    marginBottom: '1.5rem',
+                    padding: '0.85rem 1.25rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <span style={{ fontSize: '1.35rem' }}>⏱️</span>
+                        <div>
+                            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', letterSpacing: '0.5px', fontWeight: 600 }}>
+                                Designated Official Station
+                            </div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>Referee {refereePitchStation} • Pitch {refereePitchStation} Official</span>
+                                <span style={{
+                                    fontSize: '0.65rem',
+                                    fontWeight: 800,
+                                    backgroundColor: refereePitchStation === 1 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                                    color: refereePitchStation === 1 ? 'var(--color-primary)' : '#60a5fa',
+                                    padding: '0.15rem 0.45rem',
+                                    borderRadius: '4px',
+                                    border: `1px solid ${refereePitchStation === 1 ? 'rgba(34, 197, 94, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`
+                                }}>
+                                    ACTIVE PITCH {refereePitchStation}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.25rem' }}>Switch Station:</span>
+                        <button
+                            type="button"
+                            onClick={() => handleSwitchStation(1)}
+                            disabled={matchState.isRunning}
+                            style={{
+                                padding: '0.35rem 0.75rem',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                borderRadius: 'var(--radius-sm)',
+                                border: refereePitchStation === 1 ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                backgroundColor: refereePitchStation === 1 ? 'var(--color-primary)' : 'transparent',
+                                color: refereePitchStation === 1 ? '#000' : 'var(--color-text-muted)',
+                                cursor: matchState.isRunning ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Pitch 1
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleSwitchStation(2)}
+                            disabled={matchState.isRunning}
+                            style={{
+                                padding: '0.35rem 0.75rem',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                borderRadius: 'var(--radius-sm)',
+                                border: refereePitchStation === 2 ? '1px solid #60a5fa' : '1px solid var(--color-border)',
+                                backgroundColor: refereePitchStation === 2 ? '#60a5fa' : 'transparent',
+                                color: refereePitchStation === 2 ? '#000' : 'var(--color-text-muted)',
+                                cursor: matchState.isRunning ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Pitch 2
+                        </button>
+                    </div>
                 </div>
 
                 {!selectedMatch ? (
                     <div className="glass-card" style={{ width: '100%', maxWidth: '560px', padding: '2.5rem' }}>
-                        <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ marginBottom: '1.25rem' }}>
                             <h2 className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', fontSize: '1.25rem', marginBottom: '0.5rem' }}>
                                 <UserCheck size={20} /> Select Fixture
                             </h2>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Choose the tournament match you are officiating right now.</p>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                                Choose the tournament match you are officiating on <strong>Pitch {refereePitchStation}</strong>.
+                            </p>
+                        </div>
+
+                        {/* Pitch Filter Pills */}
+                        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                            <button
+                                type="button"
+                                onClick={() => setPitchFilter('my_pitch')}
+                                style={{
+                                    padding: '0.35rem 0.75rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: pitchFilter === 'my_pitch' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.04)',
+                                    color: pitchFilter === 'my_pitch' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                                    border: pitchFilter === 'my_pitch' ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ⭐ My Pitch ({refereePitchStation})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPitchFilter('1')}
+                                style={{
+                                    padding: '0.35rem 0.75rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: pitchFilter === '1' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                                    color: pitchFilter === '1' ? '#fff' : 'var(--color-text-muted)',
+                                    border: '1px solid var(--color-border)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Pitch 1
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPitchFilter('2')}
+                                style={{
+                                    padding: '0.35rem 0.75rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: pitchFilter === '2' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                                    color: pitchFilter === '2' ? '#fff' : 'var(--color-text-muted)',
+                                    border: '1px solid var(--color-border)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Pitch 2
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPitchFilter('all')}
+                                style={{
+                                    padding: '0.35rem 0.75rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: pitchFilter === 'all' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                                    color: pitchFilter === 'all' ? '#fff' : 'var(--color-text-muted)',
+                                    border: '1px solid var(--color-border)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                All ({matches.length})
+                            </button>
                         </div>
 
                         {loading ? (
@@ -1041,69 +1358,116 @@ export const MatchDayConsole = () => {
                                         maxHeight: '340px',
                                         overflowY: 'auto',
                                     }}>
-                                        {matches.length === 0 ? (
-                                            <div style={{ padding: '1rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>No matches available</div>
-                                        ) : (
-                                            matches.map(m => (
-                                                <div
-                                                    key={m.id}
-                                                    onClick={() => {
-                                                        handleSelectMatch(m.id.toString());
-                                                        setIsDropdownOpen(false);
-                                                    }}
-                                                    style={{
-                                                        padding: '0.9rem 1rem',
-                                                        cursor: 'pointer',
-                                                        borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                                        color: 'white',
-                                                        transition: 'background-color 0.2s ease',
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
-                                                        e.currentTarget.style.color = 'var(--color-primary)';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                                        e.currentTarget.style.color = 'white';
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                                                        {m.stageBadge && (
-                                                            <span style={{
-                                                                fontSize: '0.7rem',
-                                                                fontWeight: 700,
-                                                                textTransform: 'uppercase',
-                                                                backgroundColor: m.stage === 'final' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(34, 197, 94, 0.15)',
-                                                                color: m.stage === 'final' ? '#eab308' : 'var(--color-primary)',
-                                                                padding: '0.15rem 0.5rem',
-                                                                borderRadius: '4px',
-                                                                border: `1px solid ${m.stage === 'final' ? 'rgba(234, 179, 8, 0.4)' : 'rgba(34, 197, 94, 0.3)'}`
-                                                            }}>
-                                                                {m.stageBadge}
+                                        {(() => {
+                                            const filteredMatches = matches.filter(m => {
+                                                const p = Number(m.pitchNumber || m.pitch || 1);
+                                                if (pitchFilter === 'my_pitch') return p === refereePitchStation;
+                                                if (pitchFilter === '1') return p === 1;
+                                                if (pitchFilter === '2') return p === 2;
+                                                return true;
+                                            });
+
+                                            if (filteredMatches.length === 0) {
+                                                return <div style={{ padding: '1rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>No matches found for this filter</div>;
+                                            }
+
+                                            return filteredMatches.map(m => {
+                                                const mPitch = Number(m.pitchNumber || m.pitch || 1);
+                                                const isLive = (m.status || '').toUpperCase() === 'LIVE';
+                                                const claimOnOther = (activeReferees[String(mPitch)]?.matchId === m.id.toString()) && mPitch !== refereePitchStation;
+                                                const isLocked = (isLive || claimOnOther) && (
+                                                    mPitch !== refereePitchStation ||
+                                                    (m.officiatedBy && Number(m.officiatedBy.pitch) !== refereePitchStation)
+                                                );
+                                                const refName = m.officiatedBy?.refereeName || activeReferees[String(mPitch)]?.refereeName || `Referee ${mPitch}`;
+
+                                                return (
+                                                    <div
+                                                        key={m.id}
+                                                        onClick={() => {
+                                                            handleSelectMatch(m.id.toString());
+                                                            setIsDropdownOpen(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.9rem 1rem',
+                                                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                            backgroundColor: isLocked ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                                                            borderLeft: isLocked ? '4px solid #ef4444' : '4px solid transparent',
+                                                            color: 'white',
+                                                            transition: 'background-color 0.2s ease',
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isLocked) {
+                                                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                                                                e.currentTarget.style.color = 'var(--color-primary)';
+                                                            } else {
+                                                                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = isLocked ? 'rgba(239, 68, 68, 0.08)' : 'transparent';
+                                                            e.currentTarget.style.color = 'white';
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                                                            {m.stageBadge && (
+                                                                <span style={{
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 700,
+                                                                    textTransform: 'uppercase',
+                                                                    backgroundColor: m.stage === 'final' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(34, 197, 94, 0.15)',
+                                                                    color: m.stage === 'final' ? '#eab308' : 'var(--color-primary)',
+                                                                    padding: '0.15rem 0.5rem',
+                                                                    borderRadius: '4px',
+                                                                    border: `1px solid ${m.stage === 'final' ? 'rgba(234, 179, 8, 0.4)' : 'rgba(34, 197, 94, 0.3)'}`
+                                                                }}>
+                                                                    {m.stageBadge}
+                                                                </span>
+                                                            )}
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                Pitch {m.pitchNumber} • {m.time}
                                                             </span>
-                                                        )}
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                                            Pitch {m.pitchNumber} • {m.time}
-                                                        </span>
-                                                        {m.status === 'COMPLETED' && (
-                                                            <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600, marginLeft: 'auto' }}>
-                                                                FINAL ({m.homeScore} - {m.awayScore})
-                                                            </span>
-                                                        )}
-                                                        {m.status === 'LIVE' && (
-                                                            <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 700, marginLeft: 'auto' }}>
-                                                                ● LIVE ({m.homeScore} - {m.awayScore})
-                                                            </span>
+                                                            {isLocked ? (
+                                                                <span style={{
+                                                                    fontSize: '0.7rem',
+                                                                    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+                                                                    color: '#ef4444',
+                                                                    fontWeight: 800,
+                                                                    marginLeft: 'auto',
+                                                                    padding: '0.15rem 0.5rem',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.3rem'
+                                                                }}>
+                                                                    <Lock size={11} /> LOCKED • REF {mPitch} ONLY
+                                                                </span>
+                                                            ) : m.status === 'COMPLETED' ? (
+                                                                <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600, marginLeft: 'auto' }}>
+                                                                    FINAL ({m.homeScore} - {m.awayScore})
+                                                                </span>
+                                                            ) : m.status === 'LIVE' ? (
+                                                                <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 700, marginLeft: 'auto' }}>
+                                                                    ● LIVE ({m.homeScore} - {m.awayScore})
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.95rem' }}>
+                                                            <span style={{ fontWeight: 700, color: '#fff' }}>{m.homeTeam?.name || 'TBD'}</span>
+                                                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: '0 0.5rem' }}>vs</span>
+                                                            <span style={{ fontWeight: 700, color: '#fff' }}>{m.awayTeam?.name || 'TBD'}</span>
+                                                        </div>
+                                                        {isLocked && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#fca5a5', marginTop: '0.25rem' }}>
+                                                                Actively playing & officiated on Pitch {mPitch} by {refName}. Prohibited for other referee.
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    <div style={{ fontSize: '0.95rem' }}>
-                                                        <span style={{ fontWeight: 700, color: '#fff' }}>{m.homeTeam?.name || 'TBD'}</span>
-                                                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: '0 0.5rem' }}>vs</span>
-                                                        <span style={{ fontWeight: 700, color: '#fff' }}>{m.awayTeam?.name || 'TBD'}</span>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 )}
                             </div>
@@ -1111,6 +1475,40 @@ export const MatchDayConsole = () => {
                     </div>
                 ) : (
                     <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '700px', padding: '2.5rem', borderTop: '4px solid var(--color-primary)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                        {/* Match In Progress by Other Referee Warning */}
+                        {isLockedToOtherRef && (
+                            <div style={{
+                                padding: '1.25rem',
+                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                border: '2px solid rgba(239, 68, 68, 0.5)',
+                                borderRadius: 'var(--radius-md)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.75rem',
+                                color: '#fca5a5'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                    <Lock size={22} color="#ef4444" />
+                                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#f87171' }}>
+                                        MATCH LOCKED — OFFICIATED BY {otherRefName.toUpperCase()} ON PITCH {selectedMatchPitch}
+                                    </span>
+                                </div>
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#fecaca', lineHeight: 1.5 }}>
+                                    Two simultaneous matches can only be officiated by two separate referees. This match is actively playing on Pitch {selectedMatchPitch} under {otherRefName}. You are stationed on <strong>Pitch {refereePitchStation}</strong> and are not allowed to control this match.
+                                </p>
+                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleExitMatch}
+                                        className="btn btn-primary"
+                                        style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 700 }}
+                                    >
+                                        Exit to Pitch {refereePitchStation} Fixtures
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Match Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1134,22 +1532,24 @@ export const MatchDayConsole = () => {
                                     {(selectedMatch.stage !== 'group' || selectedMatch.id.startsWith('sf-') || selectedMatch.id.startsWith('fn-')) && (
                                         <button
                                             onClick={openKnockoutTeamPicker}
+                                            disabled={isLockedToOtherRef}
                                             style={{
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
                                                 gap: '0.35rem',
-                                                backgroundColor: 'rgba(59, 130, 246, 0.18)',
-                                                border: '1px solid rgba(59, 130, 246, 0.45)',
-                                                color: '#60a5fa',
+                                                backgroundColor: isLockedToOtherRef ? 'rgba(255, 255, 255, 0.05)' : 'rgba(59, 130, 246, 0.18)',
+                                                border: isLockedToOtherRef ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(59, 130, 246, 0.45)',
+                                                color: isLockedToOtherRef ? 'var(--color-text-muted)' : '#60a5fa',
                                                 padding: '0.2rem 0.65rem',
                                                 borderRadius: '4px',
                                                 fontSize: '0.75rem',
                                                 fontWeight: 700,
-                                                cursor: 'pointer',
+                                                cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer',
+                                                opacity: isLockedToOtherRef ? 0.5 : 1,
                                                 transition: 'all 0.15s ease'
                                             }}
-                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.18)'}
+                                            onMouseEnter={(e) => { if (!isLockedToOtherRef) e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'; }}
+                                            onMouseLeave={(e) => { if (!isLockedToOtherRef) e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.18)'; }}
                                             title="Manually choose or override which teams advanced to this stage"
                                         >
                                             <Sliders size={13} />
@@ -1223,18 +1623,52 @@ export const MatchDayConsole = () => {
                             {!matchState.matchEnded && (
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                                     {!matchState.isRunning || matchState.isPaused ? (
-                                        <button className="btn btn-primary flex-center gap-2" onClick={togglePlayPause} style={{ padding: '0.75rem 2rem' }}>
+                                        <button
+                                            className="btn btn-primary flex-center gap-2"
+                                            onClick={togglePlayPause}
+                                            disabled={isLockedToOtherRef}
+                                            style={{
+                                                padding: '0.75rem 2rem',
+                                                opacity: isLockedToOtherRef ? 0.4 : 1,
+                                                cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
                                             <Play size={18} /> {!matchState.isRunning && matchState.timerSeconds === getMatchDurationSeconds(matchState.matchFormat)
                                                 ? matchState.matchFormat === 'halves' ? `Start Half ${matchState.currentHalf}` : 'Start Match'
                                                 : 'Resume'}
                                         </button>
                                     ) : (
-                                        <button className="btn" onClick={togglePlayPause} style={{ padding: '0.75rem 2rem', backgroundColor: '#eab308', color: '#000', border: 'none', fontWeight: 600, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        <button
+                                            className="btn"
+                                            onClick={togglePlayPause}
+                                            disabled={isLockedToOtherRef}
+                                            style={{
+                                                padding: '0.75rem 2rem',
+                                                backgroundColor: '#eab308',
+                                                color: '#000',
+                                                border: 'none',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                gap: '0.5rem',
+                                                alignItems: 'center',
+                                                opacity: isLockedToOtherRef ? 0.4 : 1,
+                                                cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
                                             <Pause size={18} /> Pause Match
                                         </button>
                                     )}
 
-                                    <button className="btn btn-secondary flex-center gap-2" onClick={nextHalf} disabled={matchState.timerSeconds > 0 && !matchState.isPaused} style={{ padding: '0.75rem 2rem', opacity: (matchState.timerSeconds > 0 && !matchState.isPaused) ? 0.5 : 1 }}>
+                                    <button
+                                        className="btn btn-secondary flex-center gap-2"
+                                        onClick={nextHalf}
+                                        disabled={isLockedToOtherRef || (matchState.timerSeconds > 0 && !matchState.isPaused)}
+                                        style={{
+                                            padding: '0.75rem 2rem',
+                                            opacity: (isLockedToOtherRef || (matchState.timerSeconds > 0 && !matchState.isPaused)) ? 0.5 : 1,
+                                            cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
                                         <Square size={18} /> {matchState.matchFormat === 'halves' && matchState.currentHalf === 1 ? 'End 1st Half' : 'End Match'}
                                     </button>
                                 </div>
@@ -1249,7 +1683,7 @@ export const MatchDayConsole = () => {
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(Math.max(0, matchState.homeScore - 1), matchState.awayScore)}
-                                        disabled={matchState.matchEnded || matchState.homeScore <= 0}
+                                        disabled={isLockedToOtherRef || matchState.matchEnded || matchState.homeScore <= 0}
                                         style={{
                                             background: 'rgba(255,255,255,0.08)',
                                             border: '1px solid rgba(255,255,255,0.15)',
@@ -1260,8 +1694,8 @@ export const MatchDayConsole = () => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            cursor: matchState.homeScore <= 0 ? 'not-allowed' : 'pointer',
-                                            opacity: matchState.homeScore <= 0 ? 0.35 : 1,
+                                            cursor: (isLockedToOtherRef || matchState.homeScore <= 0) ? 'not-allowed' : 'pointer',
+                                            opacity: (isLockedToOtherRef || matchState.homeScore <= 0) ? 0.35 : 1,
                                             fontWeight: 800,
                                             fontSize: '1.2rem',
                                             transition: 'all 0.15s ease'
@@ -1276,7 +1710,7 @@ export const MatchDayConsole = () => {
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(matchState.homeScore + 1, matchState.awayScore)}
-                                        disabled={matchState.matchEnded}
+                                        disabled={isLockedToOtherRef || matchState.matchEnded}
                                         style={{
                                             background: 'rgba(255,255,255,0.08)',
                                             border: '1px solid rgba(255,255,255,0.15)',
@@ -1287,7 +1721,8 @@ export const MatchDayConsole = () => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            cursor: 'pointer',
+                                            cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer',
+                                            opacity: isLockedToOtherRef ? 0.35 : 1,
                                             fontWeight: 800,
                                             fontSize: '1.2rem',
                                             transition: 'all 0.15s ease'
@@ -1302,8 +1737,19 @@ export const MatchDayConsole = () => {
                                 </div>
                                 <button
                                     className="btn btn-secondary"
-                                    disabled={matchState.matchEnded}
-                                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem', width: '100%', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                    disabled={isLockedToOtherRef || matchState.matchEnded}
+                                    style={{
+                                        padding: '0.5rem 1.25rem',
+                                        fontSize: '0.9rem',
+                                        width: '100%',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.4rem',
+                                        opacity: isLockedToOtherRef ? 0.4 : 1,
+                                        cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer'
+                                    }}
                                     onClick={() => openGoalModal('home')}
                                 >
                                     <span>⚽</span> + Goal
@@ -1318,7 +1764,7 @@ export const MatchDayConsole = () => {
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(matchState.homeScore, Math.max(0, matchState.awayScore - 1))}
-                                        disabled={matchState.matchEnded || matchState.awayScore <= 0}
+                                        disabled={isLockedToOtherRef || matchState.matchEnded || matchState.awayScore <= 0}
                                         style={{
                                             background: 'rgba(255,255,255,0.08)',
                                             border: '1px solid rgba(255,255,255,0.15)',
@@ -1329,8 +1775,8 @@ export const MatchDayConsole = () => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            cursor: matchState.awayScore <= 0 ? 'not-allowed' : 'pointer',
-                                            opacity: matchState.awayScore <= 0 ? 0.35 : 1,
+                                            cursor: (isLockedToOtherRef || matchState.awayScore <= 0) ? 'not-allowed' : 'pointer',
+                                            opacity: (isLockedToOtherRef || matchState.awayScore <= 0) ? 0.35 : 1,
                                             fontWeight: 800,
                                             fontSize: '1.2rem',
                                             transition: 'all 0.15s ease'
@@ -1345,7 +1791,7 @@ export const MatchDayConsole = () => {
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(matchState.homeScore, matchState.awayScore + 1)}
-                                        disabled={matchState.matchEnded}
+                                        disabled={isLockedToOtherRef || matchState.matchEnded}
                                         style={{
                                             background: 'rgba(255,255,255,0.08)',
                                             border: '1px solid rgba(255,255,255,0.15)',
@@ -1356,7 +1802,8 @@ export const MatchDayConsole = () => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            cursor: 'pointer',
+                                            cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer',
+                                            opacity: isLockedToOtherRef ? 0.35 : 1,
                                             fontWeight: 800,
                                             fontSize: '1.2rem',
                                             transition: 'all 0.15s ease'
@@ -1371,8 +1818,19 @@ export const MatchDayConsole = () => {
                                 </div>
                                 <button
                                     className="btn btn-secondary"
-                                    disabled={matchState.matchEnded}
-                                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem', width: '100%', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                    disabled={isLockedToOtherRef || matchState.matchEnded}
+                                    style={{
+                                        padding: '0.5rem 1.25rem',
+                                        fontSize: '0.9rem',
+                                        width: '100%',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.4rem',
+                                        opacity: isLockedToOtherRef ? 0.4 : 1,
+                                        cursor: isLockedToOtherRef ? 'not-allowed' : 'pointer'
+                                    }}
                                     onClick={() => openGoalModal('away')}
                                 >
                                     <span>⚽</span> + Goal
@@ -1474,10 +1932,10 @@ export const MatchDayConsole = () => {
                             <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: 'var(--color-text-muted)', color: 'var(--color-text-muted)' }} onClick={handleExitMatch}>
                                 <LogOut size={16} /> Exit Match
                             </button>
-                            <button className="btn btn-outline flex-center gap-2" style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }} onClick={handleResetSelectedMatch} title="Reset match back to Scheduled (0-0, 0 played)">
-                                <RotateCcw size={16} /> Reset to Scheduled
+                            <button className="btn btn-outline flex-center gap-2" disabled={!isAdmin || isLockedToOtherRef} style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444', opacity: (isAdmin && !isLockedToOtherRef) ? 1 : 0.55, cursor: (isAdmin && !isLockedToOtherRef) ? 'pointer' : 'not-allowed' }} onClick={handleResetSelectedMatch} title={isAdmin ? 'Reset match back to Scheduled (0-0, 0 played)' : 'Only an administrator can reset match results.'}>
+                                <RotateCcw size={16} /> {isAdmin ? 'Reset to Scheduled' : 'Reset (Admin only)'}
                             </button>
-                            <button className="btn btn-primary" disabled={!matchState.matchEnded} style={{ flex: 2, backgroundColor: matchState.matchEnded ? '#16a34a' : 'var(--color-bg-card)', color: matchState.matchEnded ? '#fff' : 'var(--color-text-muted)', border: 'none' }} onClick={finalizeWhistle}>
+                            <button className="btn btn-primary" disabled={!matchState.matchEnded || isLockedToOtherRef} style={{ flex: 2, backgroundColor: (matchState.matchEnded && !isLockedToOtherRef) ? '#16a34a' : 'var(--color-bg-card)', color: (matchState.matchEnded && !isLockedToOtherRef) ? '#fff' : 'var(--color-text-muted)', border: 'none', cursor: (matchState.matchEnded && !isLockedToOtherRef) ? 'pointer' : 'not-allowed' }} onClick={finalizeWhistle}>
                                 Submit Final Result
                             </button>
                         </div>
@@ -1872,6 +2330,123 @@ export const MatchDayConsole = () => {
                                 >
                                     Confirm Advancing Teams
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Conflict Modal: Two matches can only be officiated by two referees */}
+                {blockedMatchConflict && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        padding: '1.5rem'
+                    }}>
+                        <div className="glass-card animate-fade-in" style={{
+                            width: '100%',
+                            maxWidth: '520px',
+                            padding: '2rem',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            borderTop: '5px solid #ef4444',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                <div style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <ShieldAlert size={28} color="#ef4444" />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.35rem', color: '#f87171', fontWeight: 800 }}>
+                                        Action Prohibited
+                                    </h3>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                        Referee Conflict Safeguard Active
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                padding: '1rem',
+                                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                marginBottom: '1.25rem'
+                            }}>
+                                <div style={{ fontSize: '0.8rem', color: '#ef4444', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <Lock size={14} /> Locked Match Details
+                                </div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>
+                                    {blockedMatchConflict.match.homeTeam?.name || 'Home'} vs {blockedMatchConflict.match.awayTeam?.name || 'Away'}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                    Pitch {blockedMatchConflict.match.pitchNumber} • Scheduled {blockedMatchConflict.match.time} • Status: <span style={{ color: '#ef4444', fontWeight: 700 }}>● LIVE / PLAYING</span>
+                                </div>
+                            </div>
+
+                            <p style={{ color: '#e2e8f0', fontSize: '0.92rem', lineHeight: '1.55', marginBottom: '1.5rem' }}>
+                                Two simultaneous matches can only be officiated by two separate referees. Because this match is currently playing and being officiated on Pitch {blockedMatchConflict.match.pitchNumber}, you are not allowed to select or modify it.
+                            </p>
+
+                            {blockedMatchConflict.recommendedMatch && (
+                                <div style={{
+                                    padding: '0.85rem 1rem',
+                                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    marginBottom: '1.5rem'
+                                }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                                        👉 Available on Your Pitch (Pitch {refereePitchStation})
+                                    </div>
+                                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>
+                                        {blockedMatchConflict.recommendedMatch.homeTeam?.name || 'Home'} vs {blockedMatchConflict.recommendedMatch.awayTeam?.name || 'Away'}
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                                        Pitch {blockedMatchConflict.recommendedMatch.pitchNumber} • {blockedMatchConflict.recommendedMatch.time} ({blockedMatchConflict.recommendedMatch.status})
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setBlockedMatchConflict(null)}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.65rem 1.25rem', fontSize: '0.9rem' }}
+                                >
+                                    Dismiss
+                                </button>
+                                {blockedMatchConflict.recommendedMatch && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const rec = blockedMatchConflict.recommendedMatch;
+                                            setBlockedMatchConflict(null);
+                                            handleSelectMatch(rec.id.toString());
+                                        }}
+                                        className="btn btn-primary"
+                                        style={{ padding: '0.65rem 1.25rem', fontSize: '0.9rem', fontWeight: 700 }}
+                                    >
+                                        Officiate Pitch {refereePitchStation} Match
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

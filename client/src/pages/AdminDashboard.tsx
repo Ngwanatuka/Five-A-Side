@@ -3,9 +3,12 @@ import { Navbar } from '../components/Navbar';
 import { Shield, Lock, LogOut, ChevronDown, Users, BadgeCheck, XCircle, Key, Clock, Save, CheckCircle2, AlertCircle, RefreshCw, RotateCcw } from 'lucide-react';
 import { getAllFinances, getMatches, updateMatchScore, login as apiLogin, getAdminCaptains, updateCaptainAdmin, updateDeadlineAdmin, resetDerbyData } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { useToast, useConfirm } from '../components/Toast';
 
 export const AdminDashboard = () => {
     const { role, setAuthSession, logout: roleLogout, openRoleModal, isPastDeadline, deadlineRemaining } = useRole();
+    const { toast } = useToast();
+    const { confirm, ConfirmUI } = useConfirm();
     const isAdmin = role === 'ADMIN';
 
     const [activeTab, setActiveTab] = useState<'Update Scores' | 'Manage Captains' | 'Player Payments' | 'Match Status' | 'Add Fixture'>('Update Scores');
@@ -25,7 +28,11 @@ export const AdminDashboard = () => {
     const [resetSuccessMsg, setResetSuccessMsg] = useState('');
 
     const handleResetAllScores = async () => {
-        if (!window.confirm('⚠️ WARNING: This will reset all match scores, goals, and results back to scheduled (0-0) across all devices. Official teams and rosters will be preserved. Proceed?')) {
+        if (!await confirm({
+            message: 'This will reset all match scores, goals, and results back to scheduled (0-0) across all devices. Official teams and rosters will be preserved. Proceed?',
+            confirmLabel: 'Reset Tournament',
+            danger: true,
+        })) {
             return;
         }
         setResetLoading(true);
@@ -36,7 +43,7 @@ export const AdminDashboard = () => {
             fetchAdminData();
             setTimeout(() => setResetSuccessMsg(''), 5000);
         } catch (err: any) {
-            alert(err.message || 'Failed to reset tournament scores. Only Administrators have permission.');
+            toast.error(err.message || 'Failed to reset tournament scores. Only Administrators have permission.');
         } finally {
             setResetLoading(false);
         }
@@ -212,6 +219,7 @@ export const AdminDashboard = () => {
         return (
             <div className="app-container">
                 <Navbar />
+                <ConfirmUI />
 
                 <main className="main-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1rem' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -341,6 +349,7 @@ export const AdminDashboard = () => {
     return (
         <div className="app-container">
             <Navbar />
+            <ConfirmUI />
 
             <main className="main-content" style={{ padding: '2rem 1.5rem', maxWidth: '1280px', margin: '0 auto' }}>
 

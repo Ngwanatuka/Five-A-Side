@@ -115,7 +115,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => clearInterval(interval);
     }, [deadline]);
 
-    const openRoleModal = () => setIsRoleModalOpen(true);
+    const openRoleModal = useCallback(() => setIsRoleModalOpen(true), []);
     const closeRoleModal = () => setIsRoleModalOpen(false);
 
     // 1. Participant / Spectator login (No credentials required!)

@@ -37,6 +37,7 @@ export declare function syncToPrismaDatabase(teams: any, matches: any, players: 
 export declare function initDerbyTournament(): Promise<void>;
 export declare const getDerbyData: (req: Request, res: Response) => Promise<void>;
 export declare const saveDerbyData: (req: any, res: Response) => Promise<void>;
+export declare const claimRefereeMatch: (req: Request, res: Response) => Promise<void>;
 export declare const resetSingleMatch: (req: Request, res: Response) => Promise<void>;
 export declare const resetDerbyData: (req: Request, res: Response) => Promise<void>;
 //# sourceMappingURL=derbyController.d.ts.map

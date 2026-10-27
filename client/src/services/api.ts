@@ -139,11 +139,11 @@ export const captainLogin = async (teamKey: string, pin: string) => {
         const found = captains.find(c => c.teamKey === teamKey);
         const expectedPin = found?.pin || (
             teamKey === 'team-dench' ? '1111' :
-                teamKey === 'cpt-superstars' ? '2222' :
-                    teamKey === 'bras-ba-kasi' ? '3333' :
-                        teamKey === 'gauteng-warriors' ? '4444' :
-                            teamKey === 'woza-madzala' ? '5555' :
-                                teamKey === 'areyeng-fc' ? '6666' : '1234'
+            teamKey === 'cpt-superstars' ? '2222' :
+            teamKey === 'bras-ba-kasi' ? '3333' :
+            teamKey === 'gauteng-warriors' ? '4444' :
+            teamKey === 'woza-madzala' ? '5555' :
+            teamKey === 'areyeng-fc' ? '6666' : '1234'
         );
 
         if (pin === expectedPin) {
@@ -387,3 +387,17 @@ export const resetSingleMatch = async (matchId: string) => {
         throw new Error(err.error || 'Failed to reset match');
     }
     return response.json();
+};
+
+export const claimRefereeMatch = async (payload: { matchId: string; pitch: number; refereeName?: string; action: 'claim' | 'release' }) => {
+    const response = await fetch(`${API_BASE_URL}/derby/claim-match`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to update referee match claim' }));
+        throw new Error(err.error || 'Failed to update referee match claim');
+    }
+    return response.json();
+};

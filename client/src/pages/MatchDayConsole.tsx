@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { getMatches, updateMatchScore, getDerbyData, saveDerbyData, getPlayers, resetSingleMatch, getBackendUrl } from '../services/api';
 import { Navbar } from '../components/Navbar';
 import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw } from 'lucide-react';
+import { useConfirm } from '../components/Toast';
 
 const socket = io(getBackendUrl());
 
@@ -47,6 +48,7 @@ const OFFICIAL_TEAMS_FALLBACK: Record<string, { name: string; group: 'A' | 'B' }
 };
 
 export const MatchDayConsole = () => {
+    const { confirm, ConfirmUI } = useConfirm();
     const [matches, setMatches] = useState<any[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
     const [matchState, setMatchState] = useState<MatchState>(DEFAULT_MATCH_STATE);
@@ -805,85 +807,91 @@ export const MatchDayConsole = () => {
 
     const finalizeWhistle = async () => {
         if (!selectedMatch) return;
-        if (window.confirm("Are you sure you want to finalize this match? This cannot be undone.")) {
-            const matchIdStr = selectedMatch.id.toString();
-
-            // Reconcile goals from timeline to make 100% sure the final whistle never submits 0 if goals were scored
-            const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
-            const homeGoalCount = matchEvents.filter(ev => 
-                ev.side === 'home' || 
-                (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
-                (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
-            ).length;
-            const awayGoalCount = matchEvents.filter(ev => 
-                ev.side === 'away' || 
-                (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
-                (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
-            ).length;
-
-            const finalHome = Math.max(matchState.homeScore, homeGoalCount);
-            const finalAway = Math.max(matchState.awayScore, awayGoalCount);
-
-            // Update in-memory matches state in console immediately
-            const updatedMatches = matches.map(m => {
-                if (m.id.toString() === matchIdStr) {
-                    return { ...m, homeScore: finalHome, awayScore: finalAway, status: 'COMPLETED' };
-                }
-                return m;
-            });
-            setMatches(updatedMatches);
-
-            // Prepare local storage matches array
-            let tournamentMatchesList: any[] = [];
-            try {
-                const saved = localStorage.getItem('dench_derby_matches_v4');
-                if (saved) {
-                    tournamentMatchesList = JSON.parse(saved);
-                }
-            } catch {}
-
-            if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
-                tournamentMatchesList = updatedMatches.map(m => ({
-                    id: m.id,
-                    stage: m.stage,
-                    group: m.group,
-                    homeTeamKey: m.homeTeamKey,
-                    awayTeamKey: m.awayTeamKey,
-                    homePlaceholder: m.homeTeam?.name,
-                    awayPlaceholder: m.awayTeam?.name,
-                    homeScore: m.homeScore,
-                    awayScore: m.awayScore,
-                    status: m.status?.toLowerCase(),
-                    time: m.time,
-                    pitch: m.pitchNumber
-                }));
-            }
-
-            const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
-            if (target) {
-                target.homeScore = finalHome;
-                target.awayScore = finalAway;
-                target.status = 'completed';
-            }
-
-            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
-
-            // Sync to server API and Derby Data
-            try {
-                await Promise.all([
-                    updateMatchScore(selectedMatch.id, finalHome, finalAway, 'COMPLETED'),
-                    saveDerbyData({ matches: tournamentMatchesList, goalEvents })
-                ]);
-            } catch (syncErr) {
-                console.error("Notice syncing final score to server:", syncErr);
-            }
-
-            localStorage.removeItem(`match_state_${selectedMatch.id}`);
-            localStorage.removeItem('active_match_id');
-            activeMatchIdRef.current = null;
-            setSelectedMatch(null);
-            fetchFixtures();
+        if (!await confirm({
+            message: 'Are you sure you want to finalize this match? This cannot be undone.',
+            confirmLabel: 'Finalize Match',
+            danger: true,
+        })) {
+            return;
         }
+
+        const matchIdStr = selectedMatch.id.toString();
+
+        // Reconcile goals from timeline to make 100% sure the final whistle never submits 0 if goals were scored
+        const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
+        const homeGoalCount = matchEvents.filter(ev =>
+            ev.side === 'home' ||
+            (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
+            (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+        ).length;
+        const awayGoalCount = matchEvents.filter(ev =>
+            ev.side === 'away' ||
+            (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
+            (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+        ).length;
+
+        const finalHome = Math.max(matchState.homeScore, homeGoalCount);
+        const finalAway = Math.max(matchState.awayScore, awayGoalCount);
+
+        // Update in-memory matches state in console immediately
+        const updatedMatches = matches.map(m => {
+            if (m.id.toString() === matchIdStr) {
+                return { ...m, homeScore: finalHome, awayScore: finalAway, status: 'COMPLETED' };
+            }
+            return m;
+        });
+        setMatches(updatedMatches);
+
+        // Prepare local storage matches array
+        let tournamentMatchesList: any[] = [];
+        try {
+            const saved = localStorage.getItem('dench_derby_matches_v4');
+            if (saved) {
+                tournamentMatchesList = JSON.parse(saved);
+            }
+        } catch {}
+
+        if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
+            tournamentMatchesList = updatedMatches.map(m => ({
+                id: m.id,
+                stage: m.stage,
+                group: m.group,
+                homeTeamKey: m.homeTeamKey,
+                awayTeamKey: m.awayTeamKey,
+                homePlaceholder: m.homeTeam?.name,
+                awayPlaceholder: m.awayTeam?.name,
+                homeScore: m.homeScore,
+                awayScore: m.awayScore,
+                status: m.status?.toLowerCase(),
+                time: m.time,
+                pitch: m.pitchNumber
+            }));
+        }
+
+        const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
+        if (target) {
+            target.homeScore = finalHome;
+            target.awayScore = finalAway;
+            target.status = 'completed';
+        }
+
+        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
+
+        // Sync to server API and Derby Data
+        try {
+            await Promise.all([
+                updateMatchScore(selectedMatch.id, finalHome, finalAway, 'COMPLETED'),
+                saveDerbyData({ matches: tournamentMatchesList, goalEvents })
+            ]);
+        } catch (syncErr) {
+            console.error("Notice syncing final score to server:", syncErr);
+        }
+
+        localStorage.removeItem(`match_state_${selectedMatch.id}`);
+        localStorage.removeItem('active_match_id');
+        activeMatchIdRef.current = null;
+        setSelectedMatch(null);
+        fetchFixtures();
     };
 
     const handleExitMatch = () => {
@@ -898,7 +906,11 @@ export const MatchDayConsole = () => {
         const homeName = availableTeamsMap[selectedMatch.homeTeamKey]?.name || selectedMatch.homePlaceholder || 'Home Team';
         const awayName = availableTeamsMap[selectedMatch.awayTeamKey]?.name || selectedMatch.awayPlaceholder || 'Away Team';
 
-        if (!window.confirm(`Reset match "${homeName} vs ${awayName}" to Scheduled (0-0, 0 played)?`)) {
+        if (!await confirm({
+            message: `Reset match "${homeName} vs ${awayName}" to Scheduled (0-0, 0 played)?`,
+            confirmLabel: 'Reset Match',
+            danger: true,
+        })) {
             return;
         }
 
@@ -969,6 +981,7 @@ export const MatchDayConsole = () => {
     return (
         <div className="app-container">
             <Navbar />
+            <ConfirmUI />
 
             <main className="main-content flex-center animate-fade-in" style={{ flex: 1, flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>

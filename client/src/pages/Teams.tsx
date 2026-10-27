@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Users, Trophy, Plus, CheckCircle2, Lock, Trash2, Crown } from 'lucide-react';
+import { Shield, Users, Trophy, Plus, Lock, Trash2, Crown } from 'lucide-react';
 import { getStandings, getTeams, addPlayerToTeam, deletePlayer, setPlayerCaptain, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useRole } from '../context/RoleContext';
-import { useToast } from '../components/Toast';
+import { useToast, useConfirm } from '../components/Toast';
 
 const socket = io(getBackendUrl());
 
 export const Teams = () => {
     const { role, captainTeamName, canEditTeam, isPastDeadline, deadlineRemaining, openRoleModal } = useRole();
     const { toast } = useToast();
+    const { confirm, ConfirmUI } = useConfirm();
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
     const [inlinePlayerNames, setInlinePlayerNames] = useState<Record<number, string>>({});
-    const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
     const fetchTeams = async () => {
         try {
@@ -83,15 +83,20 @@ export const Teams = () => {
             return;
         }
 
-        if (window.confirm(`Are you sure you want to remove "${playerName}" from ${teamName}?`)) {
-            try {
-                await deletePlayer(playerId, { name: playerName });
-                setFeedbackMsg(`Player "${playerName}" removed successfully.`);
-                setTimeout(() => setFeedbackMsg(null), 3000);
-                fetchTeams();
-            } catch (err: any) {
-                toast.error(err.message || 'Failed to remove player.');
-            }
+        if (!await confirm({
+            message: `Are you sure you want to remove "${playerName}" from ${teamName}?`,
+            confirmLabel: 'Remove',
+            danger: true,
+        })) {
+            return;
+        }
+
+        try {
+            await deletePlayer(playerId, { name: playerName });
+            toast.success(`Player "${playerName}" removed successfully.`);
+            fetchTeams();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to remove player.');
         }
     };
 
@@ -113,8 +118,7 @@ export const Teams = () => {
             await addPlayerToTeam({ teamId, firstName, lastName });
             setInlinePlayerNames(prev => ({ ...prev, [teamId]: '' }));
             setExpandedTeamId(teamId);
-            setFeedbackMsg(`Player "${rawName}" added successfully!`);
-            setTimeout(() => setFeedbackMsg(null), 3000);
+            toast.success(`Player "${rawName}" added successfully!`);
             fetchTeams();
         } catch (err: any) {
             toast.error(err.message || 'Failed to add player.');
@@ -129,6 +133,7 @@ export const Teams = () => {
     return (
         <div className="app-container">
             <Navbar />
+            <ConfirmUI />
 
             <main className="main-content">
                 {/* ROLE BANNER */}
@@ -205,23 +210,6 @@ export const Teams = () => {
                         </NavLink>
                     )}
                 </div>
-
-                {feedbackMsg && (
-                    <div style={{
-                        padding: '0.75rem 1.25rem',
-                        marginBottom: '1.5rem',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                        border: '1px solid rgba(34, 197, 94, 0.4)',
-                        color: 'var(--color-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.9rem'
-                    }}>
-                        <CheckCircle2 size={16} /> {feedbackMsg}
-                    </div>
-                )}
 
                 {loading ? (
                     <div style={{ padding: '3rem', textAlign: 'center' }}>Loading teams...</div>

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetDerbyData = exports.resetSingleMatch = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.DATA_FILE = exports.DATA_DIR = void 0;
+exports.resetDerbyData = exports.resetSingleMatch = exports.claimRefereeMatch = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.DATA_FILE = exports.DATA_DIR = void 0;
 exports.syncToPrismaDatabase = syncToPrismaDatabase;
 exports.initDerbyTournament = initDerbyTournament;
 const fs_1 = __importDefault(require("fs"));
@@ -674,22 +674,27 @@ const saveDerbyData = async (req, res) => {
                 console.warn('Notice syncing captains in saveDerbyData:', syncCapErr);
             }
         }
+        const finalActiveReferees = req.body?.activeReferees !== undefined
+            ? req.body.activeReferees
+            : (currentData.activeReferees || {});
         const payload = {
             teams: finalTeams,
             matches: finalMatches,
             players: finalPlayers,
             goalEvents: finalGoalEvents,
+            activeReferees: finalActiveReferees,
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
         await syncToPrismaDatabase(payload.teams, payload.matches, payload.players);
         // Broadcast to all connected devices via Socket.IO
-        const io = req.app.get('io');
+        const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('derbyUpdate', payload);
             io.emit('captainsUpdated');
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
+            io.emit('refereeClaimUpdate', finalActiveReferees);
         }
         res.json({ success: true, ...payload });
     }
@@ -699,6 +704,80 @@ const saveDerbyData = async (req, res) => {
     }
 };
 exports.saveDerbyData = saveDerbyData;
+const claimRefereeMatch = async (req, res) => {
+    try {
+        const { matchId, pitch, refereeName, action } = req.body;
+        const pitchNum = Number(pitch || 1);
+        let currentData = {
+            teams: exports.DEFAULT_DERBY_TEAMS,
+            matches: exports.DEFAULT_DERBY_MATCHES,
+            players: [],
+            goalEvents: [],
+            activeReferees: {}
+        };
+        if (fs_1.default.existsSync(exports.DATA_FILE)) {
+            try {
+                currentData = JSON.parse(fs_1.default.readFileSync(exports.DATA_FILE, 'utf-8'));
+            }
+            catch { }
+        }
+        if (!currentData.activeReferees)
+            currentData.activeReferees = {};
+        // If claiming, ensure match isn't already active by the other pitch/referee
+        if (action === 'claim' && matchId) {
+            const otherPitchKey = Object.keys(currentData.activeReferees).find(p => currentData.activeReferees[p]?.matchId === matchId && Number(p) !== pitchNum);
+            if (otherPitchKey) {
+                res.status(409).json({
+                    error: `Match is already actively claimed by Referee on Pitch ${otherPitchKey}`,
+                    claimedBy: currentData.activeReferees[otherPitchKey]
+                });
+                return;
+            }
+            const claimInfo = {
+                matchId,
+                pitch: pitchNum,
+                refereeName: refereeName || `Referee ${pitchNum}`,
+                claimedAt: new Date().toISOString(),
+                status: 'live'
+            };
+            currentData.activeReferees[String(pitchNum)] = claimInfo;
+            // Also update match status in matches array
+            if (Array.isArray(currentData.matches)) {
+                const target = currentData.matches.find((m) => m.id === matchId);
+                if (target) {
+                    target.status = 'live';
+                    target.officiatedBy = claimInfo;
+                }
+            }
+        }
+        else if (action === 'release') {
+            const existingClaim = currentData.activeReferees[String(pitchNum)];
+            if (existingClaim) {
+                delete currentData.activeReferees[String(pitchNum)];
+                if (existingClaim.matchId && Array.isArray(currentData.matches)) {
+                    const target = currentData.matches.find((m) => m.id === existingClaim.matchId);
+                    if (target && target.status === 'live') {
+                        target.status = 'completed';
+                    }
+                }
+            }
+        }
+        currentData.updatedAt = new Date().toISOString();
+        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        const io = req.app?.get ? req.app.get('io') : null;
+        if (io) {
+            io.emit('refereeClaimUpdate', currentData.activeReferees);
+            io.emit('derbyUpdate', currentData);
+            io.emit('scoreUpdate');
+        }
+        res.json({ success: true, activeReferees: currentData.activeReferees });
+    }
+    catch (err) {
+        console.error('Failed to claim referee match:', err);
+        res.status(500).json({ error: 'Failed to update referee claim' });
+    }
+};
+exports.claimRefereeMatch = claimRefereeMatch;
 const resetSingleMatch = async (req, res) => {
     try {
         const authUser = req.user;
@@ -717,7 +796,8 @@ const resetSingleMatch = async (req, res) => {
             teams: exports.DEFAULT_DERBY_TEAMS,
             matches: exports.DEFAULT_DERBY_MATCHES,
             players: [],
-            goalEvents: []
+            goalEvents: [],
+            activeReferees: {}
         };
         if (fs_1.default.existsSync(exports.DATA_FILE)) {
             try {
@@ -725,6 +805,8 @@ const resetSingleMatch = async (req, res) => {
             }
             catch { }
         }
+        if (!currentData.activeReferees)
+            currentData.activeReferees = {};
         const matchIndex = (currentData.matches || []).findIndex((m) => m.id === matchId);
         if (matchIndex === -1) {
             res.status(404).json({ error: 'Match not found' });
@@ -734,6 +816,13 @@ const resetSingleMatch = async (req, res) => {
         targetMatch.homeScore = null;
         targetMatch.awayScore = null;
         targetMatch.status = 'scheduled';
+        targetMatch.officiatedBy = null;
+        // Release any active claim for this match
+        Object.keys(currentData.activeReferees).forEach(k => {
+            if (currentData.activeReferees[k]?.matchId === matchId) {
+                delete currentData.activeReferees[k];
+            }
+        });
         // Purge any goal events for this specific match
         currentData.goalEvents = (currentData.goalEvents || []).filter((ev) => ev.matchId !== matchId);
         currentData.updatedAt = new Date().toISOString();
@@ -764,9 +853,10 @@ const resetSingleMatch = async (req, res) => {
         catch (dbErr) {
             console.error('Notice resetting DB match:', dbErr);
         }
-        const io = req.app.get('io');
+        const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('derbyUpdate', currentData);
+            io.emit('refereeClaimUpdate', currentData.activeReferees);
             io.emit('scoreUpdate', {
                 id: targetMatch.id,
                 homeScore: null,
@@ -811,6 +901,7 @@ const resetDerbyData = async (req, res) => {
             matches: exports.DEFAULT_DERBY_MATCHES,
             players: purgePlayers ? [] : currentPlayers,
             goalEvents: [],
+            activeReferees: {},
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
@@ -829,10 +920,11 @@ const resetDerbyData = async (req, res) => {
             });
         }
         catch { }
-        const io = req.app.get('io');
+        const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('derbyReset', payload);
             io.emit('derbyUpdate', payload);
+            io.emit('refereeClaimUpdate', {});
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
             io.emit('playerAdded');

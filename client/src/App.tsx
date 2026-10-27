@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { RoleProvider, useRole } from './context/RoleContext';
 import { RoleSelectModal } from './components/RoleSelectModal';
@@ -13,7 +14,6 @@ import { Register } from './pages/Register';
 import { DenchDerby } from './pages/DenchDerby';
 import { MatchDayConsole } from './pages/MatchDayConsole';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { Login } from './pages/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ToastProvider } from './components/Toast';
 
@@ -24,6 +24,16 @@ const HomeRoute = () => {
     return <Home />;
   }
   return <Navigate to="/dench-derby" replace />;
+};
+
+const LoginRoute = () => {
+  const { openRoleModal } = useRole();
+
+  useEffect(() => {
+    openRoleModal();
+  }, [openRoleModal]);
+
+  return <Navigate to="/" replace />;
 };
 
 // Route wrapper that locks regular league tabs for non-admin roles
@@ -49,7 +59,7 @@ function App() {
             <Route path="/results" element={<AdminTabRoute tabName="Results"><Results /></AdminTabRoute>} />
             <Route path="/teams" element={<AdminTabRoute tabName="Teams"><Teams /></AdminTabRoute>} />
             <Route path="/register" element={<AdminTabRoute tabName="Registration"><Register /></AdminTabRoute>} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<LoginRoute />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute allowedRoles={['REFEREE', 'ADMIN']} />}>

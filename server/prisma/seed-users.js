@@ -11,6 +11,9 @@ async function main() {
     const users = [
         { email: 'ngwanatuka@fivesway.xyz', role: client_1.Role.ADMIN },
         { email: 'referee@5aside.com', role: client_1.Role.REFEREE },
+        { email: 'referee1@5aside.com', role: client_1.Role.REFEREE },
+        { email: 'referee2@5aside.com', role: client_1.Role.REFEREE },
+        { email: 'admin@5aside.com', role: client_1.Role.REFEREE },
         { email: 'cashier@5aside.com', role: client_1.Role.CASHIER },
     ];
     for (const u of users) {

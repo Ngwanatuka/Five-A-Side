@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -34,53 +34,91 @@ const ICONS = {
     info: <Info size={16} />,
 };
 
-const COLORS = {
-    success: { border: 'rgba(18,184,76,0.4)', icon: '#12b84c', glow: 'rgba(18,184,76,0.12)' },
-    error:   { border: 'rgba(239,68,68,0.4)',  icon: '#ef4444', glow: 'rgba(239,68,68,0.12)' },
-    warning: { border: 'rgba(245,158,11,0.4)', icon: '#f59e0b', glow: 'rgba(245,158,11,0.12)' },
-    info:    { border: 'rgba(99,102,241,0.4)', icon: '#818cf8', glow: 'rgba(99,102,241,0.12)' },
+const ACCENTS = {
+    success: { border: 'rgba(52,211,153,0.35)', icon: 'hsl(158 64% 52%)', bar: 'hsl(158 64% 52%)' },
+    error:   { border: 'rgba(239,68,68,0.35)', icon: '#ef4444', bar: '#ef4444' },
+    warning: { border: 'rgba(245,158,11,0.35)', icon: '#f59e0b', bar: '#f59e0b' },
+    info:    { border: 'rgba(99,102,241,0.35)', icon: '#818cf8', bar: '#818cf8' },
 };
 
 function ToastItem({ toast, onRemove }: ToastItemProps) {
     const [visible, setVisible] = useState(false);
-    const c = COLORS[toast.type];
+    const [width, setWidth] = useState(100);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const accent = ACCENTS[toast.type];
+    const duration = 3800;
 
     useEffect(() => {
         const show = setTimeout(() => setVisible(true), 10);
+        const start = Date.now();
+        intervalRef.current = setInterval(() => {
+            const elapsed = Date.now() - start;
+            setWidth(Math.max(0, 100 - (elapsed / duration) * 100));
+        }, 30);
         const hide = setTimeout(() => {
             setVisible(false);
-            setTimeout(() => onRemove(toast.id), 300);
-        }, 3500);
-        return () => { clearTimeout(show); clearTimeout(hide); };
+            setTimeout(() => onRemove(toast.id), 280);
+        }, duration);
+        return () => {
+            clearTimeout(show);
+            clearTimeout(hide);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        };
     }, [toast.id, onRemove]);
+
+    const dismiss = () => {
+        setVisible(false);
+        setTimeout(() => onRemove(toast.id), 280);
+    };
 
     return (
         <div
-            onClick={() => { setVisible(false); setTimeout(() => onRemove(toast.id), 300); }}
+            onClick={dismiss}
             style={{
+                position: 'relative',
+                overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
-                padding: '0.75rem 1rem',
-                background: 'rgba(17,17,17,0.95)',
-                border: `1px solid ${c.border}`,
-                borderRadius: '0.6rem',
-                boxShadow: `0 8px 24px rgba(0,0,0,0.6), 0 0 0 1px ${c.glow}`,
-                backdropFilter: 'blur(12px)',
+                gap: '0.6rem',
+                padding: '0.7rem 0.9rem',
+                background: 'hsl(160 25% 10% / 0.97)',
+                border: `1px solid ${accent.border}`,
+                borderRadius: '0.65rem',
+                boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
+                backdropFilter: 'blur(14px)',
                 cursor: 'pointer',
                 maxWidth: '340px',
                 width: '100%',
                 opacity: visible ? 1 : 0,
-                transform: visible ? 'translateY(0) scale(1)' : 'translateY(8px) scale(0.97)',
+                transform: visible ? 'translateY(0) scale(1)' : 'translateY(6px) scale(0.97)',
                 transition: 'opacity 0.25s ease, transform 0.25s ease',
                 userSelect: 'none',
             }}
         >
-            <span style={{ color: c.icon, flexShrink: 0 }}>{ICONS[toast.type]}</span>
-            <span style={{ color: '#F3F4F6', fontSize: '0.875rem', fontWeight: 500, lineHeight: 1.4, flex: 1 }}>
+            <span style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '3px',
+                background: accent.bar,
+                borderRadius: '0.65rem 0 0 0.65rem',
+            }} />
+            <span style={{ color: accent.icon, flexShrink: 0, marginLeft: '0.35rem' }}>{ICONS[toast.type]}</span>
+            <span style={{ color: 'hsl(150 20% 92%)', fontSize: '0.85rem', fontWeight: 500, lineHeight: 1.45, flex: 1 }}>
                 {toast.message}
             </span>
-            <X size={13} style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+            <X size={12} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
+            <span style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                height: '2px',
+                width: `${width}%`,
+                background: accent.bar,
+                opacity: 0.5,
+                transition: 'width 0.03s linear',
+            }} />
         </div>
     );
 }
@@ -101,7 +139,7 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
             zIndex: 9999,
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.5rem',
+            gap: '0.45rem',
             alignItems: 'flex-end',
             pointerEvents: 'none',
         }}>
@@ -174,19 +212,30 @@ export function ConfirmDialog({
 
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10);
-        return () => clearTimeout(t);
-    }, []);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onCancel();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            clearTimeout(t);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onCancel]);
 
-    const confirmColor = danger ? '#ef4444' : '#12b84c';
-    const confirmHover = danger ? 'rgba(239,68,68,0.15)' : 'rgba(18,184,76,0.15)';
+    const accent = danger
+        ? { border: 'rgba(239,68,68,0.35)', icon: '#ef4444', bar: '#ef4444' }
+        : { border: 'rgba(245,158,11,0.35)', icon: '#f59e0b', bar: '#f59e0b' };
+    const confirmColor = danger ? '#ef4444' : 'hsl(158 64% 52%)';
+    const confirmBackground = danger ? 'rgba(239,68,68,0.12)' : 'rgba(52,211,153,0.12)';
 
     return (
         <div
             onClick={onCancel}
+            role="presentation"
             style={{
                 position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.75)',
-                backdropFilter: 'blur(6px)',
+                background: 'rgba(0,0,0,0.72)',
+                backdropFilter: 'blur(8px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 9998, padding: '1rem',
                 opacity: visible ? 1 : 0,
@@ -195,37 +244,57 @@ export function ConfirmDialog({
         >
             <div
                 onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Confirmation"
                 style={{
-                    background: '#111111',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '0.875rem',
-                    padding: '1.5rem',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    background: 'hsl(160 25% 10% / 0.97)',
+                    border: `1px solid ${accent.border}`,
+                    borderRadius: '0.75rem',
+                    padding: '1.25rem 1.35rem 1rem',
                     maxWidth: '380px',
                     width: '100%',
-                    boxShadow: '0 24px 48px rgba(0,0,0,0.8)',
+                    boxShadow: '0 8px 28px rgba(0,0,0,0.65)',
+                    backdropFilter: 'blur(14px)',
                     transform: visible ? 'scale(1)' : 'scale(0.95)',
                     transition: 'transform 0.2s ease',
                 }}
             >
-                <p style={{
-                    color: '#F3F4F6',
-                    fontSize: '0.95rem',
-                    lineHeight: 1.6,
-                    marginBottom: '1.25rem',
+                <span style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '3px',
+                    background: accent.bar,
+                }} />
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.65rem',
+                    color: 'hsl(150 20% 92%)',
+                    fontSize: '0.9rem',
+                    fontWeight: 500,
+                    lineHeight: 1.5,
+                    margin: '0 0 1.25rem',
+                    paddingLeft: '0.35rem',
                     fontFamily: 'Inter, sans-serif',
                 }}>
+                    <AlertTriangle size={17} style={{ color: accent.icon, flexShrink: 0, marginTop: '0.1rem' }} />
                     {message}
-                </p>
+                </div>
                 <div style={{ display: 'flex', gap: '0.625rem', justifyContent: 'flex-end' }}>
                     <button
                         onClick={onCancel}
                         style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            background: 'transparent',
-                            color: '#9CA3AF',
-                            fontSize: '0.875rem',
+                            padding: '0.5rem 0.85rem',
+                            borderRadius: '0.55rem',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: 'rgba(255,255,255,0.06)',
+                            color: 'hsl(150 20% 82%)',
+                            fontSize: '0.85rem',
                             fontWeight: 600,
                             cursor: 'pointer',
                             fontFamily: 'Inter, sans-serif',
@@ -235,13 +304,14 @@ export function ConfirmDialog({
                     </button>
                     <button
                         onClick={onConfirm}
+                        autoFocus
                         style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: `1px solid ${confirmColor}`,
-                            background: confirmHover,
+                            padding: '0.5rem 0.85rem',
+                            borderRadius: '0.55rem',
+                            border: `1px solid ${accent.border}`,
+                            background: confirmBackground,
                             color: confirmColor,
-                            fontSize: '0.875rem',
+                            fontSize: '0.85rem',
                             fontWeight: 600,
                             cursor: 'pointer',
                             fontFamily: 'Inter, sans-serif',
@@ -276,7 +346,7 @@ export function useConfirm() {
     const handleConfirm = () => { dialog?.resolve(true);  setDialog(null); };
     const handleCancel  = () => { dialog?.resolve(false); setDialog(null); };
 
-    const ConfirmUI = dialog ? (
+    const ConfirmUI = () => dialog ? (
         <ConfirmDialog
             message={dialog.message}
             confirmLabel={dialog.confirmLabel}

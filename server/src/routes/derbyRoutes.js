@@ -6,6 +6,7 @@ const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.get('/', derbyController_1.getDerbyData);
 router.post('/', auth_1.optionalAuth, derbyController_1.saveDerbyData);
+router.post('/claim-match', auth_1.optionalAuth, derbyController_1.claimRefereeMatch);
 router.post('/reset', auth_1.optionalAuth, derbyController_1.resetDerbyData);
 router.post('/reset-match/:matchId', auth_1.optionalAuth, derbyController_1.resetSingleMatch);
 exports.default = router;

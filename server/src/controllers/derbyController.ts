@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '../prisma';
 import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
+import { adminUpdateCaptain } from '../services/captainService';
 
 export const DATA_DIR = path.join(__dirname, '../../data');
 export const DATA_FILE = path.join(DATA_DIR, 'derby-tournament.json');
@@ -661,15 +662,27 @@ export const saveDerbyData = async (req: any, res: Response) => {
 
         if (Array.isArray(finalPlayers)) {
             const captainByTeam = new Map<string, string>();
+            const captainNameByTeam = new Map<string, string>();
             finalPlayers.forEach((player: any) => {
                 if (player?.isCaptain === true && player.teamKey && player.id) {
                     captainByTeam.set(player.teamKey, String(player.id));
+                    captainNameByTeam.set(player.teamKey, player.name || '');
                 }
             });
             finalPlayers = finalPlayers.map((player: any) => ({
                 ...player,
                 isCaptain: captainByTeam.get(player.teamKey) === String(player.id)
             }));
+
+            // Sync updated captain names into captains.json
+            try {
+                Object.keys(finalTeams).forEach(tk => {
+                    const capName = captainNameByTeam.get(tk) || '';
+                    adminUpdateCaptain(tk, { captainName: capName });
+                });
+            } catch (syncCapErr) {
+                console.warn('Notice syncing captains in saveDerbyData:', syncCapErr);
+            }
         }
 
         const payload = {
@@ -688,6 +701,7 @@ export const saveDerbyData = async (req: any, res: Response) => {
         const io = req.app.get('io');
         if (io) {
             io.emit('derbyUpdate', payload);
+            io.emit('captainsUpdated');
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
         }

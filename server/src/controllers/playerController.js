@@ -41,6 +41,7 @@ const fs_1 = __importDefault(require("fs"));
 const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
 const derbyController_1 = require("./derbyController");
+const captainService_1 = require("../services/captainService");
 const addPlayerSchema = zod_1.z.object({
     teamId: zod_1.z.number().int().positive(),
     firstName: zod_1.z.string().min(1, 'First name is required'),
@@ -455,9 +456,19 @@ const setPlayerAsCaptain = async (req, res) => {
         catch (jsonErr) {
             console.error('Notice updating captain in derby JSON:', jsonErr);
         }
-        const io = req.app.get('io');
+        // Also update captains.json so the captain login dropdown immediately reflects the designated captain
+        if (tournamentTeamKey && playerName) {
+            try {
+                (0, captainService_1.adminUpdateCaptain)(tournamentTeamKey, { captainName: playerName });
+            }
+            catch (capErr) {
+                console.warn('Notice updating captain in captains.json:', capErr);
+            }
+        }
+        const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('playerUpdated', { id: rawId, dbId: dbPlayer?.id, teamKey: tournamentTeamKey, isCaptain: true, name: playerName });
+            io.emit('captainsUpdated');
             io.emit('derbyUpdate');
             io.emit('teamRegistered');
         }

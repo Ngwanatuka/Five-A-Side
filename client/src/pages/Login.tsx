@@ -229,11 +229,14 @@ export function Login() {
                                             colorScheme: 'dark'
                                         }}
                                     >
-                                        {displayTeams.map(c => (
-                                            <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
-                                                {c.teamName} (Captain: {c.captainName || 'Assigned'})
-                                            </option>
-                                        ))}
+                                        {displayTeams.map(c => {
+                                            const captainDisplay = c.captainName ? `(Captain: ${c.captainName})` : '(No Captain Assigned)';
+                                            return (
+                                                <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
+                                                    {c.teamName} {captainDisplay}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 

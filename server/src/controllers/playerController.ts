@@ -3,6 +3,7 @@ import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
 import { DATA_FILE } from './derbyController';
+import { adminUpdateCaptain } from '../services/captainService';
 
 const addPlayerSchema = z.object({
     teamId: z.number().int().positive(),
@@ -456,9 +457,19 @@ export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void>
             console.error('Notice updating captain in derby JSON:', jsonErr);
         }
 
-        const io = req.app.get('io');
+        // Also update captains.json so the captain login dropdown immediately reflects the designated captain
+        if (tournamentTeamKey && playerName) {
+            try {
+                adminUpdateCaptain(tournamentTeamKey, { captainName: playerName });
+            } catch (capErr) {
+                console.warn('Notice updating captain in captains.json:', capErr);
+            }
+        }
+
+        const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('playerUpdated', { id: rawId, dbId: dbPlayer?.id, teamKey: tournamentTeamKey, isCaptain: true, name: playerName });
+            io.emit('captainsUpdated');
             io.emit('derbyUpdate');
             io.emit('teamRegistered');
         }

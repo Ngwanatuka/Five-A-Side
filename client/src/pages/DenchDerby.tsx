@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer } from '../services/api';
+import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer, setPlayerCaptain } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
@@ -1266,6 +1266,29 @@ export const DenchDerby = () => {
         setNewPlayerPosition(p.position);
         setNewPlayerCaptain(!!p.isCaptain);
         setIsAddPlayerOpen(true);
+    };
+
+    const handleMakeCaptain = async (playerId: string) => {
+        const targetPlayer = players.find(p => p.id === playerId);
+        if (!targetPlayer) return;
+
+        if (!canEditTeam(targetPlayer.teamKey)) {
+            toast.warning('You can only designate captain for your own team.');
+            return;
+        }
+
+        const teamKey = targetPlayer.teamKey;
+        const updated = assignTeamCaptain(players, teamKey, playerId);
+        setPlayers(updated);
+
+        persistTournamentData(teams, matches, updated, goalEvents);
+
+        try {
+            await setPlayerCaptain(playerId, { teamKey, name: targetPlayer.name });
+            toast.success(`👑 "${targetPlayer.name}" is now Captain of ${teams[teamKey]?.name || teamKey}!`);
+        } catch (err: any) {
+            console.warn('Notice calling setPlayerCaptain:', err);
+        }
     };
 
     const handleDeletePlayer = async (playerId: string) => {
@@ -3462,6 +3485,45 @@ export const DenchDerby = () => {
                                                                     }} title="Assists made">
                                                                         {stat?.assists || 0} 👟
                                                                     </div>
+
+                                                                    {p.isCaptain ? (
+                                                                        <span style={{
+                                                                            fontSize: '0.72rem',
+                                                                            padding: '0.2rem 0.5rem',
+                                                                            borderRadius: 'var(--radius-sm)',
+                                                                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                                                                            color: '#fbbf24',
+                                                                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                                            fontWeight: 700,
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '0.25rem'
+                                                                        }}>
+                                                                            <Crown size={12} /> Captain
+                                                                        </span>
+                                                                    ) : (
+                                                                        isTeamEditable && (
+                                                                            <button
+                                                                                onClick={() => handleMakeCaptain(p.id)}
+                                                                                className="btn-icon"
+                                                                                style={{
+                                                                                    padding: '0.25rem 0.45rem',
+                                                                                    borderRadius: 'var(--radius-sm)',
+                                                                                    background: 'rgba(245, 158, 11, 0.1)',
+                                                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                                                    color: '#fbbf24',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.75rem',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '0.25rem'
+                                                                                }}
+                                                                                title={`Designate ${p.name} as Team Captain`}
+                                                                            >
+                                                                                <Crown size={12} /> Captain
+                                                                            </button>
+                                                                        )
+                                                                    )}
 
                                                                     {isTeamEditable && (
                                                                         <>

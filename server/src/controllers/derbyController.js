@@ -9,6 +9,7 @@ exports.initDerbyTournament = initDerbyTournament;
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../prisma"));
+const captainService_1 = require("../services/captainService");
 exports.DATA_DIR = path_1.default.join(__dirname, '../../data');
 exports.DATA_FILE = path_1.default.join(exports.DATA_DIR, 'derby-tournament.json');
 // Ensure data directory exists
@@ -651,15 +652,27 @@ const saveDerbyData = async (req, res) => {
         }
         if (Array.isArray(finalPlayers)) {
             const captainByTeam = new Map();
+            const captainNameByTeam = new Map();
             finalPlayers.forEach((player) => {
                 if (player?.isCaptain === true && player.teamKey && player.id) {
                     captainByTeam.set(player.teamKey, String(player.id));
+                    captainNameByTeam.set(player.teamKey, player.name || '');
                 }
             });
             finalPlayers = finalPlayers.map((player) => ({
                 ...player,
                 isCaptain: captainByTeam.get(player.teamKey) === String(player.id)
             }));
+            // Sync updated captain names into captains.json
+            try {
+                Object.keys(finalTeams).forEach(tk => {
+                    const capName = captainNameByTeam.get(tk) || '';
+                    (0, captainService_1.adminUpdateCaptain)(tk, { captainName: capName });
+                });
+            }
+            catch (syncCapErr) {
+                console.warn('Notice syncing captains in saveDerbyData:', syncCapErr);
+            }
         }
         const payload = {
             teams: finalTeams,
@@ -674,6 +687,7 @@ const saveDerbyData = async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.emit('derbyUpdate', payload);
+            io.emit('captainsUpdated');
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
         }

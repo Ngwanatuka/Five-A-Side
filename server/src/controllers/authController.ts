@@ -103,14 +103,15 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
             if (rosterCap) {
                 effectiveCaptainName = `${rosterCap.firstName} ${rosterCap.lastName === '-' ? '' : rosterCap.lastName}`.trim();
             } else {
-                const firstPlayer = await prisma.player.findFirst({
-                    where: {
-                        team: { managerContact: `${teamKey}@tournament.local` }
-                    },
-                    orderBy: { id: 'asc' }
-                });
-                if (firstPlayer) {
-                    effectiveCaptainName = `${firstPlayer.firstName} ${firstPlayer.lastName === '-' ? '' : firstPlayer.lastName}`.trim();
+                const path = require('path');
+                const fs = require('fs');
+                const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+                if (fs.existsSync(dataFile)) {
+                    const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                    const fileCap = (derby.players || []).find((p: any) => p.teamKey === teamKey && p.isCaptain === true);
+                    if (fileCap?.name) {
+                        effectiveCaptainName = fileCap.name.trim();
+                    }
                 }
             }
         } catch {}
@@ -149,7 +150,7 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 
 /**
  * Public listing of team captains (without PINs)
- * Captain name is sourced from the designated captain (or first player) in each team's squad roster.
+ * Sourced dynamically from whoever is currently designated as Captain (isCaptain: true) in each team's squad roster.
  */
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -160,32 +161,29 @@ export const getCaptainsList = async (_req: Request, res: Response): Promise<voi
 
         const captainNamesByTeam = new Map<string, string>();
 
-        // 1. Query database players for all tournament teams
+        // 1. Query database players for all tournament teams where isCaptain === true
         try {
             const dbPlayers = await prisma.player.findMany({
                 where: {
+                    isCaptain: true,
                     team: { managerContact: { endsWith: '@tournament.local' } }
                 },
                 include: { team: true },
-                orderBy: [{ isCaptain: 'desc' }, { id: 'asc' }]
+                orderBy: { id: 'asc' }
             });
 
             dbPlayers.forEach((player) => {
                 const teamKey = player.team.managerContact.replace(/@tournament\.local$/, '');
                 const captainName = `${player.firstName} ${player.lastName === '-' ? '' : player.lastName}`.trim();
                 if (captainName) {
-                    if (player.isCaptain) {
-                        captainNamesByTeam.set(teamKey, captainName);
-                    } else if (!captainNamesByTeam.has(teamKey)) {
-                        captainNamesByTeam.set(teamKey, captainName);
-                    }
+                    captainNamesByTeam.set(teamKey, captainName);
                 }
             });
         } catch (dbErr) {
             console.warn('Notice querying DB players for captains list:', dbErr);
         }
 
-        // 2. Fallback to derby-tournament.json if any team is missing
+        // 2. Also query derby-tournament.json for designated captains
         try {
             const path = require('path');
             const fs = require('fs');
@@ -194,16 +192,8 @@ export const getCaptainsList = async (_req: Request, res: Response): Promise<voi
                 const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
                 const filePlayers: any[] = Array.isArray(derby.players) ? derby.players : [];
 
-                // Priority: explicit isCaptain
                 filePlayers.forEach((p) => {
-                    if (p?.teamKey && p?.name && p?.isCaptain === true) {
-                        captainNamesByTeam.set(p.teamKey, p.name.trim());
-                    }
-                });
-
-                // Fallback: first roster player if team still has no captain
-                filePlayers.forEach((p) => {
-                    if (p?.teamKey && p?.name && !captainNamesByTeam.has(p.teamKey)) {
+                    if (p?.teamKey && p?.name && p?.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
                         captainNamesByTeam.set(p.teamKey, p.name.trim());
                     }
                 });

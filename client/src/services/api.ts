@@ -89,11 +89,6 @@ export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
         const getRosterCaptainName = (teamKey: string): string => {
             const cap = rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim();
             if (cap && !MOCK_CAPTAIN_NAMES.has(cap.toLowerCase())) return cap;
-
-            // Fallback to first player registered in this team's squad roster
-            const first = rosterPlayers.find(player => player.teamKey === teamKey)?.name?.trim();
-            if (first && !MOCK_CAPTAIN_NAMES.has(first.toLowerCase())) return first;
-
             return '';
         };
 
@@ -322,10 +317,11 @@ export const deletePlayer = async (playerId: string | number, extra?: { teamKey?
     return response.json();
 };
 
-export const setPlayerCaptain = async (playerId: string | number) => {
+export const setPlayerCaptain = async (playerId: string | number, payload?: { teamKey?: string; name?: string }) => {
     const response = await fetch(`${API_BASE_URL}/players/${playerId}/captain`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        ...(payload && { body: JSON.stringify(payload) })
     });
     if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Failed to set team captain' }));

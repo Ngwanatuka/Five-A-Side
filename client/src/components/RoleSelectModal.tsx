@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { getPublicCaptains, getStoredOrFallbackCaptains, DEFAULT_CAPTAINS, API_BASE_URL } from '../services/api';
+import { getPublicCaptains, getStoredOrFallbackCaptains, DEFAULT_CAPTAINS, API_BASE_URL, getBackendUrl } from '../services/api';
+import { io } from 'socket.io-client';
 import { 
     ChevronRight, 
     AlertCircle, 
@@ -47,12 +48,19 @@ export const RoleSelectModal: React.FC = () => {
             // Cleanse any legacy cached mock captain names in localStorage
             try {
                 const MOCK_NAMES = new Set(['bafana sithole', 'mo hendricks', 'thabo dlamini', 'sipho zulu', 'mandla nkosi', 'kagiso molefe']);
+                const rawPlayers = localStorage.getItem('dench_derby_players_v4');
+                if (rawPlayers) {
+                    const parsedP = JSON.parse(rawPlayers);
+                    if (Array.isArray(parsedP) && parsedP.some(p => p?.name && MOCK_NAMES.has(p.name.toLowerCase().trim()))) {
+                        localStorage.removeItem('dench_derby_players_v4');
+                    }
+                }
                 const rawTeams = localStorage.getItem('dench_derby_teams_v4');
                 if (rawTeams) {
                     const parsed = JSON.parse(rawTeams);
                     let changed = false;
                     Object.keys(parsed).forEach(k => {
-                        if (parsed[k]?.captain && MOCK_NAMES.has(String(parsed[k].captain).toLowerCase().trim())) {
+                        if (parsed[k]?.captain) {
                             delete parsed[k].captain;
                             changed = true;
                         }
@@ -61,39 +69,33 @@ export const RoleSelectModal: React.FC = () => {
                 }
             } catch {}
 
-            // Ensure captains list has fallback immediately
-            const initialList = getStoredOrFallbackCaptains();
-            if (initialList && initialList.length > 0) {
-                setCaptainsList(initialList);
-                if (!selectedTeamKey) {
-                    setSelectedTeamKey(initialList[0].teamKey);
-                }
-            }
+            const fetchCaptains = () => {
+                getPublicCaptains()
+                    .then(list => {
+                        if (Array.isArray(list) && list.length > 0) {
+                            setCaptainsList(list);
+                            setSelectedTeamKey(prev => {
+                                const stillExists = list.some(c => c.teamKey === prev);
+                                return stillExists ? prev : list[0].teamKey;
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            };
 
-            getPublicCaptains()
-                .then(list => {
-                    if (Array.isArray(list) && list.length > 0) {
-                        let rosterPlayers: any[] = [];
-                        try {
-                            const raw = localStorage.getItem('dench_derby_players_v4');
-                            if (raw) rosterPlayers = JSON.parse(raw);
-                        } catch {}
-                        const merged = list.map(c => {
-                            const rosterCap = rosterPlayers.find((p: any) => p.teamKey === c.teamKey && p.isCaptain);
-                            const rosterFirst = rosterPlayers.find((p: any) => p.teamKey === c.teamKey);
-                            const chosenName = rosterCap?.name || c.captainName || rosterFirst?.name || '';
-                            return { ...c, captainName: chosenName };
-                        });
-                        setCaptainsList(merged);
-                        setSelectedTeamKey(prev => {
-                            const stillExists = merged.some(c => c.teamKey === prev);
-                            return stillExists ? prev : merged[0].teamKey;
-                        });
-                    }
-                })
-                .catch(() => {});
+            fetchCaptains();
+
+            // Real-time synchronization: when a captain is changed in squad roster on any device, update dropdown instantly
+            const socket = io(getBackendUrl());
+            socket.on('captainsUpdated', fetchCaptains);
+            socket.on('playerUpdated', fetchCaptains);
+            socket.on('derbyUpdate', fetchCaptains);
 
             return () => {
+                socket.off('captainsUpdated', fetchCaptains);
+                socket.off('playerUpdated', fetchCaptains);
+                socket.off('derbyUpdate', fetchCaptains);
+                socket.disconnect();
                 document.body.style.overflow = originalOverflow;
             };
         }

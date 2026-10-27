@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '../components/Navbar';
+import { useToast, useConfirm, ToastContainer } from '../components/Toast';
 import { 
     Trophy, 
     Calendar, 
@@ -919,7 +920,7 @@ export const DenchDerby = () => {
         if (!newPlayerName.trim()) return;
 
         if (!canEditTeam(targetTeamKey)) {
-            alert(`Forbidden: As Captain, you can only add players to your own assigned squad.`);
+            toast.warning('As Captain, you can only add players to your own assigned squad.');
             return;
         }
 
@@ -1015,7 +1016,7 @@ export const DenchDerby = () => {
         if (!trimmed) return;
 
         if (!canEditTeam(teamKey)) {
-            alert(`Forbidden: You can only add players to your own assigned squad.`);
+            toast.warning('You can only add players to your own assigned squad.');
             return;
         }
 
@@ -1053,7 +1054,7 @@ export const DenchDerby = () => {
         if (!newPlayerName.trim()) return;
 
         if (!canEditTeam(targetTeamKey)) {
-            alert(`Forbidden: As Captain, you can only add players to your own assigned squad.`);
+            toast.warning('As Captain, you can only add players to your own assigned squad.');
             return;
         }
 
@@ -1092,7 +1093,7 @@ export const DenchDerby = () => {
         }
         const target = (role === 'CAPTAIN' && myTeamKey) ? myTeamKey : (teamKey || bulkTargetTeamKey);
         if (role === 'CAPTAIN' && !canEditTeam(target)) {
-            alert(`Forbidden: As Captain, you can only paste players into your own squad.`);
+            toast.warning('As Captain, you can only paste players into your own squad.');
             return;
         }
         setBulkTargetTeamKey(target);
@@ -1185,7 +1186,7 @@ export const DenchDerby = () => {
         if (parsedBulkPlayers.length === 0) return;
 
         if (!canEditTeam(bulkTargetTeamKey)) {
-            alert(`Forbidden: As Captain, you cannot import players into another team.`);
+            toast.warning('As Captain, you cannot import players into another team.');
             return;
         }
 
@@ -1217,7 +1218,7 @@ export const DenchDerby = () => {
         }
         const target = (role === 'CAPTAIN' && myTeamKey) ? myTeamKey : (teamKey || targetTeamKey);
         if (role === 'CAPTAIN' && !canEditTeam(target)) {
-            alert(`Forbidden: As Captain, you can only register players to your own assigned squad.`);
+            toast.warning('As Captain, you can only register players to your own assigned squad.');
             return;
         }
 
@@ -1235,7 +1236,7 @@ export const DenchDerby = () => {
 
     const handleOpenEditPlayer = (p: TournamentPlayer) => {
         if (!canEditTeam(p.teamKey)) {
-            alert(`Forbidden: You can only edit players on your own team.`);
+            toast.warning('You can only edit players on your own team.');
             return;
         }
 
@@ -1253,11 +1254,11 @@ export const DenchDerby = () => {
         if (!playerToDelete) return;
 
         if (!canEditTeam(playerToDelete.teamKey)) {
-            alert(`Forbidden: You can only remove players from your own team.`);
+            toast.warning('You can only remove players from your own team.');
             return;
         }
 
-        if (window.confirm(`Are you sure you want to remove "${playerToDelete.name}" from the squad?`)) {
+        if (await confirm({ message: `Remove "${playerToDelete.name}" from the squad?`, confirmLabel: 'Remove', danger: true })) {
             const updated = players.filter(p => p.id !== playerId);
             const updatedEvents = goalEvents.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId);
             setPlayers(updated);
@@ -1275,8 +1276,8 @@ export const DenchDerby = () => {
         }
     };
 
-    const handleClearAllMockData = () => {
-        if (window.confirm('Clear all registered players, scores, and goal events? You can register your real squad rosters from scratch!')) {
+    const handleClearAllMockData = async () => {
+        if (await confirm({ message: 'Clear all registered players, scores, and goal events?', confirmLabel: 'Clear All', danger: true })) {
             const cleanMatches = DEFAULT_MATCHES.map(m => ({
                 ...m,
                 homeScore: null,
@@ -1290,8 +1291,8 @@ export const DenchDerby = () => {
         }
     };
 
-    const handleClearAllSquads = () => {
-        if (window.confirm('Are you sure you want to remove all players from all squads?')) {
+    const handleClearAllSquads = async () => {
+        if (await confirm({ message: 'Remove all players from all squads?', confirmLabel: 'Clear Squads', danger: true })) {
             setPlayers([]);
             setGoalEvents([]);
             persistTournamentData(teams, matches, [], [], { clearAllSquads: true });
@@ -1302,7 +1303,7 @@ export const DenchDerby = () => {
     const handleSaveQuickTeams = (e: React.FormEvent) => {
         e.preventDefault();
         if (role !== 'ADMIN') {
-            alert('Forbidden: Only League Admins can rename all tournament teams.');
+            toast.warning('Only League Admins can rename all tournament teams.');
             return;
         }
 
@@ -1337,7 +1338,7 @@ export const DenchDerby = () => {
         if (!editTeamData.name.trim()) return;
 
         if (!canEditTeam(selectedEditTeamKey)) {
-            alert('Forbidden: As Captain, you can only edit details for your own assigned squad.');
+            toast.warning('As Captain, you can only edit details for your own assigned squad.');
             return;
         }
 
@@ -1364,8 +1365,8 @@ export const DenchDerby = () => {
         setIsEditTeamsOpen(false);
     };
 
-    const handleResetTeamsToDefault = () => {
-        if (window.confirm('Reset all teams back to default? Any custom team names will be reset.')) {
+    const handleResetTeamsToDefault = async () => {
+        if (await confirm({ message: 'Reset all teams back to default? Any custom team names will be lost.', confirmLabel: 'Reset Teams', danger: true })) {
             setTeams(DEFAULT_TEAMS);
             persistTournamentData(DEFAULT_TEAMS, matches, players, goalEvents);
         }
@@ -1488,7 +1489,7 @@ export const DenchDerby = () => {
         const homeName = (match?.homeTeamKey && teams[match.homeTeamKey]?.name) || match?.homePlaceholder || 'Home Team';
         const awayName = (match?.awayTeamKey && teams[match.awayTeamKey]?.name) || match?.awayPlaceholder || 'Away Team';
 
-        if (!window.confirm(`Reset "${homeName} vs ${awayName}" to Scheduled (tournament not started yet)?`)) {
+        if (!await confirm({ message: `Reset "${homeName} vs ${awayName}" back to Scheduled?`, confirmLabel: 'Reset Match', danger: true })) {
             return;
         }
 
@@ -1525,7 +1526,7 @@ export const DenchDerby = () => {
 
     const handleSimulateTournament = () => {
         if (role !== 'ADMIN') {
-            alert('Access Denied: Only an Administrator can simulate tournament scores.');
+            toast.error('Access Denied: Only an Administrator can simulate tournament scores.');
             return;
         }
 
@@ -1548,11 +1549,11 @@ export const DenchDerby = () => {
 
     const handleResetTournament = async () => {
         if (role !== 'ADMIN') {
-            alert('Access Denied: Only an Administrator can reset tournament matches and scores.');
+            toast.error('Access Denied: Only an Administrator can reset tournament matches and scores.');
             return;
         }
 
-        if (!window.confirm('Are you sure you want to reset all matches, scores, and goal records? All fixtures will return to scheduled status with zero scores across all devices.')) {
+        if (!await confirm({ message: 'Reset all matches, scores, and goal records? All fixtures will return to scheduled across all devices.', confirmLabel: 'Reset Tournament', danger: true })) {
             return;
         }
 
@@ -1575,7 +1576,7 @@ export const DenchDerby = () => {
             } catch {}
         } catch (err: any) {
             console.error('Failed to reset tournament:', err);
-            alert(err.message || 'Failed to reset tournament. Make sure you are logged in as an Administrator.');
+            toast.error(err.message || 'Failed to reset tournament. Make sure you are logged in as an Administrator.');
         }
     };
 
@@ -1618,9 +1619,14 @@ export const DenchDerby = () => {
         )
     );
 
+    const { toasts, remove: removeToast, toast } = useToast();
+    const { confirm, ConfirmUI } = useConfirm();
+
     return (
         <div className="app-container">
             <Navbar />
+            <ToastContainer toasts={toasts} onRemove={removeToast} />
+            {ConfirmUI}
 
             <main className="main-content">
 

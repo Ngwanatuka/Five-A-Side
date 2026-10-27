@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Navbar } from "@/components/navbar"
+import { ToastProvider } from "@/components/toast"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -27,10 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans antialiased min-h-screen`}>
-        <Navbar />
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
+        <ToastProvider>
+          <Navbar />
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
+        </ToastProvider>
       </body>
     </html>
   )

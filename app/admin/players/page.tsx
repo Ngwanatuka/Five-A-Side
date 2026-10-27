@@ -4,12 +4,14 @@ import { useState } from "react"
 import useSWR from "swr"
 import { Users, Plus, Check, X } from "lucide-react"
 import type { Team, PlayerWithTeam } from "@/lib/db"
+import { useToast } from "@/components/toast"
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function AdminPlayersPage() {
   const { data: players, mutate } = useSWR<PlayerWithTeam[]>('/api/players', fetcher)
   const { data: teams } = useSWR<Team[]>('/api/teams', fetcher)
+  const toast = useToast()
   const [isAdding, setIsAdding] = useState(false)
   const [formData, setFormData] = useState({
     first_name: '',
@@ -24,7 +26,7 @@ export default function AdminPlayersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await fetch('/api/players', {
+      const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -33,11 +35,13 @@ export default function AdminPlayersPage() {
           jersey_number: formData.jersey_number ? parseInt(formData.jersey_number) : null
         })
       })
+      if (!res.ok) throw new Error(await res.text())
       mutate()
       setIsAdding(false)
       setFormData({ first_name: '', last_name: '', email: '', phone: '', team_id: '', jersey_number: '', position: '' })
+      toast.success('Player registered successfully')
     } catch (error) {
-      console.error('Error creating player:', error)
+      toast.error('Failed to register player')
     }
   }
 

@@ -4,11 +4,13 @@ import { useState } from "react"
 import useSWR from "swr"
 import { Users, Plus, Check, X } from "lucide-react"
 import type { Team } from "@/lib/db"
+import { useToast } from "@/components/toast"
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function AdminTeamsPage() {
   const { data: teams, mutate } = useSWR<Team[]>('/api/teams', fetcher)
+  const toast = useToast()
   const [isAdding, setIsAdding] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -19,16 +21,18 @@ export default function AdminTeamsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await fetch('/api/teams', {
+      const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
+      if (!res.ok) throw new Error(await res.text())
       mutate()
       setIsAdding(false)
       setFormData({ name: '', primary_color: '#10b981', secondary_color: '#064e3b' })
+      toast.success('Team created successfully')
     } catch (error) {
-      console.error('Error creating team:', error)
+      toast.error('Failed to create team')
     }
   }
 

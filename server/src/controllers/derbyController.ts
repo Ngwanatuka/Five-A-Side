@@ -622,10 +622,6 @@ export const saveDerbyData = async (req: any, res: Response) => {
             io.emit('derbyUpdate', payload);
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
-            // Only emit playerAdded if players actually increased, not when players are deleted
-            if (Array.isArray(players) && players.length > (currentData.players?.length || 0)) {
-                io.emit('playerAdded');
-            }
         }
 
         res.json({ success: true, ...payload });

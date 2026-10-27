@@ -628,7 +628,7 @@ export const DenchDerby = () => {
         socket.on('derbyUpdate', handleRemoteUpdate);
         socket.on('derbyReset', handleRemoteUpdate);
         socket.on('playerDeleted', handlePlayerDeleted);
-        socket.on('playerAdded', () => { fetchRemote(); });
+        socket.on('playerAdded', () => { /* derbyUpdate socket handles the state update */ });
 
         return () => {
             isMounted = false;

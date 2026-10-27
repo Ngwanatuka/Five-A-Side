@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getPlayers, getBackendUrl, deletePlayer } from '../services/api';
+import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());

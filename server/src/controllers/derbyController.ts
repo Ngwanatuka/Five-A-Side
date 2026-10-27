@@ -520,47 +520,6 @@ export const getDerbyData = async (req: Request, res: Response) => {
             currentData.goalEvents = [];
         }
 
-        // Query database players to ensure all registered players are included across all browsers & devices
-        try {
-            const dbTeams = await prisma.team.findMany({
-                where: { managerContact: { endsWith: '@tournament.local' } },
-                include: { players: true }
-            });
-
-            const existingKeys = new Set(
-                currentData.players.map((p: any) => `${p.teamKey}_${(p.name || '').trim().toLowerCase()}`)
-            );
-
-            let addedFromDb = false;
-            for (const t of dbTeams) {
-                const teamKey = t.managerContact.replace('@tournament.local', '');
-                for (const p of t.players) {
-                    const fullName = `${p.firstName} ${p.lastName}`.trim();
-                    const key = `${teamKey}_${fullName.toLowerCase()}`;
-                    if (!existingKeys.has(key)) {
-                        const nextJersey = currentData.players.filter((dp: any) => dp.teamKey === teamKey).length + 1;
-                        currentData.players.push({
-                            id: `p-${p.id}`,
-                            teamKey,
-                            name: fullName,
-                            jerseyNumber: nextJersey,
-                            position: 'MID',
-                            isCaptain: false
-                        });
-                        existingKeys.add(key);
-                        addedFromDb = true;
-                    }
-                }
-            }
-
-            if (addedFromDb) {
-                currentData.updatedAt = new Date().toISOString();
-                fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
-            }
-        } catch (dbErr) {
-            console.error('Notice loading DB players in getDerbyData:', dbErr);
-        }
-
         res.json(currentData);
     } catch (err: any) {
         console.error('Failed to read derby tournament data:', err);

@@ -515,9 +515,8 @@ export const DenchDerby = () => {
         let isMounted = true;
         const fetchRemote = async () => {
             try {
-                const [data, apiPlayers] = await Promise.all([
-                    getDerbyData().catch(() => null),
-                    getPlayers().catch(() => [])
+                const [data] = await Promise.all([
+                    getDerbyData().catch(() => null)
                 ]);
 
                 if (isMounted) {
@@ -559,70 +558,14 @@ export const DenchDerby = () => {
                         }
                     } catch {}
 
-                    // Unify and merge players from remote tournament, database, and local browser storage
-                    const playerMap = new Map<string, TournamentPlayer>();
-
-                    // 1. Remote derby-tournament.json players
-                    if (Array.isArray(data?.players)) {
-                        for (const p of data.players) {
-                            if (p && p.name && p.teamKey) {
-                                const normKey = `${p.teamKey}_${p.name.trim().toLowerCase()}`;
-                                playerMap.set(normKey, {
-                                    id: p.id || `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                                    teamKey: p.teamKey,
-                                    name: p.name.trim(),
-                                    jerseyNumber: typeof p.jerseyNumber === 'number' ? p.jerseyNumber : 1,
-                                    position: p.position || 'MID',
-                                    isCaptain: !!p.isCaptain
-                                });
-                            }
-                        }
+                    // Server JSON is the single source of truth for players
+                    let unifiedPlayers: TournamentPlayer[] = [];
+                    if (Array.isArray(data?.players) && data.players.length > 0) {
+                        unifiedPlayers = data.players;
+                    } else if (Array.isArray(localSavedPlayers) && localSavedPlayers.length > 0) {
+                        // Offline fallback only
+                        unifiedPlayers = localSavedPlayers;
                     }
-
-                    // 2. Database players from /api/players
-                    if (Array.isArray(apiPlayers)) {
-                        for (const ap of apiPlayers) {
-                            const name = `${ap.firstName || ''} ${ap.lastName || ''}`.trim() || ap.name;
-                            let teamKey = ap.teamKey;
-                            if (!teamKey && ap.team) {
-                                if (ap.team.managerContact && ap.team.managerContact.endsWith('@tournament.local')) {
-                                    teamKey = ap.team.managerContact.replace('@tournament.local', '');
-                                } else if (ap.team.name) {
-                                    const foundKey = Object.keys(effectiveTeams).find(
-                                        k => effectiveTeams[k].name.toLowerCase() === ap.team.name.toLowerCase()
-                                    );
-                                    if (foundKey) teamKey = foundKey;
-                                }
-                            }
-                            if (name && teamKey) {
-                                const normKey = `${teamKey}_${name.toLowerCase()}`;
-                                if (!playerMap.has(normKey)) {
-                                    playerMap.set(normKey, {
-                                        id: ap.id ? `p-${ap.id}` : `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                                        teamKey,
-                                        name,
-                                        jerseyNumber: ap.jerseyNumber || (Array.from(playerMap.values()).filter(p => p.teamKey === teamKey).length + 1),
-                                        position: ap.position || 'MID',
-                                        isCaptain: !!ap.isCaptain
-                                    });
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. Local browser players fallback ONLY if remote server has no players
-                    if (playerMap.size === 0 && Array.isArray(localSavedPlayers)) {
-                        for (const lp of localSavedPlayers) {
-                            if (lp && lp.name && lp.teamKey) {
-                                const normKey = `${lp.teamKey}_${lp.name.trim().toLowerCase()}`;
-                                if (!playerMap.has(normKey)) {
-                                    playerMap.set(normKey, lp);
-                                }
-                            }
-                        }
-                    }
-
-                    const unifiedPlayers = Array.from(playerMap.values());
                     setPlayers(unifiedPlayers);
                     try {
                         localStorage.setItem('dench_derby_players_v4', JSON.stringify(unifiedPlayers));
@@ -632,16 +575,6 @@ export const DenchDerby = () => {
                         setGoalEvents(data.goalEvents);
                     }
 
-                    // If this device had new players that server didn't have, safely sync them to server
-                    const remotePlayerCount = Array.isArray(data?.players) ? data.players.length : 0;
-                    if (unifiedPlayers.length > remotePlayerCount) {
-                        saveDerbyData({
-                            teams: effectiveTeams,
-                            matches: effectiveMatches,
-                            players: unifiedPlayers,
-                            goalEvents: data?.goalEvents || []
-                        }).catch(() => {});
-                    }
                 }
             } catch (e) {
                 console.error('Remote derby fetch notice:', e);

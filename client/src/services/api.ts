@@ -69,6 +69,15 @@ export const DEFAULT_CAPTAINS: PublicCaptain[] = [
     { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: '', pin: '6666', group: 'B' }
 ];
 
+const MOCK_CAPTAIN_NAMES = new Set([
+    'bafana sithole',
+    'mo hendricks',
+    'thabo dlamini',
+    'sipho zulu',
+    'mandla nkosi',
+    'kagiso molefe'
+]);
+
 export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
     try {
         const storedTeamsRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_teams_v4') : null;
@@ -76,8 +85,17 @@ export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
         const playersRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_players_v4') : null;
         const rosterPlayers: { teamKey: string; name: string; isCaptain?: boolean }[] =
             playersRaw ? JSON.parse(playersRaw) : [];
-        const getRosterCaptainName = (teamKey: string): string =>
-            rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim() || '';
+
+        const getRosterCaptainName = (teamKey: string): string => {
+            const cap = rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim();
+            if (cap && !MOCK_CAPTAIN_NAMES.has(cap.toLowerCase())) return cap;
+
+            // Fallback to first player registered in this team's squad roster
+            const first = rosterPlayers.find(player => player.teamKey === teamKey)?.name?.trim();
+            if (first && !MOCK_CAPTAIN_NAMES.has(first.toLowerCase())) return first;
+
+            return '';
+        };
 
         const list = DEFAULT_CAPTAINS.map(def => ({
             ...def,
@@ -300,6 +318,18 @@ export const deletePlayer = async (playerId: string | number, extra?: { teamKey?
     if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Failed to delete player' }));
         throw new Error(err.error || 'Failed to delete player');
+    }
+    return response.json();
+};
+
+export const setPlayerCaptain = async (playerId: string | number) => {
+    const response = await fetch(`${API_BASE_URL}/players/${playerId}/captain`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to set team captain' }));
+        throw new Error(err.error || 'Failed to set team captain');
     }
     return response.json();
 };

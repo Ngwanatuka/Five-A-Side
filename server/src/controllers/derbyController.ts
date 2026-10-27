@@ -520,6 +520,64 @@ export const getDerbyData = async (req: Request, res: Response) => {
             currentData.goalEvents = [];
         }
 
+        // Merge DB players into currentData.players to keep squads completely unified
+        try {
+            const dbPlayers = await prisma.player.findMany({
+                where: { team: { managerContact: { endsWith: '@tournament.local' } } },
+                include: { team: true },
+                orderBy: { id: 'asc' }
+            });
+
+            if (dbPlayers.length > 0) {
+                const existingMap = new Map();
+                currentData.players.forEach((p: any) => {
+                    if (p.teamKey && p.name) {
+                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                });
+
+                const teamCounts: Record<string, number> = {};
+                currentData.players.forEach((p: any) => {
+                    teamCounts[p.teamKey] = Math.max(teamCounts[p.teamKey] || 0, p.jerseyNumber || 0);
+                });
+
+                let updatedFile = false;
+                dbPlayers.forEach((dbp) => {
+                    const teamKey = dbp.team.managerContact.replace(/@tournament\.local$/, '');
+                    const fullName = `${dbp.firstName} ${dbp.lastName === '-' ? '' : dbp.lastName}`.trim();
+                    const key = `${teamKey}_${fullName.toLowerCase()}`;
+                    const found = existingMap.get(key);
+
+                    if (!found) {
+                        teamCounts[teamKey] = (teamCounts[teamKey] || 0) + 1;
+                        const newP = {
+                            id: `p-${dbp.id}`,
+                            teamKey,
+                            name: fullName,
+                            jerseyNumber: teamCounts[teamKey],
+                            position: 'MID',
+                            isCaptain: dbp.isCaptain === true
+                        };
+                        currentData.players.push(newP);
+                        existingMap.set(key, newP);
+                        updatedFile = true;
+                    } else if (found.isCaptain !== (dbp.isCaptain === true)) {
+                        found.isCaptain = dbp.isCaptain === true;
+                        updatedFile = true;
+                    }
+                });
+
+                if (updatedFile) {
+                    try {
+                        currentData.updatedAt = new Date().toISOString();
+                        fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+                    } catch {}
+                }
+            }
+        } catch (dbErr) {
+            console.warn('Notice merging DB players into getDerbyData:', dbErr);
+        }
+
         res.json(currentData);
     } catch (err: any) {
         console.error('Failed to read derby tournament data:', err);

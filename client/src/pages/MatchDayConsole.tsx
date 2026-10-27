@@ -6,11 +6,16 @@ import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, S
 
 const socket = io(getBackendUrl());
 
+type MatchFormat = 'continuous' | 'halves';
+const CONTINUOUS_MATCH_SECONDS = 15 * 60;
+const HALF_SECONDS = 20 * 60;
+
 type MatchState = {
     homeScore: number;
     awayScore: number;
     currentHalf: 1 | 2;
-    timerSeconds: number; // Ticks down from 900 (15 mins straight, no half time)
+    matchFormat: MatchFormat;
+    timerSeconds: number;
     isRunning: boolean;
     isPaused: boolean;
     pauseSeconds: number; // Ticks down from 60
@@ -21,12 +26,16 @@ const DEFAULT_MATCH_STATE: MatchState = {
     homeScore: 0,
     awayScore: 0,
     currentHalf: 1,
-    timerSeconds: 15 * 60,
+    matchFormat: 'continuous',
+    timerSeconds: CONTINUOUS_MATCH_SECONDS,
     isRunning: false,
     isPaused: false,
     pauseSeconds: 60,
     matchEnded: false
 };
+
+const getMatchDurationSeconds = (matchFormat: MatchFormat) =>
+    matchFormat === 'halves' ? HALF_SECONDS : CONTINUOUS_MATCH_SECONDS;
 
 const OFFICIAL_TEAMS_FALLBACK: Record<string, { name: string; group: 'A' | 'B' }> = {
     'team-dench': { name: 'Dench City FC', group: 'A' },
@@ -487,7 +496,7 @@ export const MatchDayConsole = () => {
             ).length;
 
             const isScheduled = (selectedMatch.status || '').toUpperCase() === 'SCHEDULED';
-            if (isScheduled && homeGoalsFromEvents === 0 && awayGoalsFromEvents === 0) {
+            if (isScheduled && homeGoalsFromEvents === 0 && awayGoalsFromEvents === 0 && !saved) {
                 setMatchState({
                     ...DEFAULT_MATCH_STATE,
                     homeScore: selectedMatch.homeScore ?? 0,
@@ -496,12 +505,21 @@ export const MatchDayConsole = () => {
             } else if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    // Migrate old 20-min (1200s) timers to 15-min (900s) if match hasn't started or was stored with old default
-                    if (parsed.timerSeconds === 1200 || (!parsed.isRunning && parsed.timerSeconds > 900)) {
-                        parsed.timerSeconds = 15 * 60;
-                    }
+                    const matchFormat: MatchFormat =
+                        parsed.matchFormat === 'halves' ||
+                        (parsed.matchFormat == null && (parsed.currentHalf === 2 || parsed.timerSeconds > CONTINUOUS_MATCH_SECONDS))
+                            ? 'halves'
+                            : 'continuous';
+                    const durationSeconds = getMatchDurationSeconds(matchFormat);
+                    const timerSeconds = Number.isFinite(parsed.timerSeconds)
+                        ? Math.max(0, Math.min(parsed.timerSeconds, durationSeconds))
+                        : durationSeconds;
                     setMatchState({
+                        ...DEFAULT_MATCH_STATE,
                         ...parsed,
+                        matchFormat,
+                        currentHalf: matchFormat === 'halves' && parsed.currentHalf === 2 ? 2 : 1,
+                        timerSeconds,
                         homeScore: Math.max(parsed.homeScore ?? 0, homeGoalsFromEvents, selectedMatch.homeScore ?? 0),
                         awayScore: Math.max(parsed.awayScore ?? 0, awayGoalsFromEvents, selectedMatch.awayScore ?? 0)
                     });
@@ -641,10 +659,16 @@ export const MatchDayConsole = () => {
         }
     };
 
-    // Calculate live match minute from countdown timer (15-min straight match, no half time)
+    // Store goal minutes as elapsed match time, including the first half in 20-minute-half matches.
     const getCurrentMatchMinute = (): number => {
-        const elapsedSeconds = 900 - matchState.timerSeconds;
-        return Math.max(1, Math.min(15, Math.ceil(elapsedSeconds / 60) || 1));
+        const isHalves = matchState.matchFormat === 'halves';
+        const halfSeconds = isHalves ? HALF_SECONDS : CONTINUOUS_MATCH_SECONDS;
+        const elapsedSeconds =
+            (isHalves && matchState.currentHalf === 2 ? HALF_SECONDS : 0) +
+            halfSeconds -
+            matchState.timerSeconds;
+        const matchMinutes = isHalves ? 2 * HALF_SECONDS / 60 : CONTINUOUS_MATCH_SECONDS / 60;
+        return Math.max(1, Math.min(matchMinutes, Math.ceil(elapsedSeconds / 60) || 1));
     };
 
     const openGoalModal = (side: 'home' | 'away') => {
@@ -751,9 +775,6 @@ export const MatchDayConsole = () => {
             handleUpdateScore(matchState.homeScore, matchState.awayScore);
         }
         setMatchState(prev => {
-            if (!prev.isRunning && prev.timerSeconds === 900) {
-                return { ...prev, isRunning: true, isPaused: false };
-            }
             if (!prev.isRunning) {
                 return { ...prev, isRunning: true, isPaused: false };
             }
@@ -762,7 +783,18 @@ export const MatchDayConsole = () => {
     };
 
     const nextHalf = () => {
-        // With 15 mins per match and no half time, ending stops and concludes the match
+        if (matchState.matchFormat === 'halves' && matchState.currentHalf === 1) {
+            setMatchState(prev => ({
+                ...prev,
+                currentHalf: 2,
+                timerSeconds: HALF_SECONDS,
+                isRunning: false,
+                isPaused: false,
+                pauseSeconds: 60
+            }));
+            return;
+        }
+
         setMatchState(prev => ({
             ...prev,
             matchEnded: true,
@@ -1129,11 +1161,43 @@ export const MatchDayConsole = () => {
                         {/* Timer Dashboard */}
                         <div style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-md)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', border: matchState.isPaused ? '1px solid #eab308' : '1px solid transparent' }}>
                             <div style={{ color: 'var(--color-primary)', fontWeight: 700, letterSpacing: '2px', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                                15 MIN MATCH • NO HALF TIME
+                                {matchState.matchFormat === 'halves'
+                                    ? `HALF ${matchState.currentHalf}`
+                                    : '15 MIN MATCH • NO HALF TIME'}
                             </div>
                             <div style={{ fontSize: '5rem', fontWeight: 800, lineHeight: 1, color: matchState.isPaused ? '#eab308' : 'white', fontFamily: 'monospace' }}>
                                 {formatTime(matchState.timerSeconds)}
                             </div>
+
+                            {!matchState.isRunning && !matchState.isPaused && !matchState.matchEnded &&
+                                matchState.currentHalf === 1 &&
+                                matchState.timerSeconds === getMatchDurationSeconds(matchState.matchFormat) && (
+                                    <div role="group" aria-label="Match format" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                        {([
+                                            { format: 'continuous' as const, label: '15 min • No halves' },
+                                            { format: 'halves' as const, label: '20 min halves' }
+                                        ]).map(({ format, label }) => {
+                                            const selected = matchState.matchFormat === format;
+                                            return (
+                                                <button
+                                                    key={format}
+                                                    type="button"
+                                                    aria-pressed={selected}
+                                                    onClick={() => setMatchState(prev => ({
+                                                        ...prev,
+                                                        matchFormat: format,
+                                                        currentHalf: 1,
+                                                        timerSeconds: getMatchDurationSeconds(format)
+                                                    }))}
+                                                    className={selected ? 'btn btn-primary' : 'btn btn-secondary'}
+                                                    style={{ padding: '0.55rem 0.9rem', fontSize: '0.85rem' }}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
 
                             {/* Pause Indicator */}
                             {matchState.isPaused && (
@@ -1147,7 +1211,9 @@ export const MatchDayConsole = () => {
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                                     {!matchState.isRunning || matchState.isPaused ? (
                                         <button className="btn btn-primary flex-center gap-2" onClick={togglePlayPause} style={{ padding: '0.75rem 2rem' }}>
-                                            <Play size={18} /> {matchState.timerSeconds === 900 && !matchState.isRunning ? 'Start Match' : 'Resume'}
+                                            <Play size={18} /> {!matchState.isRunning && matchState.timerSeconds === getMatchDurationSeconds(matchState.matchFormat)
+                                                ? matchState.matchFormat === 'halves' ? `Start Half ${matchState.currentHalf}` : 'Start Match'
+                                                : 'Resume'}
                                         </button>
                                     ) : (
                                         <button className="btn" onClick={togglePlayPause} style={{ padding: '0.75rem 2rem', backgroundColor: '#eab308', color: '#000', border: 'none', fontWeight: 600, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -1156,7 +1222,7 @@ export const MatchDayConsole = () => {
                                     )}
 
                                     <button className="btn btn-secondary flex-center gap-2" onClick={nextHalf} disabled={matchState.timerSeconds > 0 && !matchState.isPaused} style={{ padding: '0.75rem 2rem', opacity: (matchState.timerSeconds > 0 && !matchState.isPaused) ? 0.5 : 1 }}>
-                                        <Square size={18} /> End Match
+                                        <Square size={18} /> {matchState.matchFormat === 'halves' && matchState.currentHalf === 1 ? 'End 1st Half' : 'End Match'}
                                     </button>
                                 </div>
                             )}

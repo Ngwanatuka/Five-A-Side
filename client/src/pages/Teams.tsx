@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Users, Trophy, Plus, CheckCircle2, Lock, Trash2 } from 'lucide-react';
-import { getStandings, getTeams, addPlayerToTeam, deletePlayer, getBackendUrl } from '../services/api';
+import { Shield, Users, Trophy, Plus, CheckCircle2, Lock, Trash2, Crown } from 'lucide-react';
+import { getStandings, getTeams, addPlayerToTeam, deletePlayer, setPlayerCaptain, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useRole } from '../context/RoleContext';
@@ -49,6 +49,7 @@ export const Teams = () => {
         socket.on('teamRegistered', () => { fetchTeams(); });
         socket.on('playerAdded', () => { fetchTeams(); });
         socket.on('playerDeleted', () => { fetchTeams(); });
+        socket.on('playerUpdated', () => { fetchTeams(); });
         socket.on('derbyUpdate', () => { fetchTeams(); });
 
         return () => {
@@ -56,9 +57,25 @@ export const Teams = () => {
             socket.off('teamRegistered');
             socket.off('playerAdded');
             socket.off('playerDeleted');
+            socket.off('playerUpdated');
             socket.off('derbyUpdate');
         };
     }, []);
+
+    const handleMakeCaptain = async (playerId: number | string, playerName: string, teamName: string) => {
+        if (role === 'CAPTAIN' && !canEditTeam(teamName)) {
+            toast.warning('Forbidden: As Captain, you can only designate captain for your own team.');
+            return;
+        }
+
+        try {
+            await setPlayerCaptain(playerId);
+            toast.success(`👑 "${playerName}" designated as Captain of ${teamName}!`);
+            fetchTeams();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to designate team captain.');
+        }
+    };
 
     const handleDeletePlayer = async (playerId: number | string, teamName: string, playerName: string) => {
         if (role === 'CAPTAIN' && !canEditTeam(teamName)) {
@@ -316,39 +333,83 @@ export const Teams = () => {
                                                         No players registered yet.
                                                     </div>
                                                 ) : (
-                                                    team.players.map((p: any) => (
-                                                        <div key={p.id} style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            padding: '0.25rem 0.5rem',
-                                                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                                                            borderRadius: '4px',
-                                                            fontSize: '0.75rem',
-                                                            color: 'white'
-                                                        }}>
-                                                            <span>👤 {p.firstName} {p.lastName !== '-' ? p.lastName : ''}</span>
-                                                            {canEditTeam(team.teamName) && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDeletePlayer(p.id, team.teamName, `${p.firstName} ${p.lastName !== '-' ? p.lastName : ''}`.trim())}
-                                                                    style={{
-                                                                        background: 'none',
-                                                                        border: 'none',
-                                                                        color: '#ef4444',
-                                                                        cursor: 'pointer',
-                                                                        padding: '0 0.2rem',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        opacity: 0.8
-                                                                    }}
-                                                                    title="Remove player from squad"
-                                                                >
-                                                                    <Trash2 size={12} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))
+                                                    team.players.map((p: any) => {
+                                                        const pFullName = `${p.firstName} ${p.lastName !== '-' ? p.lastName : ''}`.trim();
+                                                        return (
+                                                            <div key={p.id} style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                padding: '0.35rem 0.5rem',
+                                                                backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                                                                borderRadius: '4px',
+                                                                fontSize: '0.75rem',
+                                                                color: 'white'
+                                                            }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                    <span>👤 {pFullName}</span>
+                                                                    {p.isCaptain && (
+                                                                        <span style={{
+                                                                            fontSize: '0.62rem',
+                                                                            backgroundColor: '#f59e0b',
+                                                                            color: '#050505',
+                                                                            fontWeight: 800,
+                                                                            padding: '0.1rem 0.35rem',
+                                                                            borderRadius: '3px',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '0.2rem'
+                                                                        }}>
+                                                                            <Crown size={10} /> CAPTAIN
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                    {canEditTeam(team.teamName) && !p.isCaptain && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleMakeCaptain(p.id, pFullName, team.teamName)}
+                                                                            style={{
+                                                                                background: 'rgba(245, 158, 11, 0.1)',
+                                                                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                                                color: '#f59e0b',
+                                                                                cursor: 'pointer',
+                                                                                padding: '0.15rem 0.4rem',
+                                                                                borderRadius: '3px',
+                                                                                fontSize: '0.68rem',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '0.2rem',
+                                                                                fontWeight: 600
+                                                                            }}
+                                                                            title="Designate as Team Captain"
+                                                                        >
+                                                                            <Crown size={11} /> Captain
+                                                                        </button>
+                                                                    )}
+                                                                    {canEditTeam(team.teamName) && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDeletePlayer(p.id, team.teamName, pFullName)}
+                                                                            style={{
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                color: '#ef4444',
+                                                                                cursor: 'pointer',
+                                                                                padding: '0 0.2rem',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                opacity: 0.8
+                                                                            }}
+                                                                            title="Remove player from squad"
+                                                                        >
+                                                                            <Trash2 size={12} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
                                                 )}
                                             </div>
                                         )}

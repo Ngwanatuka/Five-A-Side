@@ -44,6 +44,23 @@ export const RoleSelectModal: React.FC = () => {
             const originalOverflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
 
+            // Cleanse any legacy cached mock captain names in localStorage
+            try {
+                const MOCK_NAMES = new Set(['bafana sithole', 'mo hendricks', 'thabo dlamini', 'sipho zulu', 'mandla nkosi', 'kagiso molefe']);
+                const rawTeams = localStorage.getItem('dench_derby_teams_v4');
+                if (rawTeams) {
+                    const parsed = JSON.parse(rawTeams);
+                    let changed = false;
+                    Object.keys(parsed).forEach(k => {
+                        if (parsed[k]?.captain && MOCK_NAMES.has(String(parsed[k].captain).toLowerCase().trim())) {
+                            delete parsed[k].captain;
+                            changed = true;
+                        }
+                    });
+                    if (changed) localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
+                }
+            } catch {}
+
             // Ensure captains list has fallback immediately
             const initialList = getStoredOrFallbackCaptains();
             if (initialList && initialList.length > 0) {
@@ -56,10 +73,21 @@ export const RoleSelectModal: React.FC = () => {
             getPublicCaptains()
                 .then(list => {
                     if (Array.isArray(list) && list.length > 0) {
-                        setCaptainsList(list);
+                        let rosterPlayers: any[] = [];
+                        try {
+                            const raw = localStorage.getItem('dench_derby_players_v4');
+                            if (raw) rosterPlayers = JSON.parse(raw);
+                        } catch {}
+                        const merged = list.map(c => {
+                            const rosterCap = rosterPlayers.find((p: any) => p.teamKey === c.teamKey && p.isCaptain);
+                            const rosterFirst = rosterPlayers.find((p: any) => p.teamKey === c.teamKey);
+                            const chosenName = rosterCap?.name || c.captainName || rosterFirst?.name || '';
+                            return { ...c, captainName: chosenName };
+                        });
+                        setCaptainsList(merged);
                         setSelectedTeamKey(prev => {
-                            const stillExists = list.some(c => c.teamKey === prev);
-                            return stillExists ? prev : list[0].teamKey;
+                            const stillExists = merged.some(c => c.teamKey === prev);
+                            return stillExists ? prev : merged[0].teamKey;
                         });
                     }
                 })
@@ -697,11 +725,16 @@ export const RoleSelectModal: React.FC = () => {
                                                 colorScheme: 'dark'
                                             }}
                                         >
-                                            {displayList.map(c => (
-                                                <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
-                                                    {c.teamName} (Captain: {c.captainName || 'Assigned'})
-                                                </option>
-                                            ))}
+                                            {displayList.map(c => {
+                                                const captainDisplay = c.captainName
+                                                    ? `(Captain: ${c.captainName})`
+                                                    : '(No Captain Assigned)';
+                                                return (
+                                                    <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
+                                                        {c.teamName} {captainDisplay}
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                     );
                                 })()}

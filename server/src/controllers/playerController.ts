@@ -357,4 +357,122 @@ export const deletePlayer = async (req: any, res: Response): Promise<void> => {
     }
 };
 
+export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void> => {
+    try {
+        const authUser = req.user;
+        const roleHeader = (req.headers['x-user-role'] as string || '').toUpperCase();
+        const effectiveRole = authUser?.role || roleHeader || 'SPECTATOR';
+        const captainTeamKey = authUser?.teamKey || (req.headers['x-captain-team-key'] as string);
+
+        if (effectiveRole === 'REFEREE' || effectiveRole === 'SPECTATOR') {
+            res.status(403).json({
+                error: 'Forbidden: Only Team Captains and Admins can designate the team captain.'
+            });
+            return;
+        }
+
+        const rawId = String(req.params.id || '');
+        let numericId: number | null = null;
+        if (/^\d+$/.test(rawId)) {
+            numericId = parseInt(rawId, 10);
+        } else if (/^p-\d+$/.test(rawId)) {
+            numericId = parseInt(rawId.replace(/^p-/, ''), 10);
+        }
+
+        let dbPlayer: any = null;
+        if (numericId !== null && !isNaN(numericId)) {
+            dbPlayer = await prisma.player.findUnique({
+                where: { id: numericId },
+                include: { team: true }
+            });
+        }
+
+        const dataFile = DATA_FILE;
+        let tournamentTeamKey = '';
+        let playerName = '';
+
+        if (dbPlayer) {
+            playerName = `${dbPlayer.firstName} ${dbPlayer.lastName === '-' ? '' : dbPlayer.lastName}`.trim();
+            if (dbPlayer.team?.managerContact && dbPlayer.team.managerContact.endsWith('@tournament.local')) {
+                tournamentTeamKey = dbPlayer.team.managerContact.replace('@tournament.local', '');
+            }
+
+            // Captain permission check
+            if (effectiveRole === 'CAPTAIN' && captainTeamKey && tournamentTeamKey) {
+                if (captainTeamKey.toLowerCase() !== tournamentTeamKey.toLowerCase()) {
+                    res.status(403).json({
+                        error: `Forbidden: As Captain of "${captainTeamKey}", you can only assign captain for your own team.`
+                    });
+                    return;
+                }
+            }
+
+            // Demote any existing captain on this team
+            await prisma.player.updateMany({
+                where: { teamId: dbPlayer.teamId },
+                data: { isCaptain: false }
+            });
+
+            // Promote target player
+            await prisma.player.update({
+                where: { id: dbPlayer.id },
+                data: { isCaptain: true }
+            });
+        }
+
+        // Sync to derby tournament json file
+        try {
+            if (fs.existsSync(dataFile)) {
+                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                if (Array.isArray(derby.players)) {
+                    // If target wasn't in DB, search by rawId or name in JSON
+                    if (!tournamentTeamKey) {
+                        const fileP = derby.players.find((p: any) => p.id === rawId);
+                        if (fileP) {
+                            tournamentTeamKey = fileP.teamKey;
+                            playerName = fileP.name;
+                        }
+                    }
+
+                    if (tournamentTeamKey) {
+                        derby.players = derby.players.map((p: any) => {
+                            if (p.teamKey === tournamentTeamKey) {
+                                const isTarget = (
+                                    p.id === rawId ||
+                                    (dbPlayer && p.id === `p-${dbPlayer.id}`) ||
+                                    (playerName && p.name && p.name.trim().toLowerCase() === playerName.toLowerCase())
+                                );
+                                return { ...p, isCaptain: isTarget };
+                            }
+                            return p;
+                        });
+
+                        derby.updatedAt = new Date().toISOString();
+                        fs.writeFileSync(dataFile, JSON.stringify(derby, null, 2), 'utf-8');
+                    }
+                }
+            }
+        } catch (jsonErr) {
+            console.error('Notice updating captain in derby JSON:', jsonErr);
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('playerUpdated', { id: rawId, dbId: dbPlayer?.id, teamKey: tournamentTeamKey, isCaptain: true, name: playerName });
+            io.emit('derbyUpdate');
+            io.emit('teamRegistered');
+        }
+
+        res.json({
+            success: true,
+            message: `"${playerName || 'Player'}" is now the designated Captain!`,
+            captainName: playerName,
+            teamKey: tournamentTeamKey
+        });
+    } catch (error) {
+        console.error('Failed to set player as captain:', error);
+        res.status(500).json({ error: 'Internal server error while setting captain' });
+    }
+};
+
 

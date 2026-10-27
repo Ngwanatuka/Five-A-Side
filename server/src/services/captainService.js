@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
         'team-dench': {
             teamKey: 'team-dench',
             teamName: 'Dench City FC',
-            captainName: 'Bafana Sithole',
+            captainName: '',
             email: 'dench.captain@5aside.com',
             pin: '1111',
             group: 'A'
@@ -22,7 +22,7 @@ const DEFAULT_CONFIG = {
         'cpt-superstars': {
             teamKey: 'cpt-superstars',
             teamName: 'BARCODE FC',
-            captainName: 'Mo Hendricks',
+            captainName: '',
             email: 'cpt.captain@5aside.com',
             pin: '2222',
             group: 'A'
@@ -30,7 +30,7 @@ const DEFAULT_CONFIG = {
         'bras-ba-kasi': {
             teamKey: 'bras-ba-kasi',
             teamName: 'GSW FC',
-            captainName: 'Thabo Dlamini',
+            captainName: '',
             email: 'kasi.captain@5aside.com',
             pin: '3333',
             group: 'A'
@@ -38,7 +38,7 @@ const DEFAULT_CONFIG = {
         'gauteng-warriors': {
             teamKey: 'gauteng-warriors',
             teamName: 'Mambisa FC',
-            captainName: 'Sipho Zulu',
+            captainName: '',
             email: 'gauteng.captain@5aside.com',
             pin: '4444',
             group: 'B'
@@ -46,7 +46,7 @@ const DEFAULT_CONFIG = {
         'woza-madzala': {
             teamKey: 'woza-madzala',
             teamName: 'Ayoba fc',
-            captainName: 'Mandla Nkosi',
+            captainName: '',
             email: 'woza.captain@5aside.com',
             pin: '5555',
             group: 'B'
@@ -54,7 +54,7 @@ const DEFAULT_CONFIG = {
         'areyeng-fc': {
             teamKey: 'areyeng-fc',
             teamName: 'Areyeng fc',
-            captainName: 'Kagiso Molefe',
+            captainName: '',
             email: 'areyeng.captain@5aside.com',
             pin: '6666',
             group: 'B'

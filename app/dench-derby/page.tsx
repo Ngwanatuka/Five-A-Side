@@ -29,7 +29,6 @@ export type TeamInfo = {
   color: string
   city: string
   slogan: string
-  captain: string
 }
 
 export type TournamentPlayer = {
@@ -67,15 +66,14 @@ export type TournamentMatch = {
   note?: string
 }
 
-export const TEAMS: Record<string, TeamInfo> = {
+const TEAMS: Record<string, TeamInfo> = {
   "team-dench": {
     id: "team-dench",
     name: "Dench City FC",
     group: "A",
     color: "#12b84c",
     city: "Dench Grounds",
-    slogan: "The Pride of Dench City",
-    captain: "Bafana Sithole"
+    slogan: "The Pride of Dench City"
   },
   "cpt-superstars": {
     id: "cpt-superstars",
@@ -83,8 +81,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     group: "A",
     color: "#3b82f6",
     city: "Cape Town",
-    slogan: "Scanning The Field, Striking With Precision",
-    captain: "Mo Hendricks"
+    slogan: "Scanning The Field, Striking With Precision"
   },
   "bras-ba-kasi": {
     id: "bras-ba-kasi",
@@ -92,8 +89,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     group: "A",
     color: "#f59e0b",
     city: "Gauteng",
-    slogan: "Golden State Warriors on Pitch",
-    captain: "Thabo Dlamini"
+    slogan: "Golden State Warriors on Pitch"
   },
   "gauteng-warriors": {
     id: "gauteng-warriors",
@@ -101,8 +97,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     group: "B",
     color: "#8b5cf6",
     city: "Mambisa",
-    slogan: "Royal Purple, Pure Football Flair",
-    captain: "Sipho Zulu"
+    slogan: "Royal Purple, Pure Football Flair"
   },
   "woza-madzala": {
     id: "woza-madzala",
@@ -110,8 +105,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     group: "B",
     color: "#ef4444",
     city: "Ekurhuleni",
-    slogan: "Ayoba! Pure Kasi Magic & Speed",
-    captain: "Mandla Nkosi"
+    slogan: "Ayoba! Pure Kasi Magic & Speed"
   },
   "areyeng-fc": {
     id: "areyeng-fc",
@@ -119,8 +113,7 @@ export const TEAMS: Record<string, TeamInfo> = {
     group: "B",
     color: "#06b6d4",
     city: "Tshwane",
-    slogan: "Forward Together, Never Back",
-    captain: "Kagiso Molefe"
+    slogan: "Forward Together, Never Back"
   }
 }
 
@@ -447,7 +440,7 @@ export default function DenchDerbyPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sipho Zulu"
+                  placeholder="e.g. Player Name"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
                   className="w-full bg-secondary/50 border border-border rounded-lg p-2 text-sm"

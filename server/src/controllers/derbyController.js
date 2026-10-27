@@ -24,8 +24,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#0ea141',
         city: 'Dench Grounds',
         slogan: 'The Pride of Dench City',
-        founded: '2023',
-        captain: 'Bafana Sithole'
+        founded: '2023'
     },
     'cpt-superstars': {
         id: 'cpt-superstars',
@@ -35,8 +34,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#1d4ed8',
         city: 'Cape Town',
         slogan: 'Scanning The Field, Striking With Precision',
-        founded: '2022',
-        captain: 'Mo Hendricks'
+        founded: '2022'
     },
     'bras-ba-kasi': {
         id: 'bras-ba-kasi',
@@ -46,8 +44,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#d97706',
         city: 'Gauteng',
         slogan: 'Golden State Warriors on Pitch',
-        founded: '2021',
-        captain: 'Thabo Dlamini'
+        founded: '2021'
     },
     'gauteng-warriors': {
         id: 'gauteng-warriors',
@@ -57,8 +54,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#6d28d9',
         city: 'Mambisa',
         slogan: 'Royal Purple, Pure Football Flair',
-        founded: '2022',
-        captain: 'Sipho Zulu'
+        founded: '2022'
     },
     'woza-madzala': {
         id: 'woza-madzala',
@@ -68,8 +64,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#b91c1c',
         city: 'Ekurhuleni',
         slogan: 'Ayoba! Pure Kasi Magic & Speed',
-        founded: '2020',
-        captain: 'Mandla Nkosi'
+        founded: '2020'
     },
     'areyeng-fc': {
         id: 'areyeng-fc',
@@ -79,8 +74,7 @@ exports.DEFAULT_DERBY_TEAMS = {
         secondaryColor: '#0891b2',
         city: 'Tshwane',
         slogan: 'Forward Together, Never Back',
-        founded: '2024',
-        captain: 'Kagiso Molefe'
+        founded: '2024'
     }
 };
 exports.DEFAULT_DERBY_MATCHES = [
@@ -349,6 +343,10 @@ async function syncToPrismaDatabase(teams, matches, players) {
                     }
                 });
                 if (existingPlayer) {
+                    await prisma_1.default.player.update({
+                        where: { id: existingPlayer.id },
+                        data: { isCaptain: p.isCaptain === true }
+                    });
                     validPlayerIds.push(existingPlayer.id);
                 }
                 else {
@@ -356,7 +354,8 @@ async function syncToPrismaDatabase(teams, matches, players) {
                         data: {
                             teamId,
                             firstName,
-                            lastName
+                            lastName,
+                            isCaptain: p.isCaptain === true
                         }
                     });
                     validPlayerIds.push(created.id);
@@ -452,6 +451,7 @@ async function syncToPrismaDatabase(teams, matches, players) {
     }
     catch (syncErr) {
         console.error('Error syncing Derby tournament to database:', syncErr);
+        throw syncErr;
     }
 }
 async function initDerbyTournament() {
@@ -630,6 +630,18 @@ const saveDerbyData = async (req, res) => {
                 return true;
             });
         }
+        if (Array.isArray(finalPlayers)) {
+            const captainByTeam = new Map();
+            finalPlayers.forEach((player) => {
+                if (player?.isCaptain === true && player.teamKey && player.id) {
+                    captainByTeam.set(player.teamKey, String(player.id));
+                }
+            });
+            finalPlayers = finalPlayers.map((player) => ({
+                ...player,
+                isCaptain: captainByTeam.get(player.teamKey) === String(player.id)
+            }));
+        }
         const payload = {
             teams: finalTeams,
             matches: finalMatches,
@@ -638,10 +650,7 @@ const saveDerbyData = async (req, res) => {
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
-        // Sync to database asynchronously so client response is instantaneous
-        syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
-            console.error('Async DB sync notice:', err);
-        });
+        await syncToPrismaDatabase(payload.teams, payload.matches, payload.players);
         // Broadcast to all connected devices via Socket.IO
         const io = req.app.get('io');
         if (io) {

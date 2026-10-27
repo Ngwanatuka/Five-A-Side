@@ -74,6 +74,7 @@ model Player {
   teamId    Int
   firstName String
   lastName  String
+  isCaptain Boolean  @default(false)
 
   team      Team     @relation(fields: [teamId], references: [id])
   finances  PlayerSeasonFinance[]

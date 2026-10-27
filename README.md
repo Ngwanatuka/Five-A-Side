@@ -62,7 +62,7 @@ The platform enforces strict rules on match day and during registration:
 1. Clone the repository: `git clone git@github.com:Ngwanatuka/Five-A-Side.git`
 2. Install dependencies for server and client: `npm install`
 3. Set up your environment variables (`.env`) for Database Credentials and WebSocket ports.
-4. Run database migrations to construct the relational tables.
+4. From `server/`, run `npx prisma db push` and `npx prisma generate` to apply the database schema and generate the Prisma client.
 5. Start the development server.
 
 ---

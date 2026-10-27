@@ -128,32 +128,28 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
         const list = getPublicCaptains();
-        const path = require('path');
-        const fs = require('fs');
-        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-
-        if (fs.existsSync(dataFile)) {
-            const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-            const rosterCaptains = new Map<string, string>();
-            const players: unknown[] = Array.isArray(derby.players) ? derby.players : [];
-
-            players.forEach((player: any) => {
-                if (
-                    player?.isCaptain === true &&
-                    typeof player.teamKey === 'string' &&
-                    typeof player.name === 'string' &&
-                    player.name.trim() &&
-                    !rosterCaptains.has(player.teamKey)
-                ) {
-                    rosterCaptains.set(player.teamKey, player.name.trim());
-                }
-            });
-
-            list.forEach((entry) => {
-                const rosterCaptain = rosterCaptains.get(entry.teamKey);
-                if (rosterCaptain) entry.captainName = rosterCaptain;
-            });
-        }
+        list.forEach((entry) => {
+            entry.captainName = '';
+        });
+        const rosterCaptains = await prisma.player.findMany({
+            where: {
+                isCaptain: true,
+                team: { managerContact: { endsWith: '@tournament.local' } }
+            },
+            include: { team: true },
+            orderBy: { id: 'asc' }
+        });
+        const captainNamesByTeam = new Map<string, string>();
+        rosterCaptains.forEach((player) => {
+            const teamKey = player.team.managerContact.replace(/@tournament\.local$/, '');
+            const captainName = `${player.firstName} ${player.lastName === '-' ? '' : player.lastName}`.trim();
+            if (captainName && !captainNamesByTeam.has(teamKey)) {
+                captainNamesByTeam.set(teamKey, captainName);
+            }
+        });
+        list.forEach((entry) => {
+            entry.captainName = captainNamesByTeam.get(entry.teamKey) || '';
+        });
 
         res.json(list);
     } catch (error) {

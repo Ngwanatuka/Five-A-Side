@@ -61,65 +61,48 @@ export interface PublicCaptain {
 }
 
 export const DEFAULT_CAPTAINS: PublicCaptain[] = [
-    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: 'Bafana Sithole', pin: '1111', group: 'A' },
-    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: 'Mo Hendricks', pin: '2222', group: 'A' },
-    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: 'Thabo Dlamini', pin: '3333', group: 'A' },
-    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: 'Sipho Zulu', pin: '4444', group: 'B' },
-    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: 'Mandla Nkosi', pin: '5555', group: 'B' },
-    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: 'Kagiso Molefe', pin: '6666', group: 'B' }
+    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: '', pin: '1111', group: 'A' },
+    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: '', pin: '2222', group: 'A' },
+    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: '', pin: '3333', group: 'A' },
+    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: '', pin: '4444', group: 'B' },
+    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: '', pin: '5555', group: 'B' },
+    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: '', pin: '6666', group: 'B' }
 ];
 
 export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
     try {
         const storedTeamsRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_teams_v4') : null;
-        if (storedTeamsRaw) {
-            const parsed = JSON.parse(storedTeamsRaw);
-            const list: PublicCaptain[] = [];
-            const seenKeys = new Set<string>();
+        const storedTeams = storedTeamsRaw ? JSON.parse(storedTeamsRaw) : {};
+        const playersRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_players_v4') : null;
+        const rosterPlayers: { teamKey: string; name: string; isCaptain?: boolean }[] =
+            playersRaw ? JSON.parse(playersRaw) : [];
+        const getRosterCaptainName = (teamKey: string): string =>
+            rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim() || '';
 
-            // Read roster players to find the designated captain per team
-            let rosterPlayers: any[] = [];
-            try {
-                const playersRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_players_v4') : null;
-                if (playersRaw) rosterPlayers = JSON.parse(playersRaw);
-            } catch {}
+        const list = DEFAULT_CAPTAINS.map(def => ({
+            ...def,
+            teamName: storedTeams[def.teamKey]?.name || def.teamName,
+            captainName: getRosterCaptainName(def.teamKey),
+            group: storedTeams[def.teamKey]?.group || def.group
+        }));
+        const seenKeys = new Set(DEFAULT_CAPTAINS.map(captain => captain.teamKey));
 
-            const getRosterCaptainName = (teamKey: string): string | null => {
-                const captain = rosterPlayers.find((p: any) => p.teamKey === teamKey && p.isCaptain);
-                return captain?.name || null;
-            };
-
-            DEFAULT_CAPTAINS.forEach(def => {
-                seenKeys.add(def.teamKey);
-                const custom = parsed[def.teamKey];
-                const rosterCaptain = getRosterCaptainName(def.teamKey);
+        Object.entries(storedTeams).forEach(([key, value]: [string, any]) => {
+            if (!seenKeys.has(key)) {
                 list.push({
-                    ...def,
-                    teamName: custom?.name || def.teamName,
-                    captainName: rosterCaptain || custom?.captain || def.captainName,
-                    group: custom?.group || def.group
+                    teamKey: key,
+                    teamName: value.name || key,
+                    captainName: getRosterCaptainName(key),
+                    pin: value.pin || '1234',
+                    group: value.group || 'A'
                 });
-            });
+            }
+        });
 
-            Object.entries(parsed).forEach(([key, val]: [string, any]) => {
-                if (!seenKeys.has(key)) {
-                    const rosterCaptain = getRosterCaptainName(key);
-                    list.push({
-                        teamKey: key,
-                        teamName: val.name || key,
-                        captainName: rosterCaptain || val.captain || 'Captain',
-                        pin: val.pin || '1234',
-                        group: val.group || 'A'
-                    });
-                }
-            });
-
-            if (list.length > 0) return list;
-        }
+        return list;
     } catch {
-        // ignore localStorage parsing errors
+        return DEFAULT_CAPTAINS;
     }
-    return DEFAULT_CAPTAINS;
 };
 
 export const captainLogin = async (teamKey: string, pin: string) => {
@@ -379,4 +362,3 @@ export const resetSingleMatch = async (matchId: string) => {
     }
     return response.json();
 };
-

@@ -41,7 +41,6 @@ export type TeamInfo = {
     city: string;
     slogan: string;
     founded: string;
-    captain: string;
 };
 
 export type TournamentPlayer = {
@@ -52,6 +51,17 @@ export type TournamentPlayer = {
     position: 'GK' | 'DEF' | 'MID' | 'FWD';
     isCaptain?: boolean;
 };
+
+const assignTeamCaptain = (
+    roster: TournamentPlayer[],
+    teamKey: string,
+    captainPlayerId: string
+): TournamentPlayer[] =>
+    roster.map(player =>
+        player.teamKey === teamKey
+            ? { ...player, isCaptain: player.id === captainPlayerId }
+            : player
+    );
 
 export type GoalEvent = {
     id: string;
@@ -102,8 +112,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#0ea141',
         city: 'Dench Grounds',
         slogan: 'The Pride of Dench City',
-        founded: '2023',
-        captain: 'Bafana Sithole'
+        founded: '2023'
     },
     'cpt-superstars': {
         id: 'cpt-superstars',
@@ -113,8 +122,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#1d4ed8',
         city: 'Cape Town',
         slogan: 'Scanning The Field, Striking With Precision',
-        founded: '2022',
-        captain: 'Mo Hendricks'
+        founded: '2022'
     },
     'bras-ba-kasi': {
         id: 'bras-ba-kasi',
@@ -124,8 +132,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#d97706',
         city: 'Gauteng',
         slogan: 'Golden State Warriors on Pitch',
-        founded: '2021',
-        captain: 'Thabo Dlamini'
+        founded: '2021'
     },
     'gauteng-warriors': {
         id: 'gauteng-warriors',
@@ -135,8 +142,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#6d28d9',
         city: 'Mambisa',
         slogan: 'Royal Purple, Pure Football Flair',
-        founded: '2022',
-        captain: 'Sipho Zulu'
+        founded: '2022'
     },
     'woza-madzala': {
         id: 'woza-madzala',
@@ -146,8 +152,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#b91c1c',
         city: 'Ekurhuleni',
         slogan: 'Ayoba! Pure Kasi Magic & Speed',
-        founded: '2020',
-        captain: 'Mandla Nkosi'
+        founded: '2020'
     },
     'areyeng-fc': {
         id: 'areyeng-fc',
@@ -157,8 +162,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
         secondaryColor: '#0891b2',
         city: 'Tshwane',
         slogan: 'Forward Together, Never Back',
-        founded: '2024',
-        captain: 'Kagiso Molefe'
+        founded: '2024'
     }
 };
 
@@ -672,8 +676,7 @@ export const DenchDerby = () => {
         secondaryColor: '#0ea141',
         city: 'Dench Grounds',
         slogan: 'Relentless Pace, Pure Passion',
-        founded: '2023',
-        captain: ''
+        founded: '2023'
     });
 
     // Sync quickTeamNames and editTeamData when teams or selectedEditTeamKey change
@@ -939,6 +942,9 @@ export const DenchDerby = () => {
                 }
                 return p;
             });
+            if (newPlayerCaptain) {
+                updated = assignTeamCaptain(updated, targetTeamKey, editingPlayerId);
+            }
             setPlayers(updated);
             setEditingPlayerId(null);
         } else {
@@ -951,6 +957,9 @@ export const DenchDerby = () => {
                 isCaptain: newPlayerCaptain
             };
             updated = [...players, newP];
+            if (newPlayerCaptain) {
+                updated = assignTeamCaptain(updated, targetTeamKey, newP.id);
+            }
             setPlayers(updated);
         }
 
@@ -1030,7 +1039,10 @@ export const DenchDerby = () => {
             isCaptain: curr.isCaptain
         };
 
-        const updated = [...players, newP];
+        let updated = [...players, newP];
+        if (curr.isCaptain) {
+            updated = assignTeamCaptain(updated, teamKey, newP.id);
+        }
         setPlayers(updated);
         persistTournamentData(teams, matches, updated, goalEvents);
 
@@ -1068,7 +1080,10 @@ export const DenchDerby = () => {
             isCaptain: newPlayerCaptain
         };
 
-        const updated = [...players, newP];
+        let updated = [...players, newP];
+        if (newPlayerCaptain) {
+            updated = assignTeamCaptain(updated, targetTeamKey, newP.id);
+        }
         setPlayers(updated);
         persistTournamentData(teams, matches, updated, goalEvents);
 
@@ -1202,7 +1217,11 @@ export const DenchDerby = () => {
         const retained = bulkReplaceMode === 'replace'
             ? players.filter(p => p.teamKey !== bulkTargetTeamKey)
             : players;
-        const updated = [...retained, ...newPlayersList];
+        let updated = [...retained, ...newPlayersList];
+        const importedCaptain = [...newPlayersList].reverse().find(player => player.isCaptain);
+        if (importedCaptain) {
+            updated = assignTeamCaptain(updated, bulkTargetTeamKey, importedCaptain.id);
+        }
         setPlayers(updated);
         persistTournamentData(teams, matches, updated, goalEvents);
 
@@ -4240,19 +4259,6 @@ export const DenchDerby = () => {
                                                 required
                                                 value={editTeamData.name}
                                                 onChange={(e) => setEditTeamData(prev => ({ ...prev, name: e.target.value }))}
-                                                className="derby-input"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                                                Team Captain Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={editTeamData.captain}
-                                                onChange={(e) => setEditTeamData(prev => ({ ...prev, captain: e.target.value }))}
-                                                placeholder="e.g. Captain Name"
                                                 className="derby-input"
                                             />
                                         </div>

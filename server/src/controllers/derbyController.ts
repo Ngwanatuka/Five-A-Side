@@ -21,8 +21,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#0ea141',
         city: 'Dench Grounds',
         slogan: 'The Pride of Dench City',
-        founded: '2023',
-        captain: 'Bafana Sithole'
+        founded: '2023'
     },
     'cpt-superstars': {
         id: 'cpt-superstars',
@@ -32,8 +31,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#1d4ed8',
         city: 'Cape Town',
         slogan: 'Scanning The Field, Striking With Precision',
-        founded: '2022',
-        captain: 'Mo Hendricks'
+        founded: '2022'
     },
     'bras-ba-kasi': {
         id: 'bras-ba-kasi',
@@ -43,8 +41,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#d97706',
         city: 'Gauteng',
         slogan: 'Golden State Warriors on Pitch',
-        founded: '2021',
-        captain: 'Thabo Dlamini'
+        founded: '2021'
     },
     'gauteng-warriors': {
         id: 'gauteng-warriors',
@@ -54,8 +51,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#6d28d9',
         city: 'Mambisa',
         slogan: 'Royal Purple, Pure Football Flair',
-        founded: '2022',
-        captain: 'Sipho Zulu'
+        founded: '2022'
     },
     'woza-madzala': {
         id: 'woza-madzala',
@@ -65,8 +61,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#b91c1c',
         city: 'Ekurhuleni',
         slogan: 'Ayoba! Pure Kasi Magic & Speed',
-        founded: '2020',
-        captain: 'Mandla Nkosi'
+        founded: '2020'
     },
     'areyeng-fc': {
         id: 'areyeng-fc',
@@ -76,8 +71,7 @@ export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
         secondaryColor: '#0891b2',
         city: 'Tshwane',
         slogan: 'Forward Together, Never Back',
-        founded: '2024',
-        captain: 'Kagiso Molefe'
+        founded: '2024'
     }
 };
 
@@ -357,13 +351,18 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
                 });
 
                 if (existingPlayer) {
+                    await prisma.player.update({
+                        where: { id: existingPlayer.id },
+                        data: { isCaptain: p.isCaptain === true }
+                    });
                     validPlayerIds.push(existingPlayer.id);
                 } else {
                     const created = await prisma.player.create({
                         data: {
                             teamId,
                             firstName,
-                            lastName
+                            lastName,
+                            isCaptain: p.isCaptain === true
                         }
                     });
                     validPlayerIds.push(created.id);
@@ -464,6 +463,7 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
         }
     } catch (syncErr) {
         console.error('Error syncing Derby tournament to database:', syncErr);
+        throw syncErr;
     }
 }
 
@@ -589,18 +589,6 @@ export const saveDerbyData = async (req: any, res: Response) => {
             }
         }
 
-        // Sync isCaptain player name into teams[teamKey].captain for every team
-        if (Array.isArray(finalPlayers)) {
-            Object.keys(finalTeams).forEach(teamKey => {
-                const rosterCaptain = finalPlayers.find(
-                    (p: any) => p.teamKey === teamKey && p.isCaptain === true
-                );
-                if (rosterCaptain?.name) {
-                    finalTeams[teamKey] = { ...finalTeams[teamKey], captain: rosterCaptain.name };
-                }
-            });
-        }
-
         // If a specific deleted player was provided in payload, ensure they are purged
         const deletedPlayerId = req.body?.deletedPlayerId || req.body?.deletedPlayer?.id;
         const deletedPlayerName = (req.body?.deletedPlayer?.name || '').trim().toLowerCase();
@@ -613,6 +601,19 @@ export const saveDerbyData = async (req: any, res: Response) => {
             });
         }
 
+        if (Array.isArray(finalPlayers)) {
+            const captainByTeam = new Map<string, string>();
+            finalPlayers.forEach((player: any) => {
+                if (player?.isCaptain === true && player.teamKey && player.id) {
+                    captainByTeam.set(player.teamKey, String(player.id));
+                }
+            });
+            finalPlayers = finalPlayers.map((player: any) => ({
+                ...player,
+                isCaptain: captainByTeam.get(player.teamKey) === String(player.id)
+            }));
+        }
+
         const payload = {
             teams: finalTeams,
             matches: finalMatches,
@@ -623,10 +624,7 @@ export const saveDerbyData = async (req: any, res: Response) => {
 
         fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
 
-        // Sync to database asynchronously so client response is instantaneous
-        syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
-            console.error('Async DB sync notice:', err);
-        });
+        await syncToPrismaDatabase(payload.teams, payload.matches, payload.players);
 
         // Broadcast to all connected devices via Socket.IO
         const io = req.app.get('io');
@@ -801,4 +799,3 @@ export const resetDerbyData = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to reset tournament data' });
     }
 };
-

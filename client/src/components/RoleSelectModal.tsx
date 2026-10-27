@@ -56,20 +56,10 @@ export const RoleSelectModal: React.FC = () => {
             getPublicCaptains()
                 .then(list => {
                     if (Array.isArray(list) && list.length > 0) {
-                        // Merge roster captain names (isCaptain flag) over API names
-                        let rosterPlayers: any[] = [];
-                        try {
-                            const raw = localStorage.getItem('dench_derby_players_v4');
-                            if (raw) rosterPlayers = JSON.parse(raw);
-                        } catch {}
-                        const merged = list.map(c => {
-                            const rosterCaptain = rosterPlayers.find((p: any) => p.teamKey === c.teamKey && p.isCaptain);
-                            return rosterCaptain ? { ...c, captainName: rosterCaptain.name } : c;
-                        });
-                        setCaptainsList(merged);
+                        setCaptainsList(list);
                         setSelectedTeamKey(prev => {
-                            const stillExists = merged.some(c => c.teamKey === prev);
-                            return stillExists ? prev : merged[0].teamKey;
+                            const stillExists = list.some(c => c.teamKey === prev);
+                            return stillExists ? prev : list[0].teamKey;
                         });
                     }
                 })

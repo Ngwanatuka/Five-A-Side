@@ -589,6 +589,18 @@ export const saveDerbyData = async (req: any, res: Response) => {
             }
         }
 
+        // Sync isCaptain player name into teams[teamKey].captain for every team
+        if (Array.isArray(finalPlayers)) {
+            Object.keys(finalTeams).forEach(teamKey => {
+                const rosterCaptain = finalPlayers.find(
+                    (p: any) => p.teamKey === teamKey && p.isCaptain === true
+                );
+                if (rosterCaptain?.name) {
+                    finalTeams[teamKey] = { ...finalTeams[teamKey], captain: rosterCaptain.name };
+                }
+            });
+        }
+
         // If a specific deleted player was provided in payload, ensure they are purged
         const deletedPlayerId = req.body?.deletedPlayerId || req.body?.deletedPlayer?.id;
         const deletedPlayerName = (req.body?.deletedPlayer?.name || '').trim().toLowerCase();

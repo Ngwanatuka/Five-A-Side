@@ -123,32 +123,41 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 
 /**
  * Public listing of team captains (without PINs)
- * Captain name is sourced from the roster player with isCaptain=true in derby-tournament.json
+ * Captain name is sourced from the player marked as captain in each squad roster.
  */
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
         const list = getPublicCaptains();
+        const path = require('path');
+        const fs = require('fs');
+        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
 
-        // Override captainName with the actual isCaptain player from the roster
-        try {
-            const dataFile = require('path').join(__dirname, '../../data/derby-tournament.json');
-            const fs = require('fs');
-            if (fs.existsSync(dataFile)) {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const players: any[] = Array.isArray(derby.players) ? derby.players : [];
-                list.forEach((entry: any) => {
-                    const rosterCaptain = players.find(
-                        (p: any) => p.teamKey === entry.teamKey && p.isCaptain === true
-                    );
-                    if (rosterCaptain?.name) {
-                        entry.captainName = rosterCaptain.name;
-                    }
-                });
-            }
-        } catch {}
+        if (fs.existsSync(dataFile)) {
+            const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+            const rosterCaptains = new Map<string, string>();
+            const players: unknown[] = Array.isArray(derby.players) ? derby.players : [];
+
+            players.forEach((player: any) => {
+                if (
+                    player?.isCaptain === true &&
+                    typeof player.teamKey === 'string' &&
+                    typeof player.name === 'string' &&
+                    player.name.trim() &&
+                    !rosterCaptains.has(player.teamKey)
+                ) {
+                    rosterCaptains.set(player.teamKey, player.name.trim());
+                }
+            });
+
+            list.forEach((entry) => {
+                const rosterCaptain = rosterCaptains.get(entry.teamKey);
+                if (rosterCaptain) entry.captainName = rosterCaptain;
+            });
+        }
 
         res.json(list);
     } catch (error) {
+        console.error('Failed to retrieve captains:', error);
         res.status(500).json({ error: 'Failed to retrieve captains' });
     }
 };

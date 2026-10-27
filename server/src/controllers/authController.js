@@ -99,13 +99,37 @@ const captainLogin = async (req, res) => {
 exports.captainLogin = captainLogin;
 /**
  * Public listing of team captains (without PINs)
+ * Captain name is sourced from the player marked as captain in each squad roster.
  */
 const getCaptainsList = async (_req, res) => {
     try {
         const list = (0, captainService_1.getPublicCaptains)();
+        const path = require('path');
+        const fs = require('fs');
+        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+        if (fs.existsSync(dataFile)) {
+            const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+            const rosterCaptains = new Map();
+            const players = Array.isArray(derby.players) ? derby.players : [];
+            players.forEach((player) => {
+                if (player?.isCaptain === true &&
+                    typeof player.teamKey === 'string' &&
+                    typeof player.name === 'string' &&
+                    player.name.trim() &&
+                    !rosterCaptains.has(player.teamKey)) {
+                    rosterCaptains.set(player.teamKey, player.name.trim());
+                }
+            });
+            list.forEach((entry) => {
+                const rosterCaptain = rosterCaptains.get(entry.teamKey);
+                if (rosterCaptain)
+                    entry.captainName = rosterCaptain;
+            });
+        }
         res.json(list);
     }
     catch (error) {
+        console.error('Failed to retrieve captains:', error);
         res.status(500).json({ error: 'Failed to retrieve captains' });
     }
 };

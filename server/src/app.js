@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.io = exports.httpServer = exports.app = void 0;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const http_1 = require("http");
 const socket_io_1 = require("socket.io");
 const teamRoutes_1 = __importDefault(require("./routes/teamRoutes"));
@@ -45,5 +46,11 @@ app.use('/api/league', leagueRoutes_1.default);
 app.use('/api/matches', matchRoutes_1.default);
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/derby', derbyRoutes_1.default);
+// Serve Vite client build in production
+const clientDist = path_1.default.join(__dirname, '../../client/dist');
+app.use(express_1.default.static(clientDist));
+app.get('*path', (_req, res) => {
+    res.sendFile(path_1.default.join(clientDist, 'index.html'));
+});
 exports.default = app;
 //# sourceMappingURL=app.js.map

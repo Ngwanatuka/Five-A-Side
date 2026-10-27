@@ -93,13 +93,13 @@ As a Team Captain, you are in charge of registering your players and submitting 
 
 ### Step 1: Log in with your Captain PIN
 1. Click the **Role Switcher** in the navbar or select **🧢 Team Captain** upon opening the site.
-2. Select your team from the dropdown list:
-   - **Dench City FC** (Captain: *Bafana Sithole*)
-   - **BARCODE FC** (Captain: *Mo Hendricks*)
-   - **GSW FC** (Captain: *Thabo Dlamini*)
-   - **Mambisa FC** (Captain: *Sipho Zulu*)
-   - **Ayoba fc** (Captain: *Mandla Nkosi*)
-   - **Areyeng fc** (Captain: *Kagiso Molefe*)
+2. Select your team from the dropdown list (each team displays its designated squad roster captain):
+   - **Dench City FC**
+   - **BARCODE FC**
+   - **GSW FC**
+   - **Mambisa FC**
+   - **Ayoba fc**
+   - **Areyeng fc**
 3. Enter your team’s **4-digit secret PIN** (issued by the tournament admin).
 4. Click **Log In as Captain**. You will be taken straight to the tournament squad manager.
 

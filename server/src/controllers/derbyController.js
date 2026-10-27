@@ -505,41 +505,60 @@ const getDerbyData = async (req, res) => {
         if (!Array.isArray(currentData.goalEvents)) {
             currentData.goalEvents = [];
         }
-        // Query database players to ensure all registered players are included across all browsers & devices
+        // Merge DB players into currentData.players to keep squads completely unified
         try {
-            const dbTeams = await prisma_1.default.team.findMany({
-                where: { managerContact: { endsWith: '@tournament.local' } },
-                include: { players: true }
+            const dbPlayers = await prisma_1.default.player.findMany({
+                where: { team: { managerContact: { endsWith: '@tournament.local' } } },
+                include: { team: true },
+                orderBy: { id: 'asc' }
             });
-            const existingKeys = new Set(currentData.players.map((p) => `${p.teamKey}_${(p.name || '').trim().toLowerCase()}`));
-            let addedFromDb = false;
-            for (const t of dbTeams) {
-                const teamKey = t.managerContact.replace('@tournament.local', '');
-                for (const p of t.players) {
-                    const fullName = `${p.firstName} ${p.lastName}`.trim();
+            if (dbPlayers.length > 0) {
+                const existingMap = new Map();
+                currentData.players.forEach((p) => {
+                    if (p.teamKey && p.name) {
+                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+                    }
+                });
+                const teamCounts = {};
+                currentData.players.forEach((p) => {
+                    teamCounts[p.teamKey] = Math.max(teamCounts[p.teamKey] || 0, p.jerseyNumber || 0);
+                });
+                let updatedFile = false;
+                dbPlayers.forEach((dbp) => {
+                    const teamKey = dbp.team.managerContact.replace(/@tournament\.local$/, '');
+                    const fullName = `${dbp.firstName} ${dbp.lastName === '-' ? '' : dbp.lastName}`.trim();
                     const key = `${teamKey}_${fullName.toLowerCase()}`;
-                    if (!existingKeys.has(key)) {
-                        const nextJersey = currentData.players.filter((dp) => dp.teamKey === teamKey).length + 1;
-                        currentData.players.push({
-                            id: `p-${p.id}`,
+                    const found = existingMap.get(key);
+                    if (!found) {
+                        teamCounts[teamKey] = (teamCounts[teamKey] || 0) + 1;
+                        const newP = {
+                            id: `p-${dbp.id}`,
                             teamKey,
                             name: fullName,
-                            jerseyNumber: nextJersey,
+                            jerseyNumber: teamCounts[teamKey],
                             position: 'MID',
-                            isCaptain: false
-                        });
-                        existingKeys.add(key);
-                        addedFromDb = true;
+                            isCaptain: dbp.isCaptain === true
+                        };
+                        currentData.players.push(newP);
+                        existingMap.set(key, newP);
+                        updatedFile = true;
                     }
+                    else if (found.isCaptain !== (dbp.isCaptain === true)) {
+                        found.isCaptain = dbp.isCaptain === true;
+                        updatedFile = true;
+                    }
+                });
+                if (updatedFile) {
+                    try {
+                        currentData.updatedAt = new Date().toISOString();
+                        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+                    }
+                    catch { }
                 }
-            }
-            if (addedFromDb) {
-                currentData.updatedAt = new Date().toISOString();
-                fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
             }
         }
         catch (dbErr) {
-            console.error('Notice loading DB players in getDerbyData:', dbErr);
+            console.warn('Notice merging DB players into getDerbyData:', dbErr);
         }
         res.json(currentData);
     }
@@ -657,10 +676,6 @@ const saveDerbyData = async (req, res) => {
             io.emit('derbyUpdate', payload);
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
-            // Only emit playerAdded if players actually increased, not when players are deleted
-            if (Array.isArray(players) && players.length > (currentData.players?.length || 0)) {
-                io.emit('playerAdded');
-            }
         }
         res.json({ success: true, ...payload });
     }

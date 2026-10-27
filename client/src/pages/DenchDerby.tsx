@@ -275,7 +275,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Group A ( 1st spot )',
         awayPlaceholder: 'Group B ( 2nd spot )',
-        time: '20:20',
+        time: '20:15',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -290,7 +290,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Group A ( 2nd spot )',
         awayPlaceholder: 'Group B ( 1st spot )',
-        time: '20:20',
+        time: '20:15',
         pitch: 2,
         homeScore: null,
         awayScore: null,
@@ -307,8 +307,8 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'First match (Competing for 3rd spot)',
         awayPlaceholder: 'Loser SF 2',
-        time: '21:05',
-        pitch: 1,
+        time: '20:55',
+        pitch: 2,
         homeScore: null,
         awayScore: null,
         status: 'scheduled',
@@ -322,7 +322,7 @@ const DEFAULT_MATCHES: TournamentMatch[] = [
         awayTeamKey: null,
         homePlaceholder: 'Winner SF 1',
         awayPlaceholder: 'Winner SF 2',
-        time: '21:40',
+        time: '21:00',
         pitch: 1,
         homeScore: null,
         awayScore: null,
@@ -403,6 +403,24 @@ export const DenchDerby = () => {
                     if (m.awayPlaceholder === 'Woza madzala fc') { m.awayPlaceholder = 'Ayoba fc'; changed = true; }
                     if (m.homePlaceholder === 'Woza madzala fc') { m.homePlaceholder = 'Ayoba fc'; changed = true; }
                     if (m.awayPlaceholder === 'Gauteng state warriors') { m.awayPlaceholder = 'Mambisa FC'; changed = true; }
+
+                    // Also synchronize accurate kickoff times & pitches for knockouts (18:30 start across 2 pitches)
+                    if (m.id === 'sf-1') {
+                        if (m.time === '15:00' || m.time === '20:20' || !m.time) { m.time = '20:15'; changed = true; }
+                        if (m.pitch !== 1) { m.pitch = 1; changed = true; }
+                    }
+                    if (m.id === 'sf-2') {
+                        if (m.time === '15:50' || m.time === '20:20' || !m.time) { m.time = '20:15'; changed = true; }
+                        if (m.pitch !== 2) { m.pitch = 2; changed = true; }
+                    }
+                    if (m.id === 'fn-3rd') {
+                        if (m.time === '16:45' || m.time === '21:05' || !m.time) { m.time = '20:55'; changed = true; }
+                        if (m.pitch !== 2) { m.pitch = 2; changed = true; }
+                    }
+                    if (m.id === 'fn-gold') {
+                        if (m.time === '17:30' || m.time === '21:40' || !m.time) { m.time = '21:00'; changed = true; }
+                        if (m.pitch !== 1) { m.pitch = 1; changed = true; }
+                    }
                 });
                 if (changed) {
                     localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
@@ -1986,7 +2004,7 @@ export const DenchDerby = () => {
                                 <div>
                                     <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>Tournament Progression</h2>
                                     <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                                        Roadmap from Group Stage to the Grand Final 🥇
+                                        Roadmap from Group Stage (18:30 kickoff across Pitches 1 & 2) to the Grand Final 🥇
                                     </p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -2036,7 +2054,10 @@ export const DenchDerby = () => {
                                                     </span>
                                                 )}
                                             </strong>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Top 2 Advance</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                                                <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Pitch 1 • 18:30</span>
+                                                <span style={{ color: 'var(--color-text-muted)' }}>• Top 2 Advance</span>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             {standingsA.map((t, idx) => (
@@ -2084,7 +2105,10 @@ export const DenchDerby = () => {
                                                     </span>
                                                 )}
                                             </strong>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Top 2 Advance</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                                                <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Pitch 2 • 18:30</span>
+                                                <span style={{ color: 'var(--color-text-muted)' }}>• Top 2 Advance</span>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             {standingsB.map((t, idx) => (
@@ -2140,8 +2164,8 @@ export const DenchDerby = () => {
                                         border: sf1Match?.status === 'completed' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid var(--color-border)'
                                     }}>
                                         <div className="flex-between" style={{ marginBottom: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                            <span style={{ fontWeight: 600, color: '#3b82f6' }}>SEMI-FINAL 1 • 15:00</span>
-                                            <span>Pitch 1</span>
+                                            <span style={{ fontWeight: 600, color: '#3b82f6' }}>SEMI-FINAL 1 • {sf1Match?.time || '20:15'}</span>
+                                            <span>Pitch {sf1Match?.pitch ?? 1}</span>
                                         </div>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -2209,8 +2233,8 @@ export const DenchDerby = () => {
                                         border: sf2Match?.status === 'completed' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid var(--color-border)'
                                     }}>
                                         <div className="flex-between" style={{ marginBottom: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                            <span style={{ fontWeight: 600, color: '#3b82f6' }}>SEMI-FINAL 2 • 15:50</span>
-                                            <span>Pitch 1</span>
+                                            <span style={{ fontWeight: 600, color: '#3b82f6' }}>SEMI-FINAL 2 • {sf2Match?.time || '20:15'}</span>
+                                            <span>Pitch {sf2Match?.pitch ?? 2}</span>
                                         </div>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -2297,7 +2321,9 @@ export const DenchDerby = () => {
                                             <span style={{ fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                                 <Medal size={14} /> 3RD PLACE PLAYOFF
                                             </span>
-                                            <span style={{ color: 'var(--color-text-muted)' }}>16:45</span>
+                                            <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>
+                                                {thirdMatch?.time || '20:55'} • Pitch {thirdMatch?.pitch ?? 2}
+                                            </span>
                                         </div>
 
                                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
@@ -2358,7 +2384,9 @@ export const DenchDerby = () => {
                                             <span style={{ fontWeight: 800, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                                                 <Award size={16} /> GRAND FINAL 🥇
                                             </span>
-                                            <span style={{ color: 'white', fontWeight: 600 }}>17:30</span>
+                                            <span style={{ color: 'white', fontWeight: 600 }}>
+                                                {finalMatch?.time || '21:00'} • Pitch {finalMatch?.pitch ?? 1}
+                                            </span>
                                         </div>
 
                                         <div style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 600, marginBottom: '0.6rem' }}>
@@ -3838,7 +3866,7 @@ export const DenchDerby = () => {
                             <div className="flex-between" style={{ marginBottom: '1.25rem' }}>
                                 <div>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase' }}>
-                                        {activeModalMatch.note} • 28 October 2026 • 18:30
+                                        {activeModalMatch.note} • 28 October 2026 • {activeModalMatch.time} (Pitch {activeModalMatch.pitch})
                                     </span>
                                     <h3 style={{ fontSize: '1.25rem', color: 'white', margin: 0 }}>
                                         Log Goals & Assists

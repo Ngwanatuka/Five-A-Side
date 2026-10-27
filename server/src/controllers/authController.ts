@@ -123,10 +123,30 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 
 /**
  * Public listing of team captains (without PINs)
+ * Captain name is sourced from the roster player with isCaptain=true in derby-tournament.json
  */
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
         const list = getPublicCaptains();
+
+        // Override captainName with the actual isCaptain player from the roster
+        try {
+            const dataFile = require('path').join(__dirname, '../../data/derby-tournament.json');
+            const fs = require('fs');
+            if (fs.existsSync(dataFile)) {
+                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                const players: any[] = Array.isArray(derby.players) ? derby.players : [];
+                list.forEach((entry: any) => {
+                    const rosterCaptain = players.find(
+                        (p: any) => p.teamKey === entry.teamKey && p.isCaptain === true
+                    );
+                    if (rosterCaptain?.name) {
+                        entry.captainName = rosterCaptain.name;
+                    }
+                });
+            }
+        } catch {}
+
         res.json(list);
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve captains' });

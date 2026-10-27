@@ -3,9 +3,13 @@ export const getBackendUrl = (): string => {
         return import.meta.env.VITE_BACKEND_URL;
     }
     if (typeof window !== 'undefined' && window.location) {
-        const protocol = window.location.protocol;
         const hostname = window.location.hostname;
-        return `${protocol}//${hostname}:5000`;
+        // In local dev, Express runs on :5000
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return `http://${hostname}:5000`;
+        }
+        // On Render (or any production host), client and server share the same origin
+        return '';
     }
     return 'http://localhost:5000';
 };

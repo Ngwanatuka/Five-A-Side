@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:prod": "cd client && npm install && npm run build && cd ../server && npm install && npm run build",
+    "start:prod": "node server/src/index.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

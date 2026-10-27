@@ -287,6 +287,22 @@ export const getPlayers = async (teamId?: number) => {
     return response.json();
 };
 
+export const deletePlayer = async (playerId: string | number, extra?: { teamKey?: string; name?: string }) => {
+    const qs = new URLSearchParams();
+    if (extra?.teamKey) qs.append('teamKey', extra.teamKey);
+    if (extra?.name) qs.append('name', extra.name);
+    const url = `${API_BASE_URL}/players/${playerId}${qs.toString() ? `?${qs.toString()}` : ''}`;
+    const response = await fetch(url, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to delete player' }));
+        throw new Error(err.error || 'Failed to delete player');
+    }
+    return response.json();
+};
+
 // --- FINANCES ---
 export const getAllFinances = async (seasonId?: number) => {
     const url = seasonId ? `${API_BASE_URL}/finances?seasonId=${seasonId}` : `${API_BASE_URL}/finances`;

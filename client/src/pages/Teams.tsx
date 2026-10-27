@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Users, Trophy, Plus, CheckCircle2, Lock } from 'lucide-react';
-import { getStandings, getTeams, addPlayerToTeam, getBackendUrl } from '../services/api';
+import { Shield, Users, Trophy, Plus, CheckCircle2, Lock, Trash2 } from 'lucide-react';
+import { getStandings, getTeams, addPlayerToTeam, deletePlayer, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useRole } from '../context/RoleContext';
@@ -46,15 +46,35 @@ export const Teams = () => {
         socket.on('scoreUpdate', () => { fetchTeams(); });
         socket.on('teamRegistered', () => { fetchTeams(); });
         socket.on('playerAdded', () => { fetchTeams(); });
+        socket.on('playerDeleted', () => { fetchTeams(); });
         socket.on('derbyUpdate', () => { fetchTeams(); });
 
         return () => {
             socket.off('scoreUpdate');
             socket.off('teamRegistered');
             socket.off('playerAdded');
+            socket.off('playerDeleted');
             socket.off('derbyUpdate');
         };
     }, []);
+
+    const handleDeletePlayer = async (playerId: number | string, teamName: string, playerName: string) => {
+        if (role === 'CAPTAIN' && !canEditTeam(teamName)) {
+            alert('Forbidden: As Captain, you can only remove players from your own team.');
+            return;
+        }
+
+        if (window.confirm(`Are you sure you want to remove "${playerName}" from ${teamName}?`)) {
+            try {
+                await deletePlayer(playerId, { name: playerName });
+                setFeedbackMsg(`Player "${playerName}" removed successfully.`);
+                setTimeout(() => setFeedbackMsg(null), 3000);
+                fetchTeams();
+            } catch (err: any) {
+                alert(err.message || 'Failed to remove player.');
+            }
+        }
+    };
 
     const handleAddPlayer = async (teamId: number) => {
         const rawName = (inlinePlayerNames[teamId] || '').trim();
@@ -306,6 +326,25 @@ export const Teams = () => {
                                                             color: 'white'
                                                         }}>
                                                             <span>👤 {p.firstName} {p.lastName !== '-' ? p.lastName : ''}</span>
+                                                            {canEditTeam(team.teamName) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeletePlayer(p.id, team.teamName, `${p.firstName} ${p.lastName !== '-' ? p.lastName : ''}`.trim())}
+                                                                    style={{
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        color: '#ef4444',
+                                                                        cursor: 'pointer',
+                                                                        padding: '0 0.2rem',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        opacity: 0.8
+                                                                    }}
+                                                                    title="Remove player from squad"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     ))
                                                 )}

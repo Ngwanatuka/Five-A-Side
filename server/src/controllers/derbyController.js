@@ -363,8 +363,29 @@ async function syncToPrismaDatabase(teams, matches, players) {
                 }
             }
         }
-        // 2b. Also ensure any existing players in DB are preserved
-        // Never delete registered players automatically so rosters persist across all devices
+        // 2b. Clean up deleted players from database so deleted squad players don't resurrect
+        if (Array.isArray(players)) {
+            for (const key of Object.keys(teams)) {
+                const teamId = teamIdMap[key];
+                if (!teamId)
+                    continue;
+                const currentTeamPs = players.filter((p) => p && p.teamKey === key);
+                const dbPlayersForTeam = await prisma_1.default.player.findMany({ where: { teamId } });
+                for (const dbp of dbPlayersForTeam) {
+                    const dbFullName = `${dbp.firstName} ${dbp.lastName !== '-' ? dbp.lastName : ''}`.trim().toLowerCase();
+                    const isStillPresent = currentTeamPs.some((cp) => {
+                        const cpName = (cp.name || '').trim().toLowerCase();
+                        const cpId = cp.id ? String(cp.id).replace(/^p-/, '') : '';
+                        return cpName === dbFullName || (cpId && cpId === String(dbp.id));
+                    });
+                    if (!isStillPresent) {
+                        await prisma_1.default.matchRoster.deleteMany({ where: { playerId: dbp.id } }).catch(() => { });
+                        await prisma_1.default.playerSeasonFinance.deleteMany({ where: { playerId: dbp.id } }).catch(() => { });
+                        await prisma_1.default.player.delete({ where: { id: dbp.id } }).catch(() => { });
+                    }
+                }
+            }
+        }
         // 3. Sync Matches
         if (Array.isArray(matches) && matches.length > 0) {
             const matchDate = new Date('2026-10-28T18:30:00+02:00');
@@ -567,14 +588,8 @@ const saveDerbyData = async (req, res) => {
             if (req.body?.clearAllSquads === true) {
                 finalPlayers = [];
             }
-            else if (Array.isArray(players) && players.length > 0) {
-                const existingMap = new Map(currentData.players.map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
-                for (const p of players) {
-                    if (p && p.name && p.teamKey) {
-                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
-                    }
-                }
-                finalPlayers = Array.from(existingMap.values());
+            else if (Array.isArray(players)) {
+                finalPlayers = players;
             }
         }
         else if (isReferee) {
@@ -587,29 +602,33 @@ const saveDerbyData = async (req, res) => {
             if (teams && teams[captainTeamKey]) {
                 finalTeams[captainTeamKey] = { ...finalTeams[captainTeamKey], ...teams[captainTeamKey] };
             }
-            if (Array.isArray(players) && players.length > 0) {
+            if (Array.isArray(players)) {
                 const otherTeamsPlayers = currentData.players.filter((p) => p.teamKey !== captainTeamKey);
-                const existingTeamMap = new Map(currentData.players.filter((p) => p.teamKey === captainTeamKey).map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
-                for (const p of players) {
-                    if (p && p.name && p.teamKey === captainTeamKey) {
-                        existingTeamMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
-                    }
-                }
-                finalPlayers = [...otherTeamsPlayers, ...Array.from(existingTeamMap.values())];
+                const myTeamPlayers = players.filter((p) => p && p.teamKey === captainTeamKey);
+                finalPlayers = [...otherTeamsPlayers, ...myTeamPlayers];
             }
         }
         else {
             // Mobile or direct player registration fallback:
-            // Ensure players registered from any phone or browser are preserved and merged!
-            if (Array.isArray(players) && players.length > 0) {
-                const existingMap = new Map(currentData.players.map((p) => [`${p.teamKey}_${(p.name || '').trim().toLowerCase()}`, p]));
-                for (const p of players) {
-                    if (p && p.name && p.teamKey) {
-                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
-                    }
-                }
-                finalPlayers = Array.from(existingMap.values());
+            if (req.body?.clearAllSquads === true) {
+                finalPlayers = [];
             }
+            else if (Array.isArray(players)) {
+                finalPlayers = players;
+            }
+        }
+        // If a specific deleted player was provided in payload, ensure they are purged
+        const deletedPlayerId = req.body?.deletedPlayerId || req.body?.deletedPlayer?.id;
+        const deletedPlayerName = (req.body?.deletedPlayer?.name || '').trim().toLowerCase();
+        const deletedPlayerTeamKey = req.body?.deletedPlayer?.teamKey;
+        if (deletedPlayerId || (deletedPlayerName && deletedPlayerTeamKey)) {
+            finalPlayers = finalPlayers.filter((p) => {
+                if (deletedPlayerId && p.id === deletedPlayerId)
+                    return false;
+                if (deletedPlayerTeamKey && deletedPlayerName && p.teamKey === deletedPlayerTeamKey && (p.name || '').trim().toLowerCase() === deletedPlayerName)
+                    return false;
+                return true;
+            });
         }
         const payload = {
             teams: finalTeams,
@@ -629,7 +648,10 @@ const saveDerbyData = async (req, res) => {
             io.emit('derbyUpdate', payload);
             io.emit('scoreUpdate');
             io.emit('teamRegistered');
-            io.emit('playerAdded');
+            // Only emit playerAdded if players actually increased, not when players are deleted
+            if (Array.isArray(players) && players.length > (currentData.players?.length || 0)) {
+                io.emit('playerAdded');
+            }
         }
         res.json({ success: true, ...payload });
     }

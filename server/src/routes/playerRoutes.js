@@ -6,5 +6,6 @@ const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.get('/', playerController_1.getPlayers);
 router.post('/', auth_1.optionalAuth, playerController_1.addPlayerToTeam);
+router.delete('/:id', auth_1.optionalAuth, playerController_1.deletePlayer);
 exports.default = router;
 //# sourceMappingURL=playerRoutes.js.map

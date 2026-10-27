@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPlayers = exports.addPlayerToTeam = void 0;
+exports.deletePlayer = exports.getPlayers = exports.addPlayerToTeam = void 0;
 const fs_1 = __importDefault(require("fs"));
 const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
@@ -202,4 +202,170 @@ const getPlayers = async (req, res) => {
     }
 };
 exports.getPlayers = getPlayers;
+const deletePlayer = async (req, res) => {
+    try {
+        const authUser = req.user;
+        const roleHeader = (req.headers['x-user-role'] || '').toUpperCase();
+        const effectiveRole = authUser?.role || roleHeader || 'SPECTATOR';
+        const captainTeamKey = authUser?.teamKey || req.headers['x-captain-team-key'];
+        if (effectiveRole === 'REFEREE' || effectiveRole === 'SPECTATOR') {
+            res.status(403).json({
+                error: 'Editing restricted: Participants and Referees have read-only access. Only Team Captains and Admins can remove players.'
+            });
+            return;
+        }
+        if (effectiveRole === 'CAPTAIN') {
+            const { isDeadlineExpired } = await Promise.resolve().then(() => __importStar(require('../services/captainService')));
+            if (isDeadlineExpired()) {
+                res.status(403).json({
+                    error: 'Roster editing deadline has passed (28 October 18:30). Official rosters are locked. Please contact League Admin.'
+                });
+                return;
+            }
+        }
+        const rawId = String(req.params.id || '');
+        const paramName = (req.query.name || req.body?.name || '').trim();
+        const paramTeamKey = (req.query.teamKey || req.body?.teamKey || '').trim();
+        const paramTeamId = req.query.teamId ? parseInt(req.query.teamId, 10) : req.body?.teamId;
+        // Captain team ownership check
+        if (effectiveRole === 'CAPTAIN' && captainTeamKey) {
+            if (paramTeamKey && paramTeamKey.toLowerCase() !== captainTeamKey.toLowerCase()) {
+                res.status(403).json({
+                    error: `Forbidden: As Captain of "${captainTeamKey}", you can only remove players from your own squad.`
+                });
+                return;
+            }
+        }
+        // 1. Resolve and delete DB Player if present
+        let dbPlayer = null;
+        let numericId = null;
+        if (/^\d+$/.test(rawId)) {
+            numericId = parseInt(rawId, 10);
+        }
+        else if (/^p-\d+$/.test(rawId)) {
+            numericId = parseInt(rawId.replace(/^p-/, ''), 10);
+        }
+        if (numericId !== null && !isNaN(numericId)) {
+            dbPlayer = await prisma_1.default.player.findUnique({
+                where: { id: numericId },
+                include: { team: true }
+            });
+        }
+        if (!dbPlayer && (paramName || rawId)) {
+            const searchName = paramName || rawId;
+            const parts = searchName.split(' ');
+            const firstName = parts[0] || searchName;
+            const lastName = parts.slice(1).join(' ') || '-';
+            let targetTeamId = paramTeamId;
+            if (!targetTeamId && (paramTeamKey || captainTeamKey)) {
+                const targetKey = paramTeamKey || captainTeamKey;
+                const team = await prisma_1.default.team.findFirst({
+                    where: {
+                        OR: [
+                            { managerContact: `${targetKey}@tournament.local` },
+                            { managerContact: { startsWith: targetKey } }
+                        ]
+                    }
+                });
+                if (team)
+                    targetTeamId = team.id;
+            }
+            if (targetTeamId) {
+                dbPlayer = await prisma_1.default.player.findFirst({
+                    where: {
+                        teamId: targetTeamId,
+                        OR: [
+                            { firstName, lastName },
+                            { firstName: searchName }
+                        ]
+                    },
+                    include: { team: true }
+                });
+            }
+            else {
+                dbPlayer = await prisma_1.default.player.findFirst({
+                    where: {
+                        OR: [
+                            { firstName, lastName },
+                            { firstName: searchName }
+                        ]
+                    },
+                    include: { team: true }
+                });
+            }
+        }
+        if (dbPlayer) {
+            // Additional captain ownership verification on the DB player
+            if (effectiveRole === 'CAPTAIN' && captainTeamKey && dbPlayer.team) {
+                const matchesManager = dbPlayer.team.managerContact && dbPlayer.team.managerContact.startsWith(captainTeamKey);
+                const matchesName = req.user?.teamName && dbPlayer.team.name.toLowerCase().trim() === req.user.teamName.toLowerCase().trim();
+                if (!matchesManager && !matchesName) {
+                    res.status(403).json({
+                        error: `Forbidden: As Captain of "${req.user?.teamName || captainTeamKey}", you can only remove players from your own squad.`
+                    });
+                    return;
+                }
+            }
+            // Remove foreign key dependencies before deleting player
+            await prisma_1.default.matchRoster.deleteMany({ where: { playerId: dbPlayer.id } }).catch(() => { });
+            await prisma_1.default.playerSeasonFinance.deleteMany({ where: { playerId: dbPlayer.id } }).catch(() => { });
+            await prisma_1.default.player.delete({ where: { id: dbPlayer.id } }).catch(() => { });
+        }
+        // 2. Remove player from derby-tournament.json file
+        let derbyData = null;
+        if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
+            try {
+                derbyData = JSON.parse(fs_1.default.readFileSync(derbyController_1.DATA_FILE, 'utf-8'));
+                if (Array.isArray(derbyData.players)) {
+                    derbyData.players = derbyData.players.filter((p) => {
+                        if (!p)
+                            return false;
+                        if (p.id === rawId)
+                            return false;
+                        if (dbPlayer && (p.id === `p-${dbPlayer.id}` || p.id === String(dbPlayer.id)))
+                            return false;
+                        if (paramTeamKey && paramName && p.teamKey === paramTeamKey && p.name.trim().toLowerCase() === paramName.toLowerCase())
+                            return false;
+                        if (dbPlayer && dbPlayer.team?.managerContact?.startsWith(p.teamKey) &&
+                            `${dbPlayer.firstName} ${dbPlayer.lastName !== '-' ? dbPlayer.lastName : ''}`.trim().toLowerCase() === p.name.trim().toLowerCase()) {
+                            return false;
+                        }
+                        return true;
+                    });
+                    // Clean up any associated goal events
+                    if (Array.isArray(derbyData.goalEvents)) {
+                        derbyData.goalEvents = derbyData.goalEvents.filter((ev) => ev.scorerPlayerId !== rawId &&
+                            ev.assistPlayerId !== rawId &&
+                            (!dbPlayer || (ev.scorerPlayerId !== `p-${dbPlayer.id}` && ev.assistPlayerId !== `p-${dbPlayer.id}`)));
+                    }
+                    derbyData.updatedAt = new Date().toISOString();
+                    fs_1.default.writeFileSync(derbyController_1.DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                }
+            }
+            catch (err) {
+                console.error('Notice updating derby file on player delete:', err);
+            }
+        }
+        // Broadcast removal via Socket.IO
+        const io = req.app.get('io');
+        if (io) {
+            if (derbyData) {
+                io.emit('derbyUpdate', derbyData);
+            }
+            io.emit('playerDeleted', { id: rawId, dbId: dbPlayer?.id, teamKey: paramTeamKey, name: paramName });
+            io.emit('teamRegistered');
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Player successfully removed from squad.',
+            deletedId: rawId,
+            dbId: dbPlayer?.id
+        });
+    }
+    catch (error) {
+        console.error('Failed to delete player:', error);
+        res.status(500).json({ error: 'Internal server error while removing player' });
+    }
+};
+exports.deletePlayer = deletePlayer;
 //# sourceMappingURL=playerController.js.map

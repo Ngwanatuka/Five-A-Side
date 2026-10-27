@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getPlayers, getBackendUrl } from '../services/api';
+import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getPlayers, getBackendUrl, deletePlayer } from '../services/api';
 import { useRole } from '../context/RoleContext';
 
 const socket = io(getBackendUrl());
@@ -487,7 +487,8 @@ export const DenchDerby = () => {
         newTeams: Record<string, TeamInfo>,
         newMatches: TournamentMatch[],
         newPlayers: TournamentPlayer[],
-        newEvents: GoalEvent[]
+        newEvents: GoalEvent[],
+        extraPayload?: Record<string, any>
     ) => {
         try {
             localStorage.setItem('dench_derby_teams_v4', JSON.stringify(newTeams));
@@ -502,7 +503,8 @@ export const DenchDerby = () => {
             teams: newTeams,
             matches: newMatches,
             players: newPlayers,
-            goalEvents: newEvents
+            goalEvents: newEvents,
+            ...(extraPayload || {})
         }).catch(err => {
             console.error('Failed to sync tournament data to server:', err);
         });
@@ -608,8 +610,8 @@ export const DenchDerby = () => {
                         }
                     }
 
-                    // 3. Local browser players from this device's localStorage
-                    if (Array.isArray(localSavedPlayers)) {
+                    // 3. Local browser players fallback ONLY if remote server has no players
+                    if (playerMap.size === 0 && Array.isArray(localSavedPlayers)) {
                         for (const lp of localSavedPlayers) {
                             if (lp && lp.name && lp.teamKey) {
                                 const normKey = `${lp.teamKey}_${lp.name.trim().toLowerCase()}`;
@@ -670,23 +672,8 @@ export const DenchDerby = () => {
                 } catch {}
             }
             if (Array.isArray(data.players)) {
-                setPlayers(prevPlayers => {
-                    const map = new Map<string, TournamentPlayer>();
-                    for (const p of data.players) {
-                        if (p && p.name && p.teamKey) {
-                            map.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
-                        }
-                    }
-                    for (const p of prevPlayers) {
-                        if (p && p.name && p.teamKey) {
-                            const key = `${p.teamKey}_${p.name.trim().toLowerCase()}`;
-                            if (!map.has(key)) map.set(key, p);
-                        }
-                    }
-                    const merged = Array.from(map.values());
-                    try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(merged)); } catch {}
-                    return merged;
-                });
+                setPlayers(data.players);
+                try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(data.players)); } catch {}
             }
             if (Array.isArray(data.goalEvents)) {
                 setGoalEvents(data.goalEvents);
@@ -694,14 +681,27 @@ export const DenchDerby = () => {
             }
         };
 
+        const handlePlayerDeleted = (deleted: any) => {
+            if (deleted) {
+                setPlayers(prev => prev.filter(p => {
+                    if (deleted.id && p.id === deleted.id) return false;
+                    if (deleted.dbId && (p.id === `p-${deleted.dbId}` || p.id === String(deleted.dbId))) return false;
+                    if (deleted.teamKey && deleted.name && p.teamKey === deleted.teamKey && p.name.trim().toLowerCase() === deleted.name.trim().toLowerCase()) return false;
+                    return true;
+                }));
+            }
+        };
+
         socket.on('derbyUpdate', handleRemoteUpdate);
         socket.on('derbyReset', handleRemoteUpdate);
+        socket.on('playerDeleted', handlePlayerDeleted);
         socket.on('playerAdded', () => { fetchRemote(); });
 
         return () => {
             isMounted = false;
             socket.off('derbyUpdate', handleRemoteUpdate);
             socket.off('derbyReset', handleRemoteUpdate);
+            socket.off('playerDeleted', handlePlayerDeleted);
             socket.off('playerAdded');
         };
     }, []);
@@ -1315,7 +1315,7 @@ export const DenchDerby = () => {
         setIsAddPlayerOpen(true);
     };
 
-    const handleDeletePlayer = (playerId: string) => {
+    const handleDeletePlayer = async (playerId: string) => {
         const playerToDelete = players.find(p => p.id === playerId);
         if (!playerToDelete) return;
 
@@ -1329,7 +1329,16 @@ export const DenchDerby = () => {
             const updatedEvents = goalEvents.filter(ev => ev.scorerPlayerId !== playerId && ev.assistPlayerId !== playerId);
             setPlayers(updated);
             setGoalEvents(updatedEvents);
-            persistTournamentData(teams, matches, updated, updatedEvents);
+            persistTournamentData(teams, matches, updated, updatedEvents, {
+                deletedPlayerId: playerId,
+                deletedPlayer: { id: playerId, name: playerToDelete.name, teamKey: playerToDelete.teamKey }
+            });
+
+            try {
+                await deletePlayer(playerId, { teamKey: playerToDelete.teamKey, name: playerToDelete.name });
+            } catch (err: any) {
+                console.warn('Dedicated player delete notice:', err);
+            }
         }
     };
 
@@ -1344,7 +1353,7 @@ export const DenchDerby = () => {
             setPlayers([]);
             setGoalEvents([]);
             setMatches(cleanMatches);
-            persistTournamentData(teams, cleanMatches, [], []);
+            persistTournamentData(teams, cleanMatches, [], [], { clearAllSquads: true });
         }
     };
 
@@ -1352,7 +1361,7 @@ export const DenchDerby = () => {
         if (window.confirm('Are you sure you want to remove all players from all squads?')) {
             setPlayers([]);
             setGoalEvents([]);
-            persistTournamentData(teams, matches, [], []);
+            persistTournamentData(teams, matches, [], [], { clearAllSquads: true });
         }
     };
 

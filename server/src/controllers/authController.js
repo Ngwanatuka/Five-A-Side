@@ -71,32 +71,23 @@ const captainLogin = async (req, res) => {
             res.status(401).json({ error: 'Incorrect Captain PIN for this team. Please check with the League Admin.' });
             return;
         }
-        // Resolve actual roster captain name if present
+        // Resolve actual roster captain name dynamically
         let effectiveCaptainName = '';
         try {
-            const rosterCap = await prisma.player.findFirst({
-                where: {
-                    isCaptain: true,
-                    team: { managerContact: `${teamKey}@tournament.local` }
-                }
-            });
-            if (rosterCap) {
-                effectiveCaptainName = `${rosterCap.firstName} ${rosterCap.lastName === '-' ? '' : rosterCap.lastName}`.trim();
-            }
-            else {
-                const path = require('path');
-                const fs = require('fs');
-                const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-                if (fs.existsSync(dataFile)) {
-                    const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                    const fileCap = (derby.players || []).find((p) => p.teamKey === teamKey && p.isCaptain === true);
-                    if (fileCap?.name) {
-                        effectiveCaptainName = fileCap.name.trim();
-                    }
+            const path = require('path');
+            const fs = require('fs');
+            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+            if (fs.existsSync(dataFile)) {
+                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                const fileCap = (derby.players || []).find((p) => p.teamKey === teamKey && p.isCaptain === true);
+                if (fileCap?.name) {
+                    effectiveCaptainName = fileCap.name.trim();
                 }
             }
         }
-        catch { }
+        catch (jsonErr) {
+            console.warn('Notice reading derby-tournament.json during captain login:', jsonErr);
+        }
         const captainDisplayName = effectiveCaptainName || captain.captainName || 'Team Captain';
         const token = jsonwebtoken_1.default.sign({
             role: 'CAPTAIN',
@@ -126,55 +117,13 @@ const captainLogin = async (req, res) => {
 exports.captainLogin = captainLogin;
 /**
  * Public listing of team captains (without PINs)
- * Sourced dynamically from whoever is currently designated as Captain (isCaptain: true) in each team's squad roster.
+ * Sourced dynamically and generically from whoever is currently designated as Captain (isCaptain: true) in each team's squad roster.
  */
 const getCaptainsList = async (_req, res) => {
     try {
         const list = (0, captainService_1.getPublicCaptains)();
-        list.forEach((entry) => {
-            entry.captainName = '';
-        });
         const captainNamesByTeam = new Map();
-        // 1. Query database players for all tournament teams where isCaptain === true
-        try {
-            const dbPlayers = await prisma.player.findMany({
-                where: {
-                    isCaptain: true,
-                    team: { managerContact: { endsWith: '@tournament.local' } }
-                },
-                include: { team: true },
-                orderBy: { id: 'asc' }
-            });
-            dbPlayers.forEach((player) => {
-                const teamKey = player.team.managerContact.replace(/@tournament\.local$/, '');
-                const captainName = `${player.firstName} ${player.lastName === '-' ? '' : player.lastName}`.trim();
-                if (captainName) {
-                    captainNamesByTeam.set(teamKey, captainName);
-                }
-            });
-        }
-        catch (dbErr) {
-            console.warn('Notice querying DB players for captains list:', dbErr);
-        }
-        // 2. Also query derby-tournament.json for designated captains
-        try {
-            const path = require('path');
-            const fs = require('fs');
-            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-            if (fs.existsSync(dataFile)) {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const filePlayers = Array.isArray(derby.players) ? derby.players : [];
-                filePlayers.forEach((p) => {
-                    if (p?.teamKey && p?.name && p?.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
-                        captainNamesByTeam.set(p.teamKey, p.name.trim());
-                    }
-                });
-            }
-        }
-        catch (fileErr) {
-            console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
-        }
-        // Filter out legacy dummy captain names
+        const firstPlayerByTeam = new Map();
         const MOCK_CAPTAINS = new Set([
             'bafana sithole',
             'mo hendricks',
@@ -183,10 +132,35 @@ const getCaptainsList = async (_req, res) => {
             'mandla nkosi',
             'kagiso molefe'
         ]);
+        // 1. Primary source: derby-tournament.json squad rosters
+        try {
+            const path = require('path');
+            const fs = require('fs');
+            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+            if (fs.existsSync(dataFile)) {
+                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                const filePlayers = Array.isArray(derby.players) ? derby.players : [];
+                filePlayers.forEach((p) => {
+                    if (p?.teamKey && p?.name) {
+                        const cleanName = p.name.trim();
+                        if (!firstPlayerByTeam.has(p.teamKey)) {
+                            firstPlayerByTeam.set(p.teamKey, cleanName);
+                        }
+                        if (p.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
+                            captainNamesByTeam.set(p.teamKey, cleanName);
+                        }
+                    }
+                });
+            }
+        }
+        catch (fileErr) {
+            console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
+        }
+        // 2. Populate dynamic captain for each team
         list.forEach((entry) => {
-            let name = captainNamesByTeam.get(entry.teamKey) || '';
+            let name = captainNamesByTeam.get(entry.teamKey) || entry.captainName || firstPlayerByTeam.get(entry.teamKey) || '';
             if (MOCK_CAPTAINS.has(name.toLowerCase().trim())) {
-                name = '';
+                name = firstPlayerByTeam.get(entry.teamKey) || '';
             }
             entry.captainName = name;
         });

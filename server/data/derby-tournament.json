@@ -333,6 +333,54 @@
       "isCaptain": false
     },
     {
+      "id": "p-180050",
+      "teamKey": "bras-ba-kasi",
+      "name": "Jiki",
+      "jerseyNumber": 10,
+      "position": "FWD",
+      "isCaptain": true
+    },
+    {
+      "id": "p-180051",
+      "teamKey": "bras-ba-kasi",
+      "name": "Shoelace",
+      "jerseyNumber": 2,
+      "position": "DEF",
+      "isCaptain": false
+    },
+    {
+      "id": "p-180052",
+      "teamKey": "bras-ba-kasi",
+      "name": "Sbu",
+      "jerseyNumber": 1,
+      "position": "GK",
+      "isCaptain": false
+    },
+    {
+      "id": "p-180053",
+      "teamKey": "bras-ba-kasi",
+      "name": "Cat",
+      "jerseyNumber": 8,
+      "position": "MID",
+      "isCaptain": false
+    },
+    {
+      "id": "p-180054",
+      "teamKey": "bras-ba-kasi",
+      "name": "Mandla",
+      "jerseyNumber": 7,
+      "position": "FWD",
+      "isCaptain": false
+    },
+    {
+      "id": "p-180055",
+      "teamKey": "bras-ba-kasi",
+      "name": "Kagiso",
+      "jerseyNumber": 9,
+      "position": "FWD",
+      "isCaptain": false
+    },
+    {
       "id": "p-180027",
       "teamKey": "gauteng-warriors",
       "name": "Nsovo.",
@@ -346,7 +394,7 @@
       "name": "Mash",
       "jerseyNumber": 2,
       "position": "DEF",
-      "isCaptain": false
+      "isCaptain": true
     },
     {
       "id": "p-180029",
@@ -426,7 +474,7 @@
       "name": "Future",
       "jerseyNumber": 3,
       "position": "MID",
-      "isCaptain": false
+      "isCaptain": true
     },
     {
       "id": "p-180039",
@@ -498,7 +546,7 @@
       "name": "Stu",
       "jerseyNumber": 3,
       "position": "MID",
-      "isCaptain": false
+      "isCaptain": true
     },
     {
       "id": "p-180073",
@@ -542,5 +590,5 @@
     }
   ],
   "goalEvents": [],
-  "updatedAt": "2026-10-27T16:12:11.048Z"
+  "updatedAt": "2026-10-27T19:27:10.863Z"
 }

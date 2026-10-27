@@ -686,7 +686,9 @@ const saveDerbyData = async (req, res) => {
             updatedAt: new Date().toISOString()
         };
         fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
-        await syncToPrismaDatabase(payload.teams, payload.matches, payload.players);
+        syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
+            console.error('Async DB sync notice on saveDerbyData:', err);
+        });
         // Broadcast to all connected devices via Socket.IO
         const io = req.app?.get ? req.app.get('io') : null;
         if (io) {

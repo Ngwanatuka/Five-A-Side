@@ -61,12 +61,12 @@ export interface PublicCaptain {
 }
 
 export const DEFAULT_CAPTAINS: PublicCaptain[] = [
-    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: '', pin: '1111', group: 'A' },
-    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: '', pin: '2222', group: 'A' },
-    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: '', pin: '3333', group: 'A' },
-    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: '', pin: '4444', group: 'B' },
-    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: '', pin: '5555', group: 'B' },
-    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: '', pin: '6666', group: 'B' }
+    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: 'Dench', pin: '1111', group: 'A' },
+    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: 'Feels', pin: '2222', group: 'A' },
+    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: 'Jiki', pin: '3333', group: 'A' },
+    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: 'Mash', pin: '4444', group: 'B' },
+    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: 'Future', pin: '5555', group: 'B' },
+    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: 'Stu', pin: '6666', group: 'B' }
 ];
 
 const MOCK_CAPTAIN_NAMES = new Set([
@@ -86,16 +86,19 @@ export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
         const rosterPlayers: { teamKey: string; name: string; isCaptain?: boolean }[] =
             playersRaw ? JSON.parse(playersRaw) : [];
 
-        const getRosterCaptainName = (teamKey: string): string => {
+        const getRosterCaptainName = (teamKey: string, defaultName?: string): string => {
             const cap = rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim();
             if (cap && !MOCK_CAPTAIN_NAMES.has(cap.toLowerCase())) return cap;
+            if (defaultName && !MOCK_CAPTAIN_NAMES.has(defaultName.toLowerCase())) return defaultName;
+            const firstP = rosterPlayers.find(player => player.teamKey === teamKey)?.name?.trim();
+            if (firstP && !MOCK_CAPTAIN_NAMES.has(firstP.toLowerCase())) return firstP;
             return '';
         };
 
         const list = DEFAULT_CAPTAINS.map(def => ({
             ...def,
             teamName: storedTeams[def.teamKey]?.name || def.teamName,
-            captainName: getRosterCaptainName(def.teamKey),
+            captainName: getRosterCaptainName(def.teamKey, def.captainName),
             group: storedTeams[def.teamKey]?.group || def.group
         }));
         const seenKeys = new Set(DEFAULT_CAPTAINS.map(captain => captain.teamKey));

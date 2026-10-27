@@ -163,6 +163,44 @@ export const getTeams = async (req: Request, res: Response) => {
                 players: true
             }
         });
+
+        // Enrich tournament teams with squad players from derby-tournament.json
+        try {
+            const path = require('path');
+            const fs = require('fs');
+            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+            if (fs.existsSync(dataFile)) {
+                const derbyData = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                if (Array.isArray(derbyData.players)) {
+                    teams.forEach((t: any) => {
+                        if (t.managerContact && t.managerContact.endsWith('@tournament.local')) {
+                            const teamKey = t.managerContact.replace('@tournament.local', '');
+                            const teamPlayers = derbyData.players.filter((p: any) => p.teamKey === teamKey);
+                            if (teamPlayers.length > 0) {
+                                teamPlayers.forEach((tp: any) => {
+                                    const exists = (t.players || []).some((p: any) =>
+                                        `${p.firstName} ${p.lastName === '-' ? '' : p.lastName}`.trim().toLowerCase() === tp.name.trim().toLowerCase()
+                                    );
+                                    if (!exists) {
+                                        const parts = tp.name.trim().split(' ');
+                                        t.players.push({
+                                            id: tp.id,
+                                            teamId: t.id,
+                                            firstName: parts[0] || tp.name,
+                                            lastName: parts.slice(1).join(' ') || '-',
+                                            isCaptain: tp.isCaptain === true,
+                                            createdAt: new Date().toISOString(),
+                                            updatedAt: new Date().toISOString()
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        } catch {}
+
         res.status(200).json(teams);
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });

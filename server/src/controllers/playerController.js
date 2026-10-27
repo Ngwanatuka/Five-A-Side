@@ -382,6 +382,8 @@ const setPlayerAsCaptain = async (req, res) => {
             return;
         }
         const rawId = String(req.params.id || '');
+        let tournamentTeamKey = String(req.body?.teamKey || '').trim();
+        let playerName = String(req.body?.name || '').trim();
         let numericId = null;
         if (/^\d+$/.test(rawId)) {
             numericId = parseInt(rawId, 10);
@@ -389,64 +391,56 @@ const setPlayerAsCaptain = async (req, res) => {
         else if (/^p-\d+$/.test(rawId)) {
             numericId = parseInt(rawId.replace(/^p-/, ''), 10);
         }
-        let dbPlayer = null;
-        if (numericId !== null && !isNaN(numericId)) {
-            dbPlayer = await prisma_1.default.player.findUnique({
-                where: { id: numericId },
-                include: { team: true }
-            });
-        }
         const dataFile = derbyController_1.DATA_FILE;
-        let tournamentTeamKey = '';
-        let playerName = '';
-        if (dbPlayer) {
-            playerName = `${dbPlayer.firstName} ${dbPlayer.lastName === '-' ? '' : dbPlayer.lastName}`.trim();
-            if (dbPlayer.team?.managerContact && dbPlayer.team.managerContact.endsWith('@tournament.local')) {
-                tournamentTeamKey = dbPlayer.team.managerContact.replace('@tournament.local', '');
-            }
-            // Captain permission check
-            if (effectiveRole === 'CAPTAIN' && captainTeamKey && tournamentTeamKey) {
-                if (captainTeamKey.toLowerCase() !== tournamentTeamKey.toLowerCase()) {
-                    res.status(403).json({
-                        error: `Forbidden: As Captain of "${captainTeamKey}", you can only assign captain for your own team.`
-                    });
-                    return;
-                }
-            }
-            // Demote any existing captain on this team
-            await prisma_1.default.player.updateMany({
-                where: { teamId: dbPlayer.teamId },
-                data: { isCaptain: false }
-            });
-            // Promote target player
-            await prisma_1.default.player.update({
-                where: { id: dbPlayer.id },
-                data: { isCaptain: true }
-            });
-        }
-        // Sync to derby tournament json file
+        // 1. Sync to derby tournament json file as primary real-time source
         try {
             if (fs_1.default.existsSync(dataFile)) {
                 const derby = JSON.parse(fs_1.default.readFileSync(dataFile, 'utf-8'));
                 if (Array.isArray(derby.players)) {
-                    // If target wasn't in DB, search by rawId or name in JSON
-                    if (!tournamentTeamKey) {
-                        const fileP = derby.players.find((p) => p.id === rawId);
+                    // If target info wasn't in body, search in JSON
+                    if (!tournamentTeamKey || !playerName) {
+                        const fileP = derby.players.find((p) => p.id === rawId ||
+                            (playerName && p.name && p.name.trim().toLowerCase() === playerName.toLowerCase()));
                         if (fileP) {
-                            tournamentTeamKey = fileP.teamKey;
-                            playerName = fileP.name;
+                            tournamentTeamKey = tournamentTeamKey || fileP.teamKey;
+                            playerName = playerName || fileP.name;
+                        }
+                    }
+                    // Captain permission check
+                    if (effectiveRole === 'CAPTAIN' && captainTeamKey && tournamentTeamKey) {
+                        if (captainTeamKey.toLowerCase() !== tournamentTeamKey.toLowerCase()) {
+                            res.status(403).json({
+                                error: `Forbidden: As Captain of "${captainTeamKey}", you can only assign captain for your own team.`
+                            });
+                            return;
                         }
                     }
                     if (tournamentTeamKey) {
+                        let matched = false;
                         derby.players = derby.players.map((p) => {
                             if (p.teamKey === tournamentTeamKey) {
                                 const isTarget = (p.id === rawId ||
-                                    (dbPlayer && p.id === `p-${dbPlayer.id}`) ||
                                     (playerName && p.name && p.name.trim().toLowerCase() === playerName.toLowerCase()));
+                                if (isTarget) {
+                                    matched = true;
+                                    if (!playerName)
+                                        playerName = p.name;
+                                }
                                 return { ...p, isCaptain: isTarget };
                             }
                             return p;
                         });
+                        // If not matched but we have the player details, add to squad
+                        if (!matched && playerName) {
+                            derby.players.push({
+                                id: rawId.startsWith('p-') ? rawId : `p-${Date.now()}`,
+                                teamKey: tournamentTeamKey,
+                                name: playerName,
+                                jerseyNumber: 10,
+                                position: 'FWD',
+                                isCaptain: true
+                            });
+                        }
                         derby.updatedAt = new Date().toISOString();
                         fs_1.default.writeFileSync(dataFile, JSON.stringify(derby, null, 2), 'utf-8');
                     }
@@ -456,7 +450,7 @@ const setPlayerAsCaptain = async (req, res) => {
         catch (jsonErr) {
             console.error('Notice updating captain in derby JSON:', jsonErr);
         }
-        // Also update captains.json so the captain login dropdown immediately reflects the designated captain
+        // 2. Also update captains.json so login dropdown immediately reflects the designated captain
         if (tournamentTeamKey && playerName) {
             try {
                 (0, captainService_1.adminUpdateCaptain)(tournamentTeamKey, { captainName: playerName });
@@ -465,9 +459,44 @@ const setPlayerAsCaptain = async (req, res) => {
                 console.warn('Notice updating captain in captains.json:', capErr);
             }
         }
+        // 3. Asynchronously sync to Prisma database (non-blocking)
+        (async () => {
+            try {
+                let dbPlayer = null;
+                if (numericId !== null && !isNaN(numericId)) {
+                    dbPlayer = await prisma_1.default.player.findUnique({
+                        where: { id: numericId },
+                        include: { team: true }
+                    });
+                }
+                if (!dbPlayer && playerName && tournamentTeamKey) {
+                    const searchName = playerName.split(' ')[0] || playerName;
+                    dbPlayer = await prisma_1.default.player.findFirst({
+                        where: {
+                            team: { managerContact: `${tournamentTeamKey}@tournament.local` },
+                            firstName: searchName
+                        },
+                        include: { team: true }
+                    });
+                }
+                if (dbPlayer) {
+                    await prisma_1.default.player.updateMany({
+                        where: { teamId: dbPlayer.teamId },
+                        data: { isCaptain: false }
+                    });
+                    await prisma_1.default.player.update({
+                        where: { id: dbPlayer.id },
+                        data: { isCaptain: true }
+                    });
+                }
+            }
+            catch (dbErr) {
+                console.warn('Async DB captain sync notice:', dbErr);
+            }
+        })();
         const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
-            io.emit('playerUpdated', { id: rawId, dbId: dbPlayer?.id, teamKey: tournamentTeamKey, isCaptain: true, name: playerName });
+            io.emit('playerUpdated', { id: rawId, teamKey: tournamentTeamKey, isCaptain: true, name: playerName });
             io.emit('captainsUpdated');
             io.emit('derbyUpdate');
             io.emit('teamRegistered');

@@ -64,6 +64,10 @@ export const RoleSelectModal: React.FC = () => {
                             delete parsed[k].captain;
                             changed = true;
                         }
+                        if (parsed[k]?.captainName && MOCK_NAMES.has(parsed[k].captainName.toLowerCase().trim())) {
+                            delete parsed[k].captainName;
+                            changed = true;
+                        }
                     });
                     if (changed) localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
                 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '../components/Navbar';
-import { useToast, useConfirm, ToastContainer } from '../components/Toast';
+import { useToast, useConfirm } from '../components/Toast';
 import { 
     Trophy, 
     Calendar, 
@@ -1638,13 +1638,12 @@ export const DenchDerby = () => {
         )
     );
 
-    const { toasts, remove: removeToast, toast } = useToast();
+    const { toast } = useToast();
     const { confirm, ConfirmUI } = useConfirm();
 
     return (
         <div className="app-container">
             <Navbar />
-            <ToastContainer toasts={toasts} onRemove={removeToast} />
             {ConfirmUI}
 
             <main className="main-content">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -8,6 +8,19 @@ export interface Toast {
     type: ToastType;
     message: string;
 }
+
+interface ToastContextValue {
+    toasts: Toast[];
+    remove: (id: string) => void;
+    toast: {
+        success: (message: string) => void;
+        error: (message: string) => void;
+        warning: (message: string) => void;
+        info: (message: string) => void;
+    };
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
 
 interface ToastItemProps {
     toast: Toast;
@@ -103,7 +116,7 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
 
 // ── useToast hook ────────────────────────────────────────────────────────────
 
-export function useToast() {
+export function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     const remove = useCallback((id: string) => {
@@ -122,7 +135,20 @@ export function useToast() {
         info:    (msg: string) => show(msg, 'info'),
     };
 
-    return { toasts, remove, toast };
+    return (
+        <ToastContext.Provider value={{ toasts, remove, toast }}>
+            {children}
+            <ToastContainer toasts={toasts} onRemove={remove} />
+        </ToastContext.Provider>
+    );
+}
+
+export function useToast(): ToastContextValue {
+    const context = useContext(ToastContext);
+    if (!context) {
+        throw new Error('useToast must be used within a ToastProvider');
+    }
+    return context;
 }
 
 // ── ConfirmDialog ────────────────────────────────────────────────────────────

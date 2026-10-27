@@ -5,11 +5,13 @@ import { getStandings, getTeams, addPlayerToTeam, deletePlayer, getBackendUrl } 
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useRole } from '../context/RoleContext';
+import { useToast } from '../components/Toast';
 
 const socket = io(getBackendUrl());
 
 export const Teams = () => {
     const { role, captainTeamName, canEditTeam, isPastDeadline, deadlineRemaining, openRoleModal } = useRole();
+    const { toast } = useToast();
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
@@ -60,7 +62,7 @@ export const Teams = () => {
 
     const handleDeletePlayer = async (playerId: number | string, teamName: string, playerName: string) => {
         if (role === 'CAPTAIN' && !canEditTeam(teamName)) {
-            alert('Forbidden: As Captain, you can only remove players from your own team.');
+            toast.warning('Forbidden: As Captain, you can only remove players from your own team.');
             return;
         }
 
@@ -71,7 +73,7 @@ export const Teams = () => {
                 setTimeout(() => setFeedbackMsg(null), 3000);
                 fetchTeams();
             } catch (err: any) {
-                alert(err.message || 'Failed to remove player.');
+                toast.error(err.message || 'Failed to remove player.');
             }
         }
     };
@@ -82,7 +84,7 @@ export const Teams = () => {
 
         const team = teams.find(t => t.teamId === teamId);
         if (role === 'CAPTAIN' && team && !canEditTeam(team.teamName)) {
-            alert('Forbidden: As Captain, you can only add players to your own team.');
+            toast.warning('Forbidden: As Captain, you can only add players to your own team.');
             return;
         }
 
@@ -98,7 +100,7 @@ export const Teams = () => {
             setTimeout(() => setFeedbackMsg(null), 3000);
             fetchTeams();
         } catch (err: any) {
-            alert(err.message || 'Failed to add player.');
+            toast.error(err.message || 'Failed to add player.');
         }
     };
 

@@ -7,6 +7,9 @@
 
 A comprehensive, real-time web platform built to manage a multi-division 5-a-side soccer league. The system handles team registrations, dynamic league standings, promotion/relegation cycles, live score updates via WebSockets, and strict roster/financial constraints.
 
+> 📚 **Looking for the Website User & Onboarding Guide?**  
+> Check out the complete walkthrough for players, captains, referees, and spectators in [USER_ONBOARDING_GUIDE.md](file:///home/ngwanatuka/Five-A-Side/USER_ONBOARDING_GUIDE.md).
+
 ## 🛠 Tech Stack
 
 * **Database:** PostgreSQL / MySQL (via Prisma ORM)

@@ -697,7 +697,7 @@ export const DenchDerby = () => {
     const [eventTeamKey, setEventTeamKey] = useState<string>('');
     const [eventScorerId, setEventScorerId] = useState<string>('');
     const [eventAssistId, setEventAssistId] = useState<string>('');
-    const [eventMinute, setEventMinute] = useState<number>(15);
+    const [eventMinute, setEventMinute] = useState<number>(8);
 
     // Notification / Share
     const [copied, setCopied] = useState(false);
@@ -1414,7 +1414,7 @@ export const DenchDerby = () => {
         const teamPlayers = players.filter(p => p.teamKey === defaultTeam);
         setEventScorerId(teamPlayers[0]?.id || '');
         setEventAssistId('');
-        setEventMinute(15);
+        setEventMinute(8);
         setActiveEventMatchId(matchId);
     };
 
@@ -1439,7 +1439,7 @@ export const DenchDerby = () => {
 
         // Reset assist and increment minute
         setEventAssistId('');
-        setEventMinute(prev => Math.min(30, prev + 3));
+        setEventMinute(prev => Math.min(15, prev + 2));
     };
 
     // Delete a goal event
@@ -3655,7 +3655,7 @@ export const DenchDerby = () => {
                                     </h4>
                                     <ul style={{ paddingLeft: '1.25rem', color: 'var(--color-text-muted)', fontSize: '0.9rem', lineHeight: 1.7 }}>
                                         <li>Standard Five-A-Side rules apply (5 on pitch + up to 4 rolling subs).</li>
-                                        <li>2 halves of 15 minutes each with a 5-minute halftime interval.</li>
+                                        <li>15 minutes straight per match with no half time interval (continuous play).</li>
                                         <li>Goalkeepers cannot leave their designated penalty area.</li>
                                     </ul>
                                 </div>
@@ -3957,14 +3957,14 @@ export const DenchDerby = () => {
                                     {/* Minute */}
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
-                                            Minute (1 - 35)
+                                            Minute (1 - 15)
                                         </label>
                                         <input
                                             type="number"
                                             min="1"
-                                            max="35"
+                                            max="15"
                                             value={eventMinute}
-                                            onChange={(e) => setEventMinute(parseInt(e.target.value, 10) || 1)}
+                                            onChange={(e) => setEventMinute(Math.min(15, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                                             className="derby-input"
                                         />
                                     </div>

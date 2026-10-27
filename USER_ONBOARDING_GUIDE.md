@@ -273,6 +273,7 @@ The **Dench Derby** is the flagship tournament on the platform. The `/dench-derb
 | **Squad Roster Cap** | Maximum 9 registered players per team. |
 | **Substitutions** | Rolling substitutions permitted at any stoppage with referee approval. |
 | **Points Awarded** | Win = **3 Points**, Draw = **1 Point**, Loss = **0 Points**. |
+| **Match Duration** | **15 minutes straight** per match (no half time interval). |
 | **Tie-Breaker Hierarchy** | 1. Most Points<br>2. Highest Goal Difference (`GF - GA`)<br>3. Most Goals Scored (`GF`)<br>4. Head-to-Head Result<br>5. Penalty Shootout. |
 | **Goalkeeper Area** | Only the goalkeeper is allowed inside the goal area. Outfield defenders entering the area concede a penalty. |
 | **Overtime (Knockouts)** | If Semi-Finals or the Final end in a draw, the match goes straight to a best-of-3 penalty shootout. |

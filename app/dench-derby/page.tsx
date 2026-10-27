@@ -154,7 +154,7 @@ export default function DenchDerbyPage() {
   const [eventTeamKey, setEventTeamKey] = useState<string>("team-dench")
   const [eventScorerId, setEventScorerId] = useState<string>("")
   const [eventAssistId, setEventAssistId] = useState<string>("")
-  const [eventMinute, setEventMinute] = useState<number>(15)
+  const [eventMinute, setEventMinute] = useState<number>(8)
 
   // Load from localStorage on client mount
   useEffect(() => {

@@ -66,6 +66,57 @@ describe('Match Endpoints', () => {
         jest.restoreAllMocks();
     });
 
+    it('does not let a delayed live score submission revert a completed tournament match', async () => {
+        let tournamentData: any = {
+            teams: {
+                'team-a': { name: 'Team A' },
+                'team-b': { name: 'Team B' }
+            },
+            matches: [{
+                id: 'ga-m1',
+                homeTeamKey: 'team-a',
+                awayTeamKey: 'team-b',
+                homeScore: 2,
+                awayScore: 1,
+                status: 'completed'
+            }],
+            goalEvents: []
+        };
+
+        jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs, 'readFileSync').mockImplementation(() => JSON.stringify(tournamentData));
+        jest.spyOn(fs, 'writeFileSync').mockImplementation((_path, contents) => {
+            tournamentData = JSON.parse(contents.toString());
+        });
+        jest.spyOn(fs, 'renameSync').mockImplementation(() => undefined);
+
+        const response = await request(app)
+            .patch('/api/matches/ga-m1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+                homeScore: 0,
+                awayScore: 0,
+                status: 'LIVE'
+            });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toMatchObject({
+            id: 'ga-m1',
+            homeScore: 2,
+            awayScore: 1,
+            status: 'COMPLETED'
+        });
+        expect(tournamentData.matches[0]).toMatchObject({
+            homeScore: 2,
+            awayScore: 1,
+            status: 'completed'
+        });
+        expect(prisma.match.update).toHaveBeenCalledWith({
+            where: { id: 101 },
+            data: { homeScore: 2, awayScore: 1, status: 'COMPLETED' }
+        });
+    });
+
     it('preserves separate referee submissions and goal events for simultaneous tournament matches', async () => {
         let tournamentData: {
             teams: Record<string, unknown>;

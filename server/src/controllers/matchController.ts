@@ -138,6 +138,9 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                     return;
                 }
                 const tm = data.matches[matchIndex];
+                if (tm.status?.toLowerCase() === 'completed' && status?.toLowerCase() !== 'completed') {
+                    return;
+                }
                 if (tieBreakWinnerKey !== undefined) {
                     const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
                     const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
@@ -182,9 +185,9 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                 await syncTournamentScoreToDatabase(
                     tm.homeTeamKey,
                     tm.awayTeamKey,
-                    homeScore,
-                    awayScore,
-                    status
+                    tm.homeScore,
+                    tm.awayScore,
+                    tm.status
                 );
             } catch (dbErr) {
                 console.error('Notice syncing tournament match score to database:', dbErr);

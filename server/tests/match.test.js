@@ -68,6 +68,50 @@ describe('Match Endpoints', () => {
         jest.clearAllMocks();
         jest.restoreAllMocks();
     });
+    it('does not let a delayed live score submission revert a completed tournament match', async () => {
+        let tournamentData = {
+            teams: {
+                'team-a': { name: 'Team A' },
+                'team-b': { name: 'Team B' }
+            },
+            matches: [{
+                    id: 'ga-m1',
+                    homeTeamKey: 'team-a',
+                    awayTeamKey: 'team-b',
+                    homeScore: 2,
+                    awayScore: 1,
+                    status: 'completed'
+                }],
+            goalEvents: []
+        };
+        jest.spyOn(fs_1.default, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs_1.default, 'readFileSync').mockImplementation(() => JSON.stringify(tournamentData));
+        jest.spyOn(fs_1.default, 'writeFileSync').mockImplementation((_path, contents) => {
+            tournamentData = JSON.parse(contents.toString());
+        });
+        jest.spyOn(fs_1.default, 'renameSync').mockImplementation(() => undefined);
+        const response = await (0, supertest_1.default)(app_1.app)
+            .patch('/api/matches/ga-m1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            homeScore: 0,
+            awayScore: 0,
+            status: 'LIVE'
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toMatchObject({
+            id: 'ga-m1',
+            homeScore: 2,
+            awayScore: 1,
+            status: 'COMPLETED'
+        });
+        expect(tournamentData.matches[0]).toMatchObject({
+            homeScore: 2,
+            awayScore: 1,
+            status: 'completed'
+        });
+        expect(prisma_1.default.match.update).not.toHaveBeenCalled();
+    });
     it('preserves separate referee submissions and goal events for simultaneous tournament matches', async () => {
         let tournamentData = {
             teams: {},

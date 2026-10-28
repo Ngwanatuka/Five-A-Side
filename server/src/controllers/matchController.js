@@ -127,6 +127,9 @@ const updateMatchScore = async (req, res) => {
                     return;
                 }
                 const tm = data.matches[matchIndex];
+                if (tm.status?.toLowerCase() === 'completed' && status?.toLowerCase() !== 'completed') {
+                    return;
+                }
                 if (tieBreakWinnerKey !== undefined) {
                     const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
                     const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
@@ -168,7 +171,7 @@ const updateMatchScore = async (req, res) => {
                 return;
             }
             try {
-                await syncTournamentScoreToDatabase(tm.homeTeamKey, tm.awayTeamKey, homeScore, awayScore, status);
+                await syncTournamentScoreToDatabase(tm.homeTeamKey, tm.awayTeamKey, tm.homeScore, tm.awayScore, tm.status);
             }
             catch (dbErr) {
                 console.error('Notice syncing tournament match score to database:', dbErr);

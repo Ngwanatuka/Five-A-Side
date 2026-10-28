@@ -29,6 +29,7 @@ import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer, setPlayerCaptain } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { DEFAULT_TOURNAMENT_PLAYERS, type TournamentPlayer } from '../data/tournamentPlayers';
 
 const socket = io(getBackendUrl());
 
@@ -43,14 +44,7 @@ export type TeamInfo = {
     founded: string;
 };
 
-export type TournamentPlayer = {
-    id: string;
-    teamKey: string;
-    name: string;
-    jerseyNumber: number;
-    position: 'GK' | 'DEF' | 'MID' | 'FWD';
-    isCaptain?: boolean;
-};
+export type { TournamentPlayer };
 
 const assignTeamCaptain = (
     roster: TournamentPlayer[],
@@ -168,7 +162,7 @@ export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
 
 export const TEAMS = DEFAULT_TEAMS;
 
-export const INITIAL_PLAYERS: TournamentPlayer[] = [];
+export const INITIAL_PLAYERS: TournamentPlayer[] = DEFAULT_TOURNAMENT_PLAYERS;
 
 const DEFAULT_MATCHES: TournamentMatch[] = [
     // GROUP A MATCHES
@@ -444,9 +438,9 @@ export const DenchDerby = () => {
             const saved = localStorage.getItem('dench_derby_players_v4');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
+                if (Array.isArray(parsed) && parsed.length > 0) {
                     // Filter out any mock players that were previously stored in localStorage
-                    return parsed.filter(p =>
+                    const filtered = parsed.filter(p =>
                         p && p.id &&
                         !p.id.startsWith('p-dench-') &&
                         !p.id.startsWith('p-cpt-') &&
@@ -455,12 +449,13 @@ export const DenchDerby = () => {
                         !p.id.startsWith('p-woza-') &&
                         !p.id.startsWith('p-arey-')
                     );
+                    if (filtered.length > 0) return filtered;
                 }
             }
         } catch {
             // fallback
         }
-        return [];
+        return DEFAULT_TOURNAMENT_PLAYERS;
     });
 
     // 3. GOAL & ASSIST EVENTS STATE
@@ -570,6 +565,8 @@ export const DenchDerby = () => {
                     } else if (Array.isArray(localSavedPlayers) && localSavedPlayers.length > 0) {
                         // Offline fallback only
                         unifiedPlayers = localSavedPlayers;
+                    } else {
+                        unifiedPlayers = DEFAULT_TOURNAMENT_PLAYERS;
                     }
                     setPlayers(unifiedPlayers);
                     try {
@@ -707,7 +704,9 @@ export const DenchDerby = () => {
         try {
             localStorage.setItem('dench_derby_teams_v4', JSON.stringify(teams));
             localStorage.setItem('dench_derby_matches_v4', JSON.stringify(matches));
-            localStorage.setItem('dench_derby_players_v4', JSON.stringify(players));
+            if (players.length > 0) {
+                localStorage.setItem('dench_derby_players_v4', JSON.stringify(players));
+            }
             localStorage.setItem('dench_derby_events_v4', JSON.stringify(goalEvents));
         } catch (e) {
             console.error('Failed to save to localStorage', e);

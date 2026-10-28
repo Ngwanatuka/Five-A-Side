@@ -26,14 +26,32 @@ export const Teams = () => {
             ]);
 
             // Combine standings data with full team records including players
-            const combined = standingsData.map((st: any) => {
-                const fullTeam = fullTeamsData.find((t: any) => t.id === st.teamId);
-                return {
-                    ...st,
-                    players: fullTeam?.players || [],
-                    managerContact: fullTeam?.managerContact || ''
-                };
-            });
+            let combined: any[] = [];
+            if (Array.isArray(standingsData) && standingsData.length > 0) {
+                combined = standingsData.map((st: any) => {
+                    const fullTeam = fullTeamsData.find((t: any) => t.id === st.teamId);
+                    return {
+                        ...st,
+                        players: fullTeam?.players || [],
+                        managerContact: fullTeam?.managerContact || ''
+                    };
+                });
+            } else if (Array.isArray(fullTeamsData) && fullTeamsData.length > 0) {
+                combined = fullTeamsData.map((ft: any) => ({
+                    teamId: ft.id,
+                    teamName: ft.name,
+                    played: 0,
+                    won: 0,
+                    drawn: 0,
+                    lost: 0,
+                    goalsFor: 0,
+                    goalsAgainst: 0,
+                    goalDifference: 0,
+                    points: 0,
+                    players: ft.players || [],
+                    managerContact: ft.managerContact || ''
+                }));
+            }
             setTeams(combined);
         } catch (error) {
             console.error("Failed to fetch teams", error);

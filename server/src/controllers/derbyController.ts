@@ -334,6 +334,11 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
 
         // 2. Sync Players - ONLY the players the user has saved in squads!
         const validPlayerIds: number[] = [];
+        const tournamentTeamIds = Object.values(teamIdMap);
+        const existingDbPlayers = await prisma.player.findMany({
+            where: { teamId: { in: tournamentTeamIds } }
+        });
+
         if (Array.isArray(players) && players.length > 0) {
             for (const p of players) {
                 const teamId = teamIdMap[p.teamKey];
@@ -343,19 +348,19 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
                 const firstName = parts[0] || p.name;
                 const lastName = parts.slice(1).join(' ') || '-';
 
-                let existingPlayer = await prisma.player.findFirst({
-                    where: {
-                        teamId,
-                        firstName,
-                        lastName
-                    }
-                });
+                const existingPlayer = existingDbPlayers.find(
+                    ep => ep.teamId === teamId &&
+                          ep.firstName.toLowerCase() === firstName.toLowerCase() &&
+                          ep.lastName.toLowerCase() === lastName.toLowerCase()
+                );
 
                 if (existingPlayer) {
-                    await prisma.player.update({
-                        where: { id: existingPlayer.id },
-                        data: { isCaptain: p.isCaptain === true }
-                    });
+                    if (existingPlayer.isCaptain !== (p.isCaptain === true)) {
+                        await prisma.player.update({
+                            where: { id: existingPlayer.id },
+                            data: { isCaptain: p.isCaptain === true }
+                        });
+                    }
                     validPlayerIds.push(existingPlayer.id);
                 } else {
                     const created = await prisma.player.create({
@@ -371,29 +376,12 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
             }
         }
 
-        // 2b. Clean up deleted players from database so deleted squad players don't resurrect
-        if (Array.isArray(players)) {
-            for (const key of Object.keys(teams)) {
-                const teamId = teamIdMap[key];
-                if (!teamId) continue;
-
-                const currentTeamPs = players.filter((p: any) => p && p.teamKey === key);
-                const dbPlayersForTeam = await prisma.player.findMany({ where: { teamId } });
-
-                for (const dbp of dbPlayersForTeam) {
-                    const dbFullName = `${dbp.firstName} ${dbp.lastName !== '-' ? dbp.lastName : ''}`.trim().toLowerCase();
-                    const isStillPresent = currentTeamPs.some((cp: any) => {
-                        const cpName = (cp.name || '').trim().toLowerCase();
-                        const cpId = cp.id ? String(cp.id).replace(/^p-/, '') : '';
-                        return cpName === dbFullName || (cpId && cpId === String(dbp.id));
-                    });
-
-                    if (!isStillPresent) {
-                        await prisma.matchRoster.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
-                        await prisma.playerSeasonFinance.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
-                        await prisma.player.delete({ where: { id: dbp.id } }).catch(() => {});
-                    }
-                }
+        // 2b. Clean up deleted / mock players from database so only official tournament squad players remain
+        for (const dbp of existingDbPlayers) {
+            if (!validPlayerIds.includes(dbp.id)) {
+                await prisma.matchRoster.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
+                await prisma.playerSeasonFinance.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
+                await prisma.player.delete({ where: { id: dbp.id } }).catch(() => {});
             }
         }
 
@@ -401,6 +389,9 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
         if (Array.isArray(matches) && matches.length > 0) {
             const matchDate = new Date('2026-10-28T18:30:00+02:00');
             const validMatchIds: number[] = [];
+            const existingMatches = await prisma.match.findMany({
+                where: { seasonId: 1 }
+            });
 
             for (const m of matches) {
                 if (!m.homeTeamKey || !m.awayTeamKey) continue;
@@ -410,16 +401,12 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
 
                 const prismaStatus = m.status === 'completed' ? 'COMPLETED' : (m.status === 'live' ? 'LIVE' : 'UPCOMING');
 
-                let existingMatch = await prisma.match.findFirst({
-                    where: {
-                        seasonId: 1,
-                        homeTeamId: homeId,
-                        awayTeamId: awayId
-                    }
-                });
+                const existingMatch = existingMatches.find(
+                    em => em.homeTeamId === homeId && em.awayTeamId === awayId
+                );
 
                 if (existingMatch) {
-                    existingMatch = await prisma.match.update({
+                    const updated = await prisma.match.update({
                         where: { id: existingMatch.id },
                         data: {
                             time: m.time || '18:30',
@@ -429,7 +416,7 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
                             status: prismaStatus
                         }
                     });
-                    validMatchIds.push(existingMatch.id);
+                    validMatchIds.push(updated.id);
                 } else {
                     const created = await prisma.match.create({
                         data: {

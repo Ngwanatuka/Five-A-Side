@@ -8,7 +8,8 @@
       "secondaryColor": "#0ea141",
       "city": "Dench Grounds",
       "slogan": "The Pride of Dench City",
-      "founded": "2023"
+      "founded": "2023",
+      "captain": ""
     },
     "cpt-superstars": {
       "id": "cpt-superstars",
@@ -18,7 +19,8 @@
       "secondaryColor": "#1d4ed8",
       "city": "Cape Town",
       "slogan": "Scanning The Field, Striking With Precision",
-      "founded": "2022"
+      "founded": "2022",
+      "captain": ""
     },
     "bras-ba-kasi": {
       "id": "bras-ba-kasi",
@@ -28,7 +30,8 @@
       "secondaryColor": "#d97706",
       "city": "Gauteng",
       "slogan": "Golden State Warriors on Pitch",
-      "founded": "2021"
+      "founded": "2021",
+      "captain": ""
     },
     "gauteng-warriors": {
       "id": "gauteng-warriors",
@@ -38,7 +41,8 @@
       "secondaryColor": "#6d28d9",
       "city": "Mambisa",
       "slogan": "Royal Purple, Pure Football Flair",
-      "founded": "2022"
+      "founded": "2022",
+      "captain": ""
     },
     "woza-madzala": {
       "id": "woza-madzala",
@@ -48,7 +52,8 @@
       "secondaryColor": "#b91c1c",
       "city": "Ekurhuleni",
       "slogan": "Ayoba! Pure Kasi Magic & Speed",
-      "founded": "2020"
+      "founded": "2020",
+      "captain": ""
     },
     "areyeng-fc": {
       "id": "areyeng-fc",
@@ -58,7 +63,8 @@
       "secondaryColor": "#0891b2",
       "city": "Tshwane",
       "slogan": "Forward Together, Never Back",
-      "founded": "2024"
+      "founded": "2024",
+      "captain": ""
     }
   },
   "matches": [

@@ -148,18 +148,8 @@ export const getCaptainsList = async (_req: Request, res: Response): Promise<voi
     try {
         const list = getPublicCaptains();
         const captainNamesByTeam = new Map<string, string>();
-        const firstPlayerByTeam = new Map<string, string>();
 
-        const MOCK_CAPTAINS = new Set([
-            'bafana sithole',
-            'mo hendricks',
-            'thabo dlamini',
-            'sipho zulu',
-            'mandla nkosi',
-            'kagiso molefe'
-        ]);
-
-        // 1. Primary source: derby-tournament.json squad rosters
+        // Read derby-tournament.json to find the isCaptain player for each team
         try {
             const path = require('path');
             const fs = require('fs');
@@ -170,12 +160,8 @@ export const getCaptainsList = async (_req: Request, res: Response): Promise<voi
 
                 filePlayers.forEach((p) => {
                     if (p?.teamKey && p?.name) {
-                        const cleanName = p.name.trim();
-                        if (!firstPlayerByTeam.has(p.teamKey)) {
-                            firstPlayerByTeam.set(p.teamKey, cleanName);
-                        }
                         if (p.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
-                            captainNamesByTeam.set(p.teamKey, cleanName);
+                            captainNamesByTeam.set(p.teamKey, p.name.trim());
                         }
                     }
                 });
@@ -184,13 +170,8 @@ export const getCaptainsList = async (_req: Request, res: Response): Promise<voi
             console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
         }
 
-        // 2. Populate dynamic captain for each team
         list.forEach((entry) => {
-            let name = captainNamesByTeam.get(entry.teamKey) || entry.captainName || firstPlayerByTeam.get(entry.teamKey) || '';
-            if (MOCK_CAPTAINS.has(name.toLowerCase().trim())) {
-                name = firstPlayerByTeam.get(entry.teamKey) || '';
-            }
-            entry.captainName = name;
+            entry.captainName = captainNamesByTeam.get(entry.teamKey) || '';
         });
 
         res.json(list);

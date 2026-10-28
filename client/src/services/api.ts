@@ -61,22 +61,13 @@ export interface PublicCaptain {
 }
 
 export const DEFAULT_CAPTAINS: PublicCaptain[] = [
-    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: 'Dench', pin: '1111', group: 'A' },
-    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: 'Feels', pin: '2222', group: 'A' },
-    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: 'Jiki', pin: '3333', group: 'A' },
-    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: 'Mash', pin: '4444', group: 'B' },
-    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: 'Future', pin: '5555', group: 'B' },
-    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: 'Stu', pin: '6666', group: 'B' }
+    { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: '', pin: '1111', group: 'A' },
+    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: '', pin: '2222', group: 'A' },
+    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: '', pin: '3333', group: 'A' },
+    { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: '', pin: '4444', group: 'B' },
+    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: '', pin: '5555', group: 'B' },
+    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: '', pin: '6666', group: 'B' }
 ];
-
-const MOCK_CAPTAIN_NAMES = new Set([
-    'bafana sithole',
-    'mo hendricks',
-    'thabo dlamini',
-    'sipho zulu',
-    'mandla nkosi',
-    'kagiso molefe'
-]);
 
 export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
     try {
@@ -86,22 +77,17 @@ export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
         const rosterPlayers: { teamKey: string; name: string; isCaptain?: boolean }[] =
             playersRaw ? JSON.parse(playersRaw) : [];
 
-        const getRosterCaptainName = (teamKey: string, defaultName?: string): string => {
-            const cap = rosterPlayers.find(player => player.teamKey === teamKey && player.isCaptain === true)?.name?.trim();
-            if (cap && !MOCK_CAPTAIN_NAMES.has(cap.toLowerCase())) return cap;
-            if (defaultName && !MOCK_CAPTAIN_NAMES.has(defaultName.toLowerCase())) return defaultName;
-            const firstP = rosterPlayers.find(player => player.teamKey === teamKey)?.name?.trim();
-            if (firstP && !MOCK_CAPTAIN_NAMES.has(firstP.toLowerCase())) return firstP;
-            return '';
+        const getRosterCaptainName = (teamKey: string): string => {
+            return rosterPlayers.find(p => p.teamKey === teamKey && p.isCaptain === true)?.name?.trim() || '';
         };
 
         const list = DEFAULT_CAPTAINS.map(def => ({
             ...def,
             teamName: storedTeams[def.teamKey]?.name || def.teamName,
-            captainName: getRosterCaptainName(def.teamKey, def.captainName),
+            captainName: getRosterCaptainName(def.teamKey),
             group: storedTeams[def.teamKey]?.group || def.group
         }));
-        const seenKeys = new Set(DEFAULT_CAPTAINS.map(captain => captain.teamKey));
+        const seenKeys = new Set(DEFAULT_CAPTAINS.map(c => c.teamKey));
 
         Object.entries(storedTeams).forEach(([key, value]: [string, any]) => {
             if (!seenKeys.has(key)) {
@@ -136,32 +122,6 @@ export const captainLogin = async (teamKey: string, pin: string) => {
     } catch (err: any) {
         if (err.message && err.message.includes('Incorrect Captain PIN')) {
             throw err;
-        }
-        // Resilient fallback for offline / cross-device network issues
-        const captains = getStoredOrFallbackCaptains();
-        const found = captains.find(c => c.teamKey === teamKey);
-        const expectedPin = found?.pin || (
-            teamKey === 'team-dench' ? '1111' :
-            teamKey === 'cpt-superstars' ? '2222' :
-            teamKey === 'bras-ba-kasi' ? '3333' :
-            teamKey === 'gauteng-warriors' ? '4444' :
-            teamKey === 'woza-madzala' ? '5555' :
-            teamKey === 'areyeng-fc' ? '6666' : '1234'
-        );
-
-        if (pin === expectedPin) {
-            return {
-                message: `Welcome Captain ${found?.captainName || 'Captain'}!`,
-                token: `offline-captain-${teamKey}-${Date.now()}`,
-                user: {
-                    role: 'CAPTAIN',
-                    teamKey,
-                    teamName: found?.teamName || teamKey,
-                    captainName: found?.captainName || 'Team Captain',
-                    email: found?.email || `${teamKey}@5aside.com`,
-                    group: found?.group || 'A'
-                }
-            };
         }
         throw new Error('Incorrect Captain PIN for this team.');
     }

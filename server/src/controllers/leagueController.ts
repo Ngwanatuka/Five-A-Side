@@ -18,6 +18,7 @@ type StandingsRow = {
     goalsAgainst: number;
     goalDifference: number;
     points: number;
+    form: string[];
 };
 
 export const getStandings = async (req: Request, res: Response): Promise<void> => {
@@ -51,6 +52,7 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
                 goalsAgainst: 0,
                 goalDifference: 0,
                 points: 0,
+                form: [],
             });
         });
 
@@ -63,6 +65,10 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
                     in: ['COMPLETED', 'LIVE']
                 }
             },
+            orderBy: [
+                { date: 'asc' },
+                { time: 'asc' }
+            ]
         });
 
         matches.forEach(match => {
@@ -84,16 +90,22 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
             if (match.homeScore > match.awayScore) {
                 home.won += 1;
                 home.points += 3;
+                home.form.push('W');
                 away.lost += 1;
+                away.form.push('L');
             } else if (match.awayScore > match.homeScore) {
                 away.won += 1;
                 away.points += 3;
+                away.form.push('W');
                 home.lost += 1;
+                home.form.push('L');
             } else {
                 home.drawn += 1;
                 away.drawn += 1;
                 home.points += 1;
                 away.points += 1;
+                home.form.push('D');
+                away.form.push('D');
             }
 
             home.goalDifference = home.goalsFor - home.goalsAgainst;

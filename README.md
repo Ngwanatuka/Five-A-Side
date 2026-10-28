@@ -65,5 +65,11 @@ The platform enforces strict rules on match day and during registration:
 4. From `server/`, run `npx prisma db push` and `npx prisma generate` to apply the database schema and generate the Prisma client.
 5. Start the development server.
 
+## Tournament data persistence
+
+The Dench Derby tournament currently stores its shared tournament state in a JSON file. The default file is `server/data/derby-tournament.json`. In production, set `TOURNAMENT_DATA_FILE` to a path on persistent, writable storage mounted for the server; container-local filesystems may be erased on restart or redeployment. The server replaces the file atomically for each update, but atomic writes do not make an ephemeral filesystem persistent or coordinate multiple server instances.
+
+Before the tournament, back up the configured data file and verify that a result remains available after restarting the server. If multiple server instances are used, use a shared database-backed store instead of the JSON file.
+
 ---
 *Property of MoSoft Solutions. All rights reserved.*

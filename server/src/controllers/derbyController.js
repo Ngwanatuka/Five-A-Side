@@ -3,19 +3,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetDerbyData = exports.resetSingleMatch = exports.claimRefereeMatch = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.DATA_FILE = exports.DATA_DIR = void 0;
+exports.resetDerbyData = exports.resetSingleMatch = exports.claimRefereeMatch = exports.saveDerbyData = exports.getDerbyData = exports.DEFAULT_DERBY_MATCHES = exports.DEFAULT_DERBY_TEAMS = exports.writeTournamentData = exports.DATA_FILE = exports.DATA_DIR = void 0;
 exports.syncToPrismaDatabase = syncToPrismaDatabase;
 exports.initDerbyTournament = initDerbyTournament;
+const crypto_1 = require("crypto");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const prisma_1 = __importDefault(require("../prisma"));
 const captainService_1 = require("../services/captainService");
 exports.DATA_DIR = path_1.default.join(__dirname, '../../data');
-exports.DATA_FILE = path_1.default.join(exports.DATA_DIR, 'derby-tournament.json');
-// Ensure data directory exists
-if (!fs_1.default.existsSync(exports.DATA_DIR)) {
-    fs_1.default.mkdirSync(exports.DATA_DIR, { recursive: true });
-}
+exports.DATA_FILE = path_1.default.resolve(process.env.TOURNAMENT_DATA_FILE || path_1.default.join(exports.DATA_DIR, 'derby-tournament.json'));
+fs_1.default.mkdirSync(path_1.default.dirname(exports.DATA_FILE), { recursive: true });
+const writeTournamentData = (data) => {
+    const temporaryFile = `${exports.DATA_FILE}.${process.pid}.${(0, crypto_1.randomUUID)()}.tmp`;
+    fs_1.default.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    fs_1.default.renameSync(temporaryFile, exports.DATA_FILE);
+};
+exports.writeTournamentData = writeTournamentData;
 exports.DEFAULT_DERBY_TEAMS = {
     'team-dench': {
         id: 'team-dench',
@@ -454,7 +458,7 @@ async function initDerbyTournament() {
                 goalEvents: [],
                 updatedAt: new Date().toISOString()
             };
-            fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+            (0, exports.writeTournamentData)(currentData);
         }
         await syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []);
         console.log('Dench Derby Tournament database sync complete - all mock teams purged.');
@@ -536,7 +540,7 @@ const getDerbyData = async (req, res) => {
                 if (updatedFile) {
                     try {
                         currentData.updatedAt = new Date().toISOString();
-                        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+                        (0, exports.writeTournamentData)(currentData);
                     }
                     catch { }
                 }
@@ -598,6 +602,27 @@ const saveDerbyData = async (req, res) => {
         }
         else if (isReferee) {
             if (Array.isArray(matches)) {
+                const invalidTieBreakMatch = matches.find((incomingMatch) => {
+                    if (incomingMatch?.tieBreakWinnerKey === undefined || incomingMatch.tieBreakWinnerKey === null) {
+                        return false;
+                    }
+                    const existingMatch = (currentData.matches || []).find((match) => String(match.id) === String(incomingMatch.id));
+                    const homeTeamKey = incomingMatch.homeTeamKey ?? existingMatch?.homeTeamKey;
+                    const awayTeamKey = incomingMatch.awayTeamKey ?? existingMatch?.awayTeamKey;
+                    return !existingMatch ||
+                        !['semi', 'final', 'third_place'].includes(existingMatch.stage) ||
+                        existingMatch.status?.toLowerCase() !== 'completed' ||
+                        existingMatch.homeScore === null ||
+                        existingMatch.awayScore === null ||
+                        existingMatch.homeScore !== existingMatch.awayScore ||
+                        (incomingMatch.tieBreakWinnerKey !== homeTeamKey && incomingMatch.tieBreakWinnerKey !== awayTeamKey);
+                });
+                if (invalidTieBreakMatch) {
+                    res.status(400).json({
+                        error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.'
+                    });
+                    return;
+                }
                 const incomingMatches = new Map(matches
                     .filter((match) => match?.id !== undefined && match?.id !== null)
                     .map((match) => [String(match.id), match]));
@@ -610,7 +635,10 @@ const saveDerbyData = async (req, res) => {
                         ...(incomingMatch.homeTeamKey !== undefined && { homeTeamKey: incomingMatch.homeTeamKey }),
                         ...(incomingMatch.awayTeamKey !== undefined && { awayTeamKey: incomingMatch.awayTeamKey }),
                         ...(incomingMatch.homePlaceholder !== undefined && { homePlaceholder: incomingMatch.homePlaceholder }),
-                        ...(incomingMatch.awayPlaceholder !== undefined && { awayPlaceholder: incomingMatch.awayPlaceholder })
+                        ...(incomingMatch.awayPlaceholder !== undefined && { awayPlaceholder: incomingMatch.awayPlaceholder }),
+                        ...(incomingMatch.tieBreakWinnerKey !== undefined && {
+                            tieBreakWinnerKey: incomingMatch.tieBreakWinnerKey
+                        })
                     };
                 });
             }
@@ -690,7 +718,7 @@ const saveDerbyData = async (req, res) => {
             activeReferees: finalActiveReferees,
             updatedAt: new Date().toISOString()
         };
-        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+        (0, exports.writeTournamentData)(payload);
         syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
             console.error('Async DB sync notice on saveDerbyData:', err);
         });
@@ -770,7 +798,7 @@ const claimRefereeMatch = async (req, res) => {
             }
         }
         currentData.updatedAt = new Date().toISOString();
-        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        (0, exports.writeTournamentData)(currentData);
         const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
             io.emit('refereeClaimUpdate', currentData.activeReferees);
@@ -822,6 +850,7 @@ const resetSingleMatch = async (req, res) => {
         const targetMatch = currentData.matches[matchIndex];
         targetMatch.homeScore = null;
         targetMatch.awayScore = null;
+        targetMatch.tieBreakWinnerKey = null;
         targetMatch.status = 'scheduled';
         targetMatch.officiatedBy = null;
         // Release any active claim for this match
@@ -833,7 +862,7 @@ const resetSingleMatch = async (req, res) => {
         // Purge any goal events for this specific match
         currentData.goalEvents = (currentData.goalEvents || []).filter((ev) => ev.matchId !== matchId);
         currentData.updatedAt = new Date().toISOString();
-        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        (0, exports.writeTournamentData)(currentData);
         // Reset corresponding match in Prisma database if it exists
         try {
             if (targetMatch.homeTeamKey && targetMatch.awayTeamKey) {
@@ -911,7 +940,7 @@ const resetDerbyData = async (req, res) => {
             activeReferees: {},
             updatedAt: new Date().toISOString()
         };
-        fs_1.default.writeFileSync(exports.DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+        (0, exports.writeTournamentData)(payload);
         syncToPrismaDatabase(currentTeams, exports.DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
             console.error('Async DB sync notice on reset:', err);
         });

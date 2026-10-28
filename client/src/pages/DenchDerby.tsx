@@ -30,6 +30,7 @@ import { io } from 'socket.io-client';
 import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer, setPlayerCaptain } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import { DEFAULT_TOURNAMENT_PLAYERS, type TournamentPlayer } from '../data/tournamentPlayers';
+import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete } from '../../../shared/tournamentProgress.ts';
 
 const socket = io(getBackendUrl());
 
@@ -80,22 +81,11 @@ export type TournamentMatch = {
     homeScore: number | null;
     awayScore: number | null;
     status: 'scheduled' | 'live' | 'completed';
+    tieBreakWinnerKey?: string | null;
     note?: string;
 };
 
-export type GroupStanding = {
-    teamKey: string;
-    name: string;
-    color: string;
-    played: number;
-    won: number;
-    drawn: number;
-    lost: number;
-    goalsFor: number;
-    goalsAgainst: number;
-    goalDifference: number;
-    points: number;
-};
+export type { GroupStanding } from '../../../shared/tournamentProgress.ts';
 
 export const DEFAULT_TEAMS: Record<string, TeamInfo> = {
     'team-dench': {
@@ -758,79 +748,18 @@ export const DenchDerby = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Standings calculation for Group A and Group B
-    const calculateGroupStandings = (group: 'A' | 'B'): GroupStanding[] => {
-        const teamKeys = Object.keys(teams).filter(key => teams[key].group === group);
-        const map: Record<string, GroupStanding> = {};
-
-        teamKeys.forEach(key => {
-            map[key] = {
-                teamKey: key,
-                name: teams[key].name,
-                color: teams[key].color,
-                played: 0,
-                won: 0,
-                drawn: 0,
-                lost: 0,
-                goalsFor: 0,
-                goalsAgainst: 0,
-                goalDifference: 0,
-                points: 0
-            };
-        });
-
-        const groupMatches = matches.filter(m => m.stage === 'group' && m.group === group);
-
-        groupMatches.forEach(m => {
-            if (m.homeScore !== null && m.awayScore !== null && m.homeTeamKey && m.awayTeamKey) {
-                const home = map[m.homeTeamKey];
-                const away = map[m.awayTeamKey];
-                if (!home || !away) return;
-
-                home.played += 1;
-                away.played += 1;
-                home.goalsFor += m.homeScore;
-                home.goalsAgainst += m.awayScore;
-                away.goalsFor += m.awayScore;
-                away.goalsAgainst += m.homeScore;
-
-                if (m.homeScore > m.awayScore) {
-                    home.won += 1;
-                    home.points += 3;
-                    away.lost += 1;
-                } else if (m.homeScore < m.awayScore) {
-                    away.won += 1;
-                    away.points += 3;
-                    home.lost += 1;
-                } else {
-                    home.drawn += 1;
-                    away.drawn += 1;
-                    home.points += 1;
-                    away.points += 1;
-                }
-
-                home.goalDifference = home.goalsFor - home.goalsAgainst;
-                away.goalDifference = away.goalsFor - away.goalsAgainst;
-            }
-        });
-
-        return Object.values(map).sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
-            if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-            return b.goalsFor - a.goalsFor;
-        });
-    };
-
-    const standingsA = useMemo(() => calculateGroupStandings('A'), [matches, teams]);
-    const standingsB = useMemo(() => calculateGroupStandings('B'), [matches, teams]);
+    const standingsA = useMemo(() => calculateGroupStandings(teams, matches, 'A'), [matches, teams]);
+    const standingsB = useMemo(() => calculateGroupStandings(teams, matches, 'B'), [matches, teams]);
     const isGroupALive = useMemo(() => matches.some(m => m.stage === 'group' && m.group === 'A' && m.status === 'live'), [matches]);
     const isGroupBLive = useMemo(() => matches.some(m => m.stage === 'group' && m.group === 'B' && m.status === 'live'), [matches]);
 
     // Automatically derive Semi-Final and Final participants based on standings & matches
-    const groupA1st = standingsA[0]?.played > 0 ? standingsA[0] : null;
-    const groupA2nd = standingsA[1]?.played > 0 ? standingsA[1] : null;
-    const groupB1st = standingsB[0]?.played > 0 ? standingsB[0] : null;
-    const groupB2nd = standingsB[1]?.played > 0 ? standingsB[1] : null;
+    const groupAComplete = isGroupStageComplete(matches, 'A');
+    const groupBComplete = isGroupStageComplete(matches, 'B');
+    const groupA1st = groupAComplete ? standingsA[0] : null;
+    const groupA2nd = groupAComplete ? standingsA[1] : null;
+    const groupB1st = groupBComplete ? standingsB[0] : null;
+    const groupB2nd = groupBComplete ? standingsB[1] : null;
 
     // SF 1: Group A (1st spot) vs Group B (2nd spot) (or referee override)
     const sf1Match = matches.find(m => m.id === 'sf-1');
@@ -843,17 +772,8 @@ export const DenchDerby = () => {
     const sf2AwayKey = sf2Match?.awayTeamKey || (groupB1st ? groupB1st.teamKey : null);
 
     // Determine SF winners & losers
-    const getMatchOutcome = (match: TournamentMatch | undefined, homeKey: string | null, awayKey: string | null) => {
-        if (!match || match.homeScore === null || match.awayScore === null || !homeKey || !awayKey) {
-            return { winnerKey: null, loserKey: null };
-        }
-        if (match.homeScore > match.awayScore) {
-            return { winnerKey: homeKey, loserKey: awayKey };
-        } else if (match.awayScore > match.homeScore) {
-            return { winnerKey: awayKey, loserKey: homeKey };
-        }
-        return { winnerKey: homeKey, loserKey: awayKey };
-    };
+    const getMatchOutcome = (match: TournamentMatch | undefined, homeKey: string | null, awayKey: string | null) =>
+        getKnockoutOutcome(match, homeKey, awayKey);
 
     const sf1Outcome = getMatchOutcome(sf1Match, sf1HomeKey, sf1AwayKey);
     const sf2Outcome = getMatchOutcome(sf2Match, sf2HomeKey, sf2AwayKey);

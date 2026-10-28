@@ -2,12 +2,13 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
-import { DATA_FILE } from './derbyController';
+import { DATA_FILE, writeTournamentData } from './derbyController';
 
 const updateScoreSchema = z.object({
     homeScore: z.number().int().nonnegative().nullable(),
     awayScore: z.number().int().nonnegative().nullable(),
     status: z.enum(['UPCOMING', 'LIVE', 'COMPLETED', 'SCHEDULED', 'scheduled', 'upcoming', 'live', 'completed']).optional(),
+    tieBreakWinnerKey: z.string().nullable().optional(),
     goalEvents: z.array(z.object({
         id: z.string(),
         matchId: z.string(),
@@ -117,7 +118,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
     try {
         const rawId = req.params.id as string;
         const matchId = parseInt(rawId, 10);
-        const { homeScore, awayScore, status, goalEvents } = updateScoreSchema.parse(req.body);
+        const { homeScore, awayScore, status, goalEvents, tieBreakWinnerKey } = updateScoreSchema.parse(req.body);
         if (goalEvents?.some(event => event.matchId !== rawId)) {
             res.status(400).json({ error: 'Goal events must belong to the submitted match' });
             return;
@@ -132,6 +133,18 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                     const matchIndex = derbyData.matches.findIndex((m: any) => m.id === rawId);
                     if (matchIndex !== -1) {
                         const tm = derbyData.matches[matchIndex];
+                        if (tieBreakWinnerKey !== undefined) {
+                            const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
+                            const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
+                            const isParticipant = tieBreakWinnerKey === tm.homeTeamKey || tieBreakWinnerKey === tm.awayTeamKey;
+                            if (tieBreakWinnerKey !== null && (!isKnockout || !hasTiedScore || status?.toLowerCase() !== 'completed' || !isParticipant)) {
+                                res.status(400).json({ error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.' });
+                                return;
+                            }
+                            tm.tieBreakWinnerKey = tieBreakWinnerKey;
+                        } else if (status?.toLowerCase() !== 'completed' || homeScore !== awayScore) {
+                            tm.tieBreakWinnerKey = null;
+                        }
                         tm.homeScore = homeScore;
                         tm.awayScore = awayScore;
                         if (status) {
@@ -145,7 +158,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                             ];
                         }
                         derbyData.updatedAt = new Date().toISOString();
-                        fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                        writeTournamentData(derbyData);
                         try {
                             await syncTournamentScoreToDatabase(
                                 tm.homeTeamKey,
@@ -174,6 +187,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                             time: tm.time || '18:30',
                             homeScore: tm.homeScore,
                             awayScore: tm.awayScore,
+                            tieBreakWinnerKey: tm.tieBreakWinnerKey || null,
                             status: (tm.status || 'scheduled').toUpperCase(),
                             stage: tm.stage,
                             group: tm.group,
@@ -193,6 +207,10 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                 }
             }
             res.status(404).json({ error: 'Tournament match not found' });
+            return;
+        }
+        if (tieBreakWinnerKey !== undefined) {
+            res.status(400).json({ error: 'Tie-break winners can only be recorded for Dench tournament matches.' });
             return;
         }
 
@@ -242,7 +260,7 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
                     }
                     if (changed) {
                         derbyData.updatedAt = new Date().toISOString();
-                        fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                        writeTournamentData(derbyData);
                         const io = req.app.get('io');
                         if (io) {
                             io.emit('derbyUpdate', derbyData);
@@ -456,6 +474,7 @@ export const getMatches = async (req: Request, res: Response) => {
                             pitchNumber: tm.pitch || 1,
                             homeScore: tm.homeScore,
                             awayScore: tm.awayScore,
+                            tieBreakWinnerKey: tm.tieBreakWinnerKey || null,
                             status: normalizedStatus,
                             stage: tm.stage,
                             group: tm.group,

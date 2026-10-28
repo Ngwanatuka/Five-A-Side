@@ -86,6 +86,7 @@ describe('Match Endpoints', () => {
         jest.spyOn(fs, 'writeFileSync').mockImplementation((_path, contents) => {
             tournamentData = JSON.parse(contents.toString());
         });
+        jest.spyOn(fs, 'renameSync').mockImplementation(() => undefined);
 
         const [pitchOne, pitchTwo] = await Promise.all([
             request(app)
@@ -125,8 +126,8 @@ describe('Match Endpoints', () => {
         expect(pitchOne.statusCode).toBe(200);
         expect(pitchTwo.statusCode).toBe(200);
         expect(tournamentData.matches).toEqual([
-            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away' },
-            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away' }
+            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away', tieBreakWinnerKey: null },
+            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away', tieBreakWinnerKey: null }
         ]);
         expect(tournamentData.goalEvents.map(event => event.id).sort()).toEqual(['ev-ga-m1', 'ev-gb-m1']);
         expect(prisma.match.update).toHaveBeenCalledTimes(2);
@@ -155,10 +156,89 @@ describe('Match Endpoints', () => {
 
         expect(snapshotSave.statusCode).toBe(200);
         expect(tournamentData.matches).toEqual([
-            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away' },
-            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away' }
+            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away', tieBreakWinnerKey: null },
+            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away', tieBreakWinnerKey: null }
         ]);
         expect(tournamentData.goalEvents.map(event => event.id).sort()).toEqual(['ev-ga-m1', 'ev-gb-m1']);
+    });
+
+    it('records a valid shootout winner for a tied knockout match and rejects a non-participant', async () => {
+        let tournamentData: any = {
+            teams: {
+                'team-a': { name: 'Team A' },
+                'team-b': { name: 'Team B' },
+                'team-c': { name: 'Team C' }
+            },
+            matches: [{
+                id: 'sf-1',
+                stage: 'semi',
+                homeTeamKey: 'team-a',
+                awayTeamKey: 'team-b',
+                homeScore: 1,
+                awayScore: 1,
+                status: 'completed'
+            }],
+            goalEvents: []
+        };
+
+        jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs, 'readFileSync').mockImplementation(() => JSON.stringify(tournamentData));
+        jest.spyOn(fs, 'writeFileSync').mockImplementation((_path, contents) => {
+            tournamentData = JSON.parse(contents.toString());
+        });
+        jest.spyOn(fs, 'renameSync').mockImplementation(() => undefined);
+
+        const validResult = await request(app)
+            .patch('/api/matches/sf-1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+                homeScore: 1,
+                awayScore: 1,
+                status: 'COMPLETED',
+                tieBreakWinnerKey: 'team-b'
+            });
+
+        expect(validResult.statusCode).toBe(200);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
+        expect(validResult.body.tieBreakWinnerKey).toBe('team-b');
+
+        const validSnapshot = await request(app)
+            .post('/api/derby')
+            .set('x-user-role', 'REFEREE')
+            .send({
+                matches: [{
+                    id: 'sf-1',
+                    homeTeamKey: 'team-a',
+                    awayTeamKey: 'team-b',
+                    tieBreakWinnerKey: 'team-b'
+                }]
+            });
+        expect(validSnapshot.statusCode).toBe(200);
+
+        const invalidResult = await request(app)
+            .patch('/api/matches/sf-1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+                homeScore: 1,
+                awayScore: 1,
+                status: 'COMPLETED',
+                tieBreakWinnerKey: 'team-c'
+            });
+
+        expect(invalidResult.statusCode).toBe(400);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
+
+        const invalidSnapshot = await request(app)
+            .post('/api/derby')
+            .set('x-user-role', 'REFEREE')
+            .send({
+                matches: [{
+                    id: 'sf-1',
+                    tieBreakWinnerKey: 'team-c'
+                }]
+            });
+        expect(invalidSnapshot.statusCode).toBe(400);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
     });
 
     it('should record a match score and mark it COMPLETED', async () => {

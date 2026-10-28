@@ -123,7 +123,7 @@ const addPlayerToTeam = async (req, res) => {
                         isCaptain: false
                     });
                     derbyData.updatedAt = new Date().toISOString();
-                    fs_1.default.writeFileSync(derbyController_1.DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                    (0, derbyController_1.writeTournamentData)(derbyData);
                     if (io) {
                         io.emit('derbyUpdate', derbyData);
                     }
@@ -340,7 +340,7 @@ const deletePlayer = async (req, res) => {
                             (!dbPlayer || (ev.scorerPlayerId !== `p-${dbPlayer.id}` && ev.assistPlayerId !== `p-${dbPlayer.id}`)));
                     }
                     derbyData.updatedAt = new Date().toISOString();
-                    fs_1.default.writeFileSync(derbyController_1.DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                    (0, derbyController_1.writeTournamentData)(derbyData);
                 }
             }
             catch (err) {

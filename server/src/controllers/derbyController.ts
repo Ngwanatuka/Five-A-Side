@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import prisma from '../prisma';
@@ -6,12 +7,15 @@ import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
 import { adminUpdateCaptain } from '../services/captainService';
 
 export const DATA_DIR = path.join(__dirname, '../../data');
-export const DATA_FILE = path.join(DATA_DIR, 'derby-tournament.json');
+export const DATA_FILE = path.resolve(process.env.TOURNAMENT_DATA_FILE || path.join(DATA_DIR, 'derby-tournament.json'));
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+
+export const writeTournamentData = (data: unknown): void => {
+    const temporaryFile = `${DATA_FILE}.${process.pid}.${randomUUID()}.tmp`;
+    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(temporaryFile, DATA_FILE);
+};
 
 export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
     'team-dench': {
@@ -471,7 +475,7 @@ export async function initDerbyTournament() {
                 goalEvents: [],
                 updatedAt: new Date().toISOString()
             };
-            fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+            writeTournamentData(currentData);
         }
 
         await syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []);
@@ -558,7 +562,7 @@ export const getDerbyData = async (req: Request, res: Response) => {
                 if (updatedFile) {
                     try {
                         currentData.updatedAt = new Date().toISOString();
-                        fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+                        writeTournamentData(currentData);
                     } catch {}
                 }
             }
@@ -616,6 +620,30 @@ export const saveDerbyData = async (req: any, res: Response) => {
             }
         } else if (isReferee) {
             if (Array.isArray(matches)) {
+                const invalidTieBreakMatch = matches.find((incomingMatch: any) => {
+                    if (incomingMatch?.tieBreakWinnerKey === undefined || incomingMatch.tieBreakWinnerKey === null) {
+                        return false;
+                    }
+                    const existingMatch = (currentData.matches || []).find(
+                        (match: any) => String(match.id) === String(incomingMatch.id)
+                    );
+                    const homeTeamKey = incomingMatch.homeTeamKey ?? existingMatch?.homeTeamKey;
+                    const awayTeamKey = incomingMatch.awayTeamKey ?? existingMatch?.awayTeamKey;
+                    return !existingMatch ||
+                        !['semi', 'final', 'third_place'].includes(existingMatch.stage) ||
+                        existingMatch.status?.toLowerCase() !== 'completed' ||
+                        existingMatch.homeScore === null ||
+                        existingMatch.awayScore === null ||
+                        existingMatch.homeScore !== existingMatch.awayScore ||
+                        (incomingMatch.tieBreakWinnerKey !== homeTeamKey && incomingMatch.tieBreakWinnerKey !== awayTeamKey);
+                });
+                if (invalidTieBreakMatch) {
+                    res.status(400).json({
+                        error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.'
+                    });
+                    return;
+                }
+
                 const incomingMatches = new Map(
                     matches
                         .filter((match: any) => match?.id !== undefined && match?.id !== null)
@@ -629,7 +657,10 @@ export const saveDerbyData = async (req: any, res: Response) => {
                         ...(incomingMatch.homeTeamKey !== undefined && { homeTeamKey: incomingMatch.homeTeamKey }),
                         ...(incomingMatch.awayTeamKey !== undefined && { awayTeamKey: incomingMatch.awayTeamKey }),
                         ...(incomingMatch.homePlaceholder !== undefined && { homePlaceholder: incomingMatch.homePlaceholder }),
-                        ...(incomingMatch.awayPlaceholder !== undefined && { awayPlaceholder: incomingMatch.awayPlaceholder })
+                        ...(incomingMatch.awayPlaceholder !== undefined && { awayPlaceholder: incomingMatch.awayPlaceholder }),
+                        ...(incomingMatch.tieBreakWinnerKey !== undefined && {
+                            tieBreakWinnerKey: incomingMatch.tieBreakWinnerKey
+                        })
                     };
                 });
             }
@@ -708,7 +739,7 @@ export const saveDerbyData = async (req: any, res: Response) => {
             updatedAt: new Date().toISOString()
         };
 
-        fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+        writeTournamentData(payload);
 
         syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
             console.error('Async DB sync notice on saveDerbyData:', err);
@@ -795,7 +826,7 @@ export const claimRefereeMatch = async (req: Request, res: Response): Promise<vo
         }
 
         currentData.updatedAt = new Date().toISOString();
-        fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        writeTournamentData(currentData);
 
         const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
@@ -851,6 +882,7 @@ export const resetSingleMatch = async (req: Request, res: Response) => {
         const targetMatch = currentData.matches[matchIndex];
         targetMatch.homeScore = null;
         targetMatch.awayScore = null;
+        targetMatch.tieBreakWinnerKey = null;
         targetMatch.status = 'scheduled';
         targetMatch.officiatedBy = null;
 
@@ -865,7 +897,7 @@ export const resetSingleMatch = async (req: Request, res: Response) => {
         currentData.goalEvents = (currentData.goalEvents || []).filter((ev: any) => ev.matchId !== matchId);
         currentData.updatedAt = new Date().toISOString();
 
-        fs.writeFileSync(DATA_FILE, JSON.stringify(currentData, null, 2), 'utf-8');
+        writeTournamentData(currentData);
 
         // Reset corresponding match in Prisma database if it exists
         try {
@@ -948,7 +980,7 @@ export const resetDerbyData = async (req: Request, res: Response) => {
             updatedAt: new Date().toISOString()
         };
 
-        fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+        writeTournamentData(payload);
 
         syncToPrismaDatabase(currentTeams, DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
             console.error('Async DB sync notice on reset:', err);

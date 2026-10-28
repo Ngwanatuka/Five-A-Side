@@ -303,12 +303,19 @@ export const updateMatchScore = async (
     homeScore: number,
     awayScore: number,
     status?: string,
-    goalEvents?: MatchGoalEvent[]
+    goalEvents?: MatchGoalEvent[],
+    tieBreakWinnerKey?: string | null
 ) => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchId}/score`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ homeScore, awayScore, ...(status && { status }), ...(goalEvents && { goalEvents }) }),
+        body: JSON.stringify({
+            homeScore,
+            awayScore,
+            ...(status && { status }),
+            ...(goalEvents && { goalEvents }),
+            ...(tieBreakWinnerKey !== undefined && { tieBreakWinnerKey })
+        }),
     });
     if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Failed to update score' }));

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
-import { DATA_FILE } from './derbyController';
+import { DATA_FILE, writeTournamentData } from './derbyController';
 import { adminUpdateCaptain } from '../services/captainService';
 
 const addPlayerSchema = z.object({
@@ -98,7 +98,7 @@ export const addPlayerToTeam = async (req: any, res: Response): Promise<void> =>
                     });
 
                     derbyData.updatedAt = new Date().toISOString();
-                    fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                    writeTournamentData(derbyData);
 
                     if (io) {
                         io.emit('derbyUpdate', derbyData);
@@ -329,7 +329,7 @@ export const deletePlayer = async (req: any, res: Response): Promise<void> => {
                     }
 
                     derbyData.updatedAt = new Date().toISOString();
-                    fs.writeFileSync(DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                    writeTournamentData(derbyData);
                 }
             } catch (err) {
                 console.error('Notice updating derby file on player delete:', err);
@@ -513,5 +513,4 @@ export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void>
         res.status(500).json({ error: 'Internal server error while setting captain' });
     }
 };
-
 

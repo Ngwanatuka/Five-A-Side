@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const supertest_1 = __importDefault(require("supertest"));
+const fs_1 = __importDefault(require("fs"));
 const app_1 = require("../src/app");
 const prisma_1 = __importDefault(require("../src/prisma"));
 jest.mock('../src/prisma', () => ({
@@ -12,9 +13,14 @@ jest.mock('../src/prisma', () => ({
         match: {
             update: jest.fn(),
             findUnique: jest.fn(),
+            findMany: jest.fn().mockResolvedValue([]),
+            findFirst: jest.fn().mockImplementation(({ where }) => Promise.resolve({
+                id: where.homeTeamId === 10 ? 101 : 202
+            })),
         },
         player: {
             findUnique: jest.fn(),
+            findMany: jest.fn().mockResolvedValue([]),
         },
         matchRoster: {
             count: jest.fn(),
@@ -24,11 +30,185 @@ jest.mock('../src/prisma', () => ({
             findUnique: jest.fn(),
             update: jest.fn(),
         },
+        team: {
+            findFirst: jest.fn().mockImplementation(({ where }) => {
+                const teamIds = {
+                    'team-a@tournament.local': 10,
+                    'team-a-away@tournament.local': 11,
+                    'team-b@tournament.local': 20,
+                    'team-b-away@tournament.local': 21
+                };
+                return Promise.resolve({ id: teamIds[where.managerContact] });
+            }),
+        },
+        season: {
+            upsert: jest.fn().mockResolvedValue({}),
+        },
+        division: {
+            upsert: jest.fn().mockResolvedValue({}),
+        },
     },
 }));
 describe('Match Endpoints', () => {
     afterEach(() => {
         jest.clearAllMocks();
+        jest.restoreAllMocks();
+    });
+    it('preserves separate referee submissions and goal events for simultaneous tournament matches', async () => {
+        let tournamentData = {
+            teams: {},
+            matches: [
+                { id: 'ga-m1', homeScore: null, awayScore: null, status: 'scheduled', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away' },
+                { id: 'gb-m1', homeScore: null, awayScore: null, status: 'scheduled', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away' }
+            ],
+            goalEvents: []
+        };
+        jest.spyOn(fs_1.default, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs_1.default, 'readFileSync').mockImplementation(() => JSON.stringify(tournamentData));
+        jest.spyOn(fs_1.default, 'writeFileSync').mockImplementation((_path, contents) => {
+            tournamentData = JSON.parse(contents.toString());
+        });
+        jest.spyOn(fs_1.default, 'renameSync').mockImplementation(() => undefined);
+        const [pitchOne, pitchTwo] = await Promise.all([
+            (0, supertest_1.default)(app_1.app)
+                .patch('/api/matches/ga-m1/score')
+                .set('x-user-role', 'REFEREE')
+                .send({
+                homeScore: 2,
+                awayScore: 1,
+                status: 'COMPLETED',
+                goalEvents: [{
+                        id: 'ev-ga-m1',
+                        matchId: 'ga-m1',
+                        teamKey: 'team-a',
+                        scorerPlayerId: 'player-a',
+                        assistPlayerId: 'player-a-assist',
+                        assistPlayerName: 'Assist Player',
+                        minute: 5
+                    }]
+            }),
+            (0, supertest_1.default)(app_1.app)
+                .patch('/api/matches/gb-m1/score')
+                .set('x-user-role', 'REFEREE')
+                .send({
+                homeScore: 0,
+                awayScore: 3,
+                status: 'COMPLETED',
+                goalEvents: [{
+                        id: 'ev-gb-m1',
+                        matchId: 'gb-m1',
+                        teamKey: 'team-b',
+                        scorerPlayerId: 'player-b',
+                        minute: 8
+                    }]
+            })
+        ]);
+        expect(pitchOne.statusCode).toBe(200);
+        expect(pitchTwo.statusCode).toBe(200);
+        expect(tournamentData.matches).toEqual([
+            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away', tieBreakWinnerKey: null },
+            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away', tieBreakWinnerKey: null }
+        ]);
+        expect(tournamentData.goalEvents.map(event => event.id).sort()).toEqual(['ev-ga-m1', 'ev-gb-m1']);
+        expect(prisma_1.default.match.update).toHaveBeenCalledTimes(2);
+        expect(prisma_1.default.match.update).toHaveBeenCalledWith({
+            where: { id: 101 },
+            data: { homeScore: 2, awayScore: 1, status: 'COMPLETED' }
+        });
+        expect(prisma_1.default.match.update).toHaveBeenCalledWith({
+            where: { id: 202 },
+            data: { homeScore: 0, awayScore: 3, status: 'COMPLETED' }
+        });
+        expect(tournamentData.goalEvents.find(event => event.id === 'ev-ga-m1')).toMatchObject({
+            assistPlayerId: 'player-a-assist',
+            assistPlayerName: 'Assist Player'
+        });
+        const snapshotSave = await (0, supertest_1.default)(app_1.app)
+            .post('/api/derby')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            matches: [
+                { id: 'ga-m1', homeScore: null, awayScore: null, status: 'scheduled', homeTeamKey: 'team-a' },
+                { id: 'gb-m1', homeScore: null, awayScore: null, status: 'scheduled', homeTeamKey: 'team-b' }
+            ]
+        });
+        expect(snapshotSave.statusCode).toBe(200);
+        expect(tournamentData.matches).toEqual([
+            { id: 'ga-m1', homeScore: 2, awayScore: 1, status: 'completed', homeTeamKey: 'team-a', awayTeamKey: 'team-a-away', tieBreakWinnerKey: null },
+            { id: 'gb-m1', homeScore: 0, awayScore: 3, status: 'completed', homeTeamKey: 'team-b', awayTeamKey: 'team-b-away', tieBreakWinnerKey: null }
+        ]);
+        expect(tournamentData.goalEvents.map(event => event.id).sort()).toEqual(['ev-ga-m1', 'ev-gb-m1']);
+    });
+    it('records a valid shootout winner for a tied knockout match and rejects a non-participant', async () => {
+        let tournamentData = {
+            teams: {
+                'team-a': { name: 'Team A' },
+                'team-b': { name: 'Team B' },
+                'team-c': { name: 'Team C' }
+            },
+            matches: [{
+                    id: 'sf-1',
+                    stage: 'semi',
+                    homeTeamKey: 'team-a',
+                    awayTeamKey: 'team-b',
+                    homeScore: 1,
+                    awayScore: 1,
+                    status: 'completed'
+                }],
+            goalEvents: []
+        };
+        jest.spyOn(fs_1.default, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs_1.default, 'readFileSync').mockImplementation(() => JSON.stringify(tournamentData));
+        jest.spyOn(fs_1.default, 'writeFileSync').mockImplementation((_path, contents) => {
+            tournamentData = JSON.parse(contents.toString());
+        });
+        jest.spyOn(fs_1.default, 'renameSync').mockImplementation(() => undefined);
+        const validResult = await (0, supertest_1.default)(app_1.app)
+            .patch('/api/matches/sf-1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            homeScore: 1,
+            awayScore: 1,
+            status: 'COMPLETED',
+            tieBreakWinnerKey: 'team-b'
+        });
+        expect(validResult.statusCode).toBe(200);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
+        expect(validResult.body.tieBreakWinnerKey).toBe('team-b');
+        const validSnapshot = await (0, supertest_1.default)(app_1.app)
+            .post('/api/derby')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            matches: [{
+                    id: 'sf-1',
+                    homeTeamKey: 'team-a',
+                    awayTeamKey: 'team-b',
+                    tieBreakWinnerKey: 'team-b'
+                }]
+        });
+        expect(validSnapshot.statusCode).toBe(200);
+        const invalidResult = await (0, supertest_1.default)(app_1.app)
+            .patch('/api/matches/sf-1/score')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            homeScore: 1,
+            awayScore: 1,
+            status: 'COMPLETED',
+            tieBreakWinnerKey: 'team-c'
+        });
+        expect(invalidResult.statusCode).toBe(400);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
+        const invalidSnapshot = await (0, supertest_1.default)(app_1.app)
+            .post('/api/derby')
+            .set('x-user-role', 'REFEREE')
+            .send({
+            matches: [{
+                    id: 'sf-1',
+                    tieBreakWinnerKey: 'team-c'
+                }]
+        });
+        expect(invalidSnapshot.statusCode).toBe(400);
+        expect(tournamentData.matches[0].tieBreakWinnerKey).toBe('team-b');
     });
     it('should record a match score and mark it COMPLETED', async () => {
         prisma_1.default.match.update.mockResolvedValue({
@@ -36,12 +216,14 @@ describe('Match Endpoints', () => {
         });
         const res = await (0, supertest_1.default)(app_1.app)
             .patch('/api/matches/1/score')
-            .send({ homeScore: 2, awayScore: 1 });
+            .set('x-user-role', 'REFEREE')
+            .send({ homeScore: 2, awayScore: 1, status: 'COMPLETED' });
         expect(res.statusCode).toEqual(200);
         expect(res.body.status).toEqual('COMPLETED');
         expect(prisma_1.default.match.update).toHaveBeenCalledWith({
             where: { id: 1 },
             data: { homeScore: 2, awayScore: 1, status: 'COMPLETED' },
+            include: { homeTeam: true, awayTeam: true }
         });
     });
     describe('Match Roster Cap & Payment Integration (9 Players)', () => {
@@ -66,6 +248,7 @@ describe('Match Endpoints', () => {
             });
             const res = await (0, supertest_1.default)(app_1.app)
                 .post('/api/matches/1/roster')
+                .set('x-user-role', 'REFEREE')
                 .send({ playerId: 100 });
             expect(res.statusCode).toEqual(201);
             expect(res.body.payOnDayStatus).toEqual('PAID');
@@ -98,6 +281,7 @@ describe('Match Endpoints', () => {
             });
             const res = await (0, supertest_1.default)(app_1.app)
                 .post('/api/matches/2/roster')
+                .set('x-user-role', 'REFEREE')
                 .send({ playerId: 200 });
             expect(res.statusCode).toEqual(201);
             expect(res.body.payOnDayStatus).toEqual('OWES');
@@ -119,6 +303,7 @@ describe('Match Endpoints', () => {
             prisma_1.default.matchRoster.count.mockResolvedValue(9);
             const res = await (0, supertest_1.default)(app_1.app)
                 .post('/api/matches/1/roster')
+                .set('x-user-role', 'REFEREE')
                 .send({ playerId: 100 });
             expect(res.statusCode).toEqual(400);
             expect(res.body.error).toMatch(/Team 10 has already reached the maximum/);
@@ -135,6 +320,7 @@ describe('Match Endpoints', () => {
             });
             const res = await (0, supertest_1.default)(app_1.app)
                 .post('/api/matches/1/roster')
+                .set('x-user-role', 'REFEREE')
                 .send({ playerId: 100 });
             expect(res.statusCode).toEqual(400);
             expect(res.body.error).toMatch(/Player does not belong to either team in this match/);

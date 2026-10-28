@@ -5,6 +5,7 @@ import { Navbar } from '../components/Navbar';
 import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw, Lock, ShieldAlert } from 'lucide-react';
 import { useToast, useConfirm } from '../components/Toast';
 import { useRole } from '../context/RoleContext';
+import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete } from '../../../shared/tournamentProgress.ts';
 
 const socket = io(getBackendUrl());
 
@@ -289,60 +290,38 @@ export const MatchDayConsole = () => {
 
             if (rawTournamentMatches.length > 0) {
                 // Calculate standings dynamically for knockout qualification slots
-                const calcStandings = (group: 'A' | 'B') => {
-                    const teamKeys = Object.keys(effectiveTeams).filter(k => effectiveTeams[k]?.group === group);
-                    const map: Record<string, { key: string; pts: number; gd: number; gf: number; played: number }> = {};
-                    teamKeys.forEach(k => { map[k] = { key: k, pts: 0, gd: 0, gf: 0, played: 0 }; });
-
-                    rawTournamentMatches.filter((m: any) => m.stage === 'group' && m.group === group).forEach((m: any) => {
-                        if (m.homeScore !== null && m.awayScore !== null && m.homeTeamKey && m.awayTeamKey) {
-                            const h = map[m.homeTeamKey];
-                            const a = map[m.awayTeamKey];
-                            if (!h || !a) return;
-                            h.played++; a.played++;
-                            h.gf += m.homeScore; h.gd += (m.homeScore - m.awayScore);
-                            a.gf += m.awayScore; a.gd += (m.awayScore - m.homeScore);
-                            if (m.homeScore > m.awayScore) { h.pts += 3; }
-                            else if (m.homeScore < m.awayScore) { a.pts += 3; }
-                            else { h.pts += 1; a.pts += 1; }
-                        }
-                    });
-
-                    return Object.values(map).sort((a, b) => b.pts !== a.pts ? b.pts - a.pts : b.gd !== a.gd ? b.gd - a.gd : b.gf - a.gf);
-                };
-
-                const standingsA = calcStandings('A');
-                const standingsB = calcStandings('B');
-                const a1stKey = standingsA[0]?.played > 0 ? standingsA[0].key : null;
-                const a2ndKey = standingsA[1]?.played > 0 ? standingsA[1].key : null;
-                const b1stKey = standingsB[0]?.played > 0 ? standingsB[0].key : null;
-                const b2ndKey = standingsB[1]?.played > 0 ? standingsB[1].key : null;
+                const standingsA = calculateGroupStandings(effectiveTeams, rawTournamentMatches, 'A');
+                const standingsB = calculateGroupStandings(effectiveTeams, rawTournamentMatches, 'B');
+                const a1stKey = standingsA[0]?.teamKey || null;
+                const a2ndKey = standingsA[1]?.teamKey || null;
+                const b1stKey = standingsB[0]?.teamKey || null;
+                const b2ndKey = standingsB[1]?.teamKey || null;
+                const groupAComplete = isGroupStageComplete(rawTournamentMatches, 'A');
+                const groupBComplete = isGroupStageComplete(rawTournamentMatches, 'B');
 
                 const sf1 = rawTournamentMatches.find((m: any) => m.id === 'sf-1');
                 const sf2 = rawTournamentMatches.find((m: any) => m.id === 'sf-2');
-                const sf1WinnerKey = sf1 && sf1.homeScore !== null && sf1.awayScore !== null
-                    ? (sf1.homeScore >= sf1.awayScore ? (sf1.homeTeamKey || a1stKey) : (sf1.awayTeamKey || b2ndKey))
-                    : null;
-                const sf1LoserKey = sf1 && sf1.homeScore !== null && sf1.awayScore !== null
-                    ? (sf1.homeScore >= sf1.awayScore ? (sf1.awayTeamKey || b2ndKey) : (sf1.homeTeamKey || a1stKey))
-                    : null;
-                const sf2WinnerKey = sf2 && sf2.homeScore !== null && sf2.awayScore !== null
-                    ? (sf2.homeScore >= sf2.awayScore ? (sf2.homeTeamKey || a2ndKey) : (sf2.awayTeamKey || b1stKey))
-                    : null;
-                const sf2LoserKey = sf2 && sf2.homeScore !== null && sf2.awayScore !== null
-                    ? (sf2.homeScore >= sf2.awayScore ? (sf2.awayTeamKey || b1stKey) : (sf2.homeTeamKey || a2ndKey))
-                    : null;
+                const sf1HomeKey = sf1?.homeTeamKey || (groupAComplete ? a1stKey : null);
+                const sf1AwayKey = sf1?.awayTeamKey || (groupBComplete ? b2ndKey : null);
+                const sf2HomeKey = sf2?.homeTeamKey || (groupAComplete ? a2ndKey : null);
+                const sf2AwayKey = sf2?.awayTeamKey || (groupBComplete ? b1stKey : null);
+                const sf1Outcome = getKnockoutOutcome(sf1, sf1HomeKey, sf1AwayKey);
+                const sf2Outcome = getKnockoutOutcome(sf2, sf2HomeKey, sf2AwayKey);
+                const sf1WinnerKey = sf1Outcome.winnerKey;
+                const sf1LoserKey = sf1Outcome.loserKey;
+                const sf2WinnerKey = sf2Outcome.winnerKey;
+                const sf2LoserKey = sf2Outcome.loserKey;
 
                 combinedMatches = rawTournamentMatches.map((m: any) => {
                     let resolvedHomeKey = m.homeTeamKey;
                     let resolvedAwayKey = m.awayTeamKey;
 
                     if (m.id === 'sf-1') {
-                        resolvedHomeKey = m.homeTeamKey || a1stKey;
-                        resolvedAwayKey = m.awayTeamKey || b2ndKey;
+                        resolvedHomeKey = m.homeTeamKey || (groupAComplete ? a1stKey : null);
+                        resolvedAwayKey = m.awayTeamKey || (groupBComplete ? b2ndKey : null);
                     } else if (m.id === 'sf-2') {
-                        resolvedHomeKey = m.homeTeamKey || a2ndKey;
-                        resolvedAwayKey = m.awayTeamKey || b1stKey;
+                        resolvedHomeKey = m.homeTeamKey || (groupAComplete ? a2ndKey : null);
+                        resolvedAwayKey = m.awayTeamKey || (groupBComplete ? b1stKey : null);
                     } else if (m.id === 'fn-3rd') {
                         resolvedHomeKey = m.homeTeamKey || sf1LoserKey;
                         resolvedAwayKey = m.awayTeamKey || sf2LoserKey;
@@ -369,6 +348,7 @@ export const MatchDayConsole = () => {
                         pitch: mPitch,
                         homeScore: m.homeScore ?? 0,
                         awayScore: m.awayScore ?? 0,
+                        tieBreakWinnerKey: m.tieBreakWinnerKey || null,
                         status: (m.status || 'scheduled').toUpperCase(),
                         officiatedBy: assignedClaim,
                         homeTeamKey: resolvedHomeKey,
@@ -767,6 +747,64 @@ export const MatchDayConsole = () => {
         } catch (e) {
             console.error('Failed to update score via API', e);
             toast.error(e instanceof Error ? e.message : 'Failed to save match score.');
+        }
+    };
+
+    const handleSelectTieBreakWinner = async (winnerKey: string) => {
+        if (
+            !selectedMatch ||
+            selectedMatch.stage === 'group' ||
+            selectedMatch.status !== 'COMPLETED' ||
+            matchState.homeScore !== matchState.awayScore ||
+            (winnerKey !== selectedMatch.homeTeamKey && winnerKey !== selectedMatch.awayTeamKey) ||
+            isLockedToOtherRef
+        ) {
+            return;
+        }
+
+        const matchId = selectedMatch.id.toString();
+        const matchGoalEvents = goalEvents.filter(ev => ev.matchId === matchId);
+        try {
+            await updateMatchScore(
+                selectedMatch.id,
+                matchState.homeScore,
+                matchState.awayScore,
+                'COMPLETED',
+                matchGoalEvents,
+                winnerKey
+            );
+
+            const updatedMatches = matches.map(match =>
+                match.id.toString() === matchId ? { ...match, tieBreakWinnerKey: winnerKey } : match
+            );
+            const updatedMatch = updatedMatches.find(match => match.id.toString() === matchId);
+            setMatches(updatedMatches);
+            setSelectedMatch((previous: any) => previous ? { ...previous, tieBreakWinnerKey: winnerKey } : null);
+
+            try {
+                const savedMatches = localStorage.getItem('dench_derby_matches_v4');
+                if (savedMatches) {
+                    const cachedMatches = JSON.parse(savedMatches);
+                    const cachedMatch = cachedMatches.find((match: any) => match.id.toString() === matchId);
+                    if (cachedMatch) {
+                        cachedMatch.tieBreakWinnerKey = winnerKey;
+                        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(cachedMatches));
+                    } else if (updatedMatch) {
+                        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(updatedMatches));
+                    }
+                }
+            } catch (cacheError) {
+                console.error('Shootout winner was saved on the server, but the local cache could not be updated:', cacheError);
+                toast.warning('Winner saved to the server, but this browser cache could not be refreshed.');
+            }
+
+            const winnerName = winnerKey === selectedMatch.homeTeamKey
+                ? selectedMatch.homeTeam?.name
+                : selectedMatch.awayTeam?.name;
+            toast.success(`${winnerName || 'Team'} recorded as winner after the shootout.`);
+        } catch (error) {
+            console.error('Failed to save knockout shootout winner:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to save shootout winner.');
         }
     };
 
@@ -1853,6 +1891,48 @@ export const MatchDayConsole = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {selectedMatch.stage !== 'group' &&
+                            selectedMatch.status === 'COMPLETED' &&
+                            matchState.homeScore === matchState.awayScore && (
+                                <div style={{
+                                    padding: '1rem 1.25rem',
+                                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                                    borderRadius: 'var(--radius-md)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.75rem'
+                                }}>
+                                    <div>
+                                        <strong style={{ color: '#facc15' }}>Knockout match tied</strong>
+                                        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                                            Record the penalty shootout winner. The match score remains unchanged.
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        {[
+                                            { key: selectedMatch.homeTeamKey, name: selectedMatch.homeTeam?.name || 'Home team' },
+                                            { key: selectedMatch.awayTeamKey, name: selectedMatch.awayTeam?.name || 'Away team' }
+                                        ].map(team => (
+                                            <button
+                                                key={team.key}
+                                                type="button"
+                                                onClick={() => handleSelectTieBreakWinner(team.key)}
+                                                disabled={!team.key || isLockedToOtherRef}
+                                                className="btn btn-secondary"
+                                                style={{
+                                                    borderColor: selectedMatch.tieBreakWinnerKey === team.key ? '#22c55e' : undefined,
+                                                    color: selectedMatch.tieBreakWinnerKey === team.key ? '#86efac' : undefined
+                                                }}
+                                            >
+                                                {selectedMatch.tieBreakWinnerKey === team.key ? 'Winner recorded: ' : 'Record winner: '}
+                                                {team.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                         {/* Match Goal Events Timeline */}
                         {(() => {

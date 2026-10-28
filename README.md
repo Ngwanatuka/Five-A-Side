@@ -65,6 +65,8 @@ The platform enforces strict rules on match day and during registration:
 4. From `server/`, run `npx prisma db push` and `npx prisma generate` to apply the database schema and generate the Prisma client.
 5. Start the development server.
 
+The production start command (`npm run start:prod`) applies the Prisma schema with `prisma db push` before starting the API. Configure `DATABASE_URL` in the hosting service. Prisma will stop startup if it cannot connect or if schema changes require a destructive confirmation; review and apply such changes deliberately rather than bypassing that protection.
+
 ## Tournament data persistence
 
 The Dench Derby tournament's authoritative state is stored in the MySQL `TournamentState` row. The server also maintains `server/data/derby-tournament.json` as a local mirror and as a one-time bootstrap source when the database row does not yet exist. The JSON file is not the production source of truth and does not need a persistent Render disk.

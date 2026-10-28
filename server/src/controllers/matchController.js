@@ -127,9 +127,6 @@ const updateMatchScore = async (req, res) => {
                     return;
                 }
                 const tm = data.matches[matchIndex];
-                if (tm.status?.toLowerCase() === 'completed' && status?.toLowerCase() !== 'completed') {
-                    return;
-                }
                 if (tieBreakWinnerKey !== undefined) {
                     const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
                     const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;

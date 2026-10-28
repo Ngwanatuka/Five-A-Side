@@ -519,14 +519,14 @@ export const DenchDerby = () => {
                         if (rawPlayers) localSavedPlayers = JSON.parse(rawPlayers);
                     } catch {}
 
-                    // Combine remote teams with any local edits, prioritizing user's local edits if present
-                    const effectiveTeams = {
-                        ...(data?.teams || {}),
-                        ...(localSavedTeams || {})
-                    };
+                    // Server (MySQL TournamentState) is the single source of truth for teams
+                    const effectiveTeams = data?.teams && Object.keys(data.teams).length > 0
+                        ? data.teams
+                        : (localSavedTeams || {});
 
                     if (Object.keys(effectiveTeams).length > 0) {
                         setTeams(effectiveTeams);
+                        try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(effectiveTeams)); } catch {}
                     }
 
                     // The server is the authoritative single source of truth for match fixtures and scores

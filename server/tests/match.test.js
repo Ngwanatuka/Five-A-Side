@@ -110,7 +110,10 @@ describe('Match Endpoints', () => {
             awayScore: 1,
             status: 'completed'
         });
-        expect(prisma_1.default.match.update).not.toHaveBeenCalled();
+        expect(prisma_1.default.match.update).toHaveBeenCalledWith({
+            where: { id: 101 },
+            data: { homeScore: 2, awayScore: 1, status: 'COMPLETED' }
+        });
     });
     it('preserves separate referee submissions and goal events for simultaneous tournament matches', async () => {
         let tournamentData = {

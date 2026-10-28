@@ -1318,7 +1318,7 @@ export const DenchDerby = () => {
         }
     };
 
-    const handleClearAllMockData = async () => {
+    const handleClearScoresAndSquads = async () => {
         if (await confirm({ message: 'Clear all registered players, scores, and goal events?', confirmLabel: 'Clear All', danger: true })) {
             const cleanMatches = DEFAULT_MATCHES.map(m => ({
                 ...m,
@@ -4252,18 +4252,18 @@ export const DenchDerby = () => {
                                     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                         <button
                                             type="button"
-                                            onClick={handleClearAllMockData}
+                                            onClick={handleClearScoresAndSquads}
                                             className="btn btn-outline"
                                             style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                                            title="Clear mock scores & players so tournament is completely fresh"
+                                            title="Clear scores & players so tournament is completely fresh"
                                         >
-                                            <Trash2 size={14} /> Clear Mock Scores & Squads
+                                            <Trash2 size={14} /> Clear Scores & Squads
                                         </button>
                                         <button
                                             type="button"
                                             onClick={handleResetTeamsToDefault}
                                             className="btn btn-outline"
-                                            title="Reset back to default mock clubs"
+                                            title="Reset back to default tournament clubs"
                                         >
                                             Reset to Default
                                         </button>

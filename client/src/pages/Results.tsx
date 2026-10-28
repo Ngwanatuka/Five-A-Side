@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Trophy } from 'lucide-react';
+import { Calendar as CalendarIcon, Trophy } from 'lucide-react';
 import { getMatches, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -12,8 +12,9 @@ export const Results = () => {
     const [groupedMatches, setGroupedMatches] = useState<Record<string, any[]>>({});
     const [loading, setLoading] = useState(true);
 
-    const matchweeks = ['All', 'MW 5', 'MW 4'];
-    const [activeMW, setActiveMW] = useState('All');
+    const [selectedDate, setSelectedDate] = useState('All');
+    const dateList = Object.keys(groupedMatches);
+    const dateFilters = ['All', ...dateList];
 
     const fetchResults = async () => {
         try {
@@ -60,6 +61,10 @@ export const Results = () => {
     const matchesPlayed = matches.length;
     const avgGoals = matchesPlayed > 0 ? (totalGoals / matchesPlayed).toFixed(1) : '0.0';
 
+    const entriesToRender = Object.entries(groupedMatches).filter(([dateStr]) =>
+        selectedDate === 'All' ? true : dateStr === selectedDate
+    );
+
     return (
         <div className="app-container">
             <Navbar />
@@ -70,31 +75,29 @@ export const Results = () => {
                     <p style={{ color: 'var(--color-text-muted)' }}>View completed matches and final scores.</p>
                 </div>
 
-                {/* Matchweek Pagination */}
-                <div className="flex-center gap-4" style={{ marginBottom: '3rem' }}>
-                    <button className="btn btn-secondary btn-sm" style={{ padding: '0.5rem' }}><ChevronLeft size={16} /></button>
-                    <div className="flex-center gap-2">
-                        {matchweeks.map(mw => (
+                {/* Date Filter Tabs if multiple dates */}
+                {dateList.length > 1 && (
+                    <div className="flex-center gap-2" style={{ marginBottom: '3rem', flexWrap: 'wrap' }}>
+                        {dateFilters.map(d => (
                             <button
-                                key={mw}
-                                className={`btn btn-sm ${activeMW === mw ? 'btn-primary' : 'btn-secondary'}`}
-                                onClick={() => setActiveMW(mw)}
-                                style={{ border: activeMW === mw ? 'none' : '' }}
+                                key={d}
+                                className={`btn btn-sm ${selectedDate === d ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => setSelectedDate(d)}
+                                style={{ border: selectedDate === d ? 'none' : '' }}
                             >
-                                {mw}
+                                {d}
                             </button>
                         ))}
                     </div>
-                    <button className="btn btn-secondary btn-sm" style={{ padding: '0.5rem' }}><ChevronRight size={16} /></button>
-                </div>
+                )}
 
                 {loading && <div style={{ textAlign: 'center', padding: '3rem' }}>Loading results...</div>}
 
-                {!loading && Object.keys(groupedMatches).length === 0 && (
+                {!loading && entriesToRender.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>No completed matches found.</div>
                 )}
 
-                {!loading && Object.entries(groupedMatches).map(([dateStr, dayMatches]) => (
+                {!loading && entriesToRender.map(([dateStr, dayMatches]) => (
                     <div key={dateStr} className="glass-panel" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
                         <div className="flex-center gap-2" style={{ justifyContent: 'flex-start', color: 'var(--color-primary)', fontWeight: 600, marginBottom: '1.5rem' }}>
                             <CalendarIcon size={18} /> {dateStr}

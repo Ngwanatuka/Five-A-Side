@@ -18,6 +18,7 @@ type StandingsRow = {
     goalsAgainst: number;
     goalDifference: number;
     points: number;
+    form?: string[];
 };
 
 export const Standings = () => {
@@ -172,8 +173,17 @@ export const Standings = () => {
                                                         {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {/* Mocking form visually for now based on positions */}
-                                                        {renderFormIcon(isLeader ? 'W' : (isBottom ? 'L' : 'D'))}
+                                                        {row.form && row.form.length > 0 ? (
+                                                            <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
+                                                                {row.form.slice(-5).map((f, i) => (
+                                                                    <span key={i} title={f === 'W' ? 'Win' : (f === 'D' ? 'Draw' : 'Loss')}>
+                                                                        {renderFormIcon(f)}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span style={{ color: 'var(--color-text-muted)' }}>-</span>
+                                                        )}
                                                     </td>
                                                     <td style={{ textAlign: 'center', fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>
                                                         {row.points}

@@ -339,6 +339,10 @@ export function useConfirm() {
     const dialogRef = useRef(dialog);
 
     const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
+        if (dialogRef.current) {
+            return Promise.resolve(false);
+        }
+
         return new Promise(resolve => {
             const nextDialog = { ...options, resolve };
             dialogRef.current = nextDialog;

@@ -58,6 +58,7 @@ export const MatchDayConsole = () => {
     const [matchState, setMatchState] = useState<MatchState>(DEFAULT_MATCH_STATE);
     const [loading, setLoading] = useState(true);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isFinalizing, setIsFinalizing] = useState(false);
 
     // Referee Official Station: Pitch 1 or Pitch 2
     const [refereePitchStation, setRefereePitchStation] = useState<number>(() => {
@@ -95,6 +96,7 @@ export const MatchDayConsole = () => {
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const activeMatchIdRef = useRef<string | null>(null);
+    const isFinalizingRef = useRef(false);
 
     // Handle clicks outside the dropdown to close it
     useEffect(() => {
@@ -940,104 +942,112 @@ export const MatchDayConsole = () => {
     };
 
     const finalizeWhistle = async () => {
-        if (!selectedMatch) return;
-        if (!await confirm({
-            message: 'Are you sure you want to finalize this match? This cannot be undone.',
-            confirmLabel: 'Finalize Match',
-            danger: true,
-        })) {
-            return;
-        }
+        if (!selectedMatch || isFinalizingRef.current) return;
+        isFinalizingRef.current = true;
+        setIsFinalizing(true);
 
-        const matchIdStr = selectedMatch.id.toString();
-
-        // Reconcile goals from timeline to make 100% sure the final whistle never submits 0 if goals were scored
-        const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
-        const homeGoalCount = matchEvents.filter(ev =>
-            ev.side === 'home' ||
-            (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
-            (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
-        ).length;
-        const awayGoalCount = matchEvents.filter(ev =>
-            ev.side === 'away' ||
-            (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
-            (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
-        ).length;
-
-        const finalHome = Math.max(matchState.homeScore, homeGoalCount);
-        const finalAway = Math.max(matchState.awayScore, awayGoalCount);
-
-        // Update in-memory matches state in console immediately
-        const updatedMatches = matches.map(m => {
-            if (m.id.toString() === matchIdStr) {
-                return { ...m, homeScore: finalHome, awayScore: finalAway, status: 'COMPLETED' };
-            }
-            return m;
-        });
-        setMatches(updatedMatches);
-
-        // Prepare local storage matches array
-        let tournamentMatchesList: any[] = [];
         try {
-            const saved = localStorage.getItem('dench_derby_matches_v4');
-            if (saved) {
-                tournamentMatchesList = JSON.parse(saved);
+            if (!await confirm({
+                message: 'Are you sure you want to finalize this match? This cannot be undone.',
+                confirmLabel: 'Finalize Match',
+                danger: true,
+            })) {
+                return;
             }
-        } catch {}
 
-        if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
-            tournamentMatchesList = updatedMatches.map(m => ({
-                id: m.id,
-                stage: m.stage,
-                group: m.group,
-                homeTeamKey: m.homeTeamKey,
-                awayTeamKey: m.awayTeamKey,
-                homePlaceholder: m.homeTeam?.name,
-                awayPlaceholder: m.awayTeam?.name,
-                homeScore: m.homeScore,
-                awayScore: m.awayScore,
-                status: m.status?.toLowerCase(),
-                time: m.time,
-                pitch: m.pitchNumber
-            }));
+            const matchIdStr = selectedMatch.id.toString();
+
+            // Reconcile goals from timeline to make 100% sure the final whistle never submits 0 if goals were scored
+            const matchEvents = goalEvents.filter(ev => ev.matchId === matchIdStr);
+            const homeGoalCount = matchEvents.filter(ev =>
+                ev.side === 'home' ||
+                (selectedMatch.homeTeamKey && ev.teamKey === selectedMatch.homeTeamKey) ||
+                (selectedMatch.homeTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.homeTeam.name))
+            ).length;
+            const awayGoalCount = matchEvents.filter(ev =>
+                ev.side === 'away' ||
+                (selectedMatch.awayTeamKey && ev.teamKey === selectedMatch.awayTeamKey) ||
+                (selectedMatch.awayTeam?.name && ev.scorerPlayerName?.includes(selectedMatch.awayTeam.name))
+            ).length;
+
+            const finalHome = Math.max(matchState.homeScore, homeGoalCount);
+            const finalAway = Math.max(matchState.awayScore, awayGoalCount);
+
+            // Update in-memory matches state in console immediately
+            const updatedMatches = matches.map(m => {
+                if (m.id.toString() === matchIdStr) {
+                    return { ...m, homeScore: finalHome, awayScore: finalAway, status: 'COMPLETED' };
+                }
+                return m;
+            });
+            setMatches(updatedMatches);
+
+            // Prepare local storage matches array
+            let tournamentMatchesList: any[] = [];
+            try {
+                const saved = localStorage.getItem('dench_derby_matches_v4');
+                if (saved) {
+                    tournamentMatchesList = JSON.parse(saved);
+                }
+            } catch {}
+
+            if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
+                tournamentMatchesList = updatedMatches.map(m => ({
+                    id: m.id,
+                    stage: m.stage,
+                    group: m.group,
+                    homeTeamKey: m.homeTeamKey,
+                    awayTeamKey: m.awayTeamKey,
+                    homePlaceholder: m.homeTeam?.name,
+                    awayPlaceholder: m.awayTeam?.name,
+                    homeScore: m.homeScore,
+                    awayScore: m.awayScore,
+                    status: m.status?.toLowerCase(),
+                    time: m.time,
+                    pitch: m.pitchNumber
+                }));
+            }
+
+            const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
+            if (target) {
+                target.homeScore = finalHome;
+                target.awayScore = finalAway;
+                target.status = 'completed';
+            }
+
+            localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
+
+            // Persist this match and its goal events together, without uploading a stale tournament snapshot.
+            try {
+                await updateMatchScore(
+                    selectedMatch.id,
+                    finalHome,
+                    finalAway,
+                    'COMPLETED',
+                    matchEvents
+                );
+            } catch (syncErr) {
+                console.error("Notice syncing final score to server:", syncErr);
+                toast.error(syncErr instanceof Error ? syncErr.message : 'Failed to submit the final result. Please try again.');
+                return;
+            }
+
+            // Release referee claim on server
+            claimRefereeMatch({
+                matchId: selectedMatch.id.toString(),
+                pitch: refereePitchStation,
+                action: 'release'
+            }).catch(() => {});
+
+            localStorage.removeItem(`match_state_${selectedMatch.id}`);
+            localStorage.removeItem('active_match_id');
+            activeMatchIdRef.current = null;
+            setSelectedMatch(null);
+            fetchFixtures();
+        } finally {
+            isFinalizingRef.current = false;
+            setIsFinalizing(false);
         }
-
-        const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);
-        if (target) {
-            target.homeScore = finalHome;
-            target.awayScore = finalAway;
-            target.status = 'completed';
-        }
-
-        localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
-
-        // Persist this match and its goal events together, without uploading a stale tournament snapshot.
-        try {
-            await updateMatchScore(
-                selectedMatch.id,
-                finalHome,
-                finalAway,
-                'COMPLETED',
-                matchEvents
-            );
-        } catch (syncErr) {
-            console.error("Notice syncing final score to server:", syncErr);
-            toast.error(syncErr instanceof Error ? syncErr.message : 'Failed to submit the final result. Please try again.');
-            return;
-        }
-
-        // Release referee claim on server
-        claimRefereeMatch({
-            matchId: selectedMatch.id.toString(),
-            pitch: refereePitchStation,
-            action: 'release'
-        }).catch(() => {});
-
-        localStorage.removeItem(`match_state_${selectedMatch.id}`);
-        localStorage.removeItem('active_match_id');
-        activeMatchIdRef.current = null;
-        setSelectedMatch(null);
-        fetchFixtures();
     };
 
     const handleExitMatch = () => {
@@ -1946,8 +1956,8 @@ export const MatchDayConsole = () => {
                             <button className="btn btn-outline flex-center gap-2" disabled={!isAdmin || isLockedToOtherRef} style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444', opacity: (isAdmin && !isLockedToOtherRef) ? 1 : 0.55, cursor: (isAdmin && !isLockedToOtherRef) ? 'pointer' : 'not-allowed' }} onClick={handleResetSelectedMatch} title={isAdmin ? 'Reset match back to Scheduled (0-0, 0 played)' : 'Only an administrator can reset match results.'}>
                                 <RotateCcw size={16} /> {isAdmin ? 'Reset to Scheduled' : 'Reset (Admin only)'}
                             </button>
-                            <button className="btn btn-primary" disabled={!matchState.matchEnded || isLockedToOtherRef} style={{ flex: 2, backgroundColor: (matchState.matchEnded && !isLockedToOtherRef) ? '#16a34a' : 'var(--color-bg-card)', color: (matchState.matchEnded && !isLockedToOtherRef) ? '#fff' : 'var(--color-text-muted)', border: 'none', cursor: (matchState.matchEnded && !isLockedToOtherRef) ? 'pointer' : 'not-allowed' }} onClick={finalizeWhistle}>
-                                Submit Final Result
+                            <button className="btn btn-primary" disabled={!matchState.matchEnded || isLockedToOtherRef || isFinalizing} style={{ flex: 2, backgroundColor: (matchState.matchEnded && !isLockedToOtherRef) ? '#16a34a' : 'var(--color-bg-card)', color: (matchState.matchEnded && !isLockedToOtherRef) ? '#fff' : 'var(--color-text-muted)', border: 'none', cursor: (matchState.matchEnded && !isLockedToOtherRef && !isFinalizing) ? 'pointer' : 'not-allowed' }} onClick={finalizeWhistle}>
+                                {isFinalizing ? 'Submitting...' : 'Submit Final Result'}
                             </button>
                         </div>
 

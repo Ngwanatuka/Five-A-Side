@@ -1,7 +1,8 @@
 # Super Admin
 
 - Super Admin has absolute control of the application
-- the only admin is ngwanatuka@fivesway.xyz
+- the only super admin is ngwanatuka@fivesway.xyz
+- vuyo@fivesway.xyz has an additional ADMIN account, without sole-super-admin privileges
 
 # admin of the tournament
 

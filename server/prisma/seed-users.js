@@ -23,8 +23,20 @@ async function main() {
             create: { email: u.email, password, role: u.role },
         });
     }
+    const vuyoAdminPassword = process.env.VUYO_ADMIN_PASSWORD;
+    if (vuyoAdminPassword) {
+        const hashedPassword = await bcryptjs_1.default.hash(vuyoAdminPassword, 10);
+        await prisma.user.upsert({
+            where: { email: 'vuyo@fivesway.xyz' },
+            update: { password: hashedPassword, role: client_1.Role.ADMIN },
+            create: { email: 'vuyo@fivesway.xyz', password: hashedPassword, role: client_1.Role.ADMIN },
+        });
+    }
     console.log('Default users seeded successfully!');
-    console.log('Password for all: password123');
+    console.log('Password for default users: password123');
+    if (!vuyoAdminPassword) {
+        console.log('Set VUYO_ADMIN_PASSWORD to seed vuyo@fivesway.xyz as an admin.');
+    }
 }
 main()
     .catch((e) => {

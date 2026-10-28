@@ -7,7 +7,7 @@ exports.canEditSquad = exports.authorizeRole = exports.optionalAuth = exports.is
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const captainService_1 = require("../services/captainService");
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
-exports.ADMIN_EMAILS = ['ngwanatuka@fivesway.xyz', 'dench@fivesway.xyz'];
+exports.ADMIN_EMAILS = ['ngwanatuka@fivesway.xyz', 'dench@fivesway.xyz', 'vuyo@fivesway.xyz'];
 exports.SOLE_ADMIN_EMAIL = 'ngwanatuka@fivesway.xyz';
 const isAuthorizedAdminEmail = (email) => {
     if (!email)

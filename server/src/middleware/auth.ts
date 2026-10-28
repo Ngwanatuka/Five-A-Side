@@ -19,7 +19,7 @@ export interface AuthRequest extends Request {
     user?: AuthUser;
 }
 
-export const ADMIN_EMAILS = ['ngwanatuka@fivesway.xyz', 'dench@fivesway.xyz'];
+export const ADMIN_EMAILS = ['ngwanatuka@fivesway.xyz', 'dench@fivesway.xyz', 'vuyo@fivesway.xyz'];
 export const SOLE_ADMIN_EMAIL = 'ngwanatuka@fivesway.xyz';
 
 export const isAuthorizedAdminEmail = (email?: string): boolean => {

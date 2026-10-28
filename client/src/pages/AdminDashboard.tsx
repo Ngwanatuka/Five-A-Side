@@ -14,8 +14,8 @@ export const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState<'Update Scores' | 'Manage Captains' | 'Player Payments' | 'Match Status' | 'Add Fixture'>('Update Scores');
 
     // Login Form State
-    const [loginEmail, setLoginEmail] = useState('ngwanatuka@fivesway.xyz');
-    const [loginPassword, setLoginPassword] = useState('password123');
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginError, setLoginError] = useState('');
 
@@ -238,7 +238,7 @@ export const AdminDashboard = () => {
                                 <Lock size={20} color="#eab308" /> Administrator Login
                             </h2>
                             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                                Authorized Administrator: <strong style={{ color: '#eab308' }}>ngwanatuka@fivesway.xyz</strong>
+                                Sign in with your administrator credentials.
                             </p>
                         </div>
 
@@ -265,7 +265,7 @@ export const AdminDashboard = () => {
                                     type="email"
                                     value={loginEmail}
                                     onChange={(e) => setLoginEmail(e.target.value)}
-                                    placeholder="ngwanatuka@fivesway.xyz"
+                                    placeholder="Enter admin email"
                                     required
                                     style={{
                                         width: '100%',

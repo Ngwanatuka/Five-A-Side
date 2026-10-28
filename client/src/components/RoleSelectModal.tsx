@@ -33,13 +33,13 @@ export const RoleSelectModal: React.FC = () => {
         return getStoredOrFallbackCaptains();
     });
     const [selectedTeamKey, setSelectedTeamKey] = useState<string>('team-dench');
-    const [captainPin, setCaptainPin] = useState<string>('1111');
+    const [captainPin, setCaptainPin] = useState<string>('');
     const [captainError, setCaptainError] = useState<string | null>(null);
     const [captainLoading, setCaptainLoading] = useState<boolean>(false);
 
     // Referee / Admin login state
     const [email, setEmail] = useState<string>('');
-    const [password, setPassword] = useState<string>('password123');
+    const [password, setPassword] = useState<string>('');
     const [authError, setAuthError] = useState<string | null>(null);
     const [authLoading, setAuthLoading] = useState<boolean>(false);
 
@@ -144,11 +144,8 @@ export const RoleSelectModal: React.FC = () => {
         }
     };
 
-    // 1-Click Demo Logins for immediate testing
     const handleDemoRefereeLogin = async (pitch: 1 | 2 = 1) => {
         const refEmail = pitch === 1 ? 'referee1@5aside.com' : 'referee2@5aside.com';
-        setEmail(refEmail);
-        setPassword('password123');
         setAuthError(null);
         setAuthLoading(true);
 
@@ -164,30 +161,6 @@ export const RoleSelectModal: React.FC = () => {
             localStorage.setItem('referee_pitch_station', String(pitch));
             setAuthSession(data.token, 'REFEREE', { email: refEmail });
             navigate('/referee');
-        } catch (err: any) {
-            setAuthError(err.message);
-        } finally {
-            setAuthLoading(false);
-        }
-    };
-
-    const handleDemoAdminLogin = async () => {
-        setEmail('ngwanatuka@fivesway.xyz');
-        setPassword('password123');
-        setAuthError(null);
-        setAuthLoading(true);
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'ngwanatuka@fivesway.xyz', password: 'password123' })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Login failed');
-
-            setAuthSession(data.token, 'ADMIN', { email: 'ngwanatuka@fivesway.xyz' });
-            navigate('/admin');
         } catch (err: any) {
             setAuthError(err.message);
         } finally {
@@ -463,7 +436,9 @@ export const RoleSelectModal: React.FC = () => {
                             {/* CARD 3: REFEREE */}
                             <div
                                 onClick={() => {
-                                    setEmail('referee@5aside.com');
+                                    setEmail('');
+                                    setPassword('');
+                                    setAuthError(null);
                                     setView('referee');
                                 }}
                                 style={{
@@ -538,7 +513,9 @@ export const RoleSelectModal: React.FC = () => {
                             {/* CARD 4: LEAGUE ADMIN */}
                             <div
                                 onClick={() => {
-                                    setEmail('ngwanatuka@fivesway.xyz');
+                                    setEmail('');
+                                    setPassword('');
+                                    setAuthError(null);
                                     setView('admin');
                                 }}
                                 style={{
@@ -662,20 +639,7 @@ export const RoleSelectModal: React.FC = () => {
                                         <select
                                             value={selectedTeamKey}
                                             onChange={(e) => {
-                                                const newKey = e.target.value;
-                                                setSelectedTeamKey(newKey);
-                                                // Auto-fill demo PIN for convenience
-                                                const found = displayList.find(c => c.teamKey === newKey);
-                                                if (found?.pin) {
-                                                    setCaptainPin(found.pin);
-                                                } else {
-                                                    if (newKey === 'team-dench') setCaptainPin('1111');
-                                                    else if (newKey === 'cpt-superstars') setCaptainPin('2222');
-                                                    else if (newKey === 'bras-ba-kasi') setCaptainPin('3333');
-                                                    else if (newKey === 'gauteng-warriors') setCaptainPin('4444');
-                                                    else if (newKey === 'woza-madzala') setCaptainPin('5555');
-                                                    else if (newKey === 'areyeng-fc') setCaptainPin('6666');
-                                                }
+                                                setSelectedTeamKey(e.target.value);
                                             }}
                                             style={{
                                                 width: '100%',
@@ -714,7 +678,7 @@ export const RoleSelectModal: React.FC = () => {
                                     maxLength={8}
                                     value={captainPin}
                                     onChange={(e) => setCaptainPin(e.target.value)}
-                                    placeholder="Enter PIN (e.g. 1111)"
+                                    placeholder="Enter your team PIN"
                                     style={{
                                         width: '100%',
                                         padding: '0.85rem 1rem',
@@ -809,7 +773,7 @@ export const RoleSelectModal: React.FC = () => {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="referee@5aside.com"
+                                    placeholder="Enter referee email"
                                     required
                                     style={{
                                         width: '100%',
@@ -831,7 +795,7 @@ export const RoleSelectModal: React.FC = () => {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="password123"
+                                    placeholder="Enter password"
                                     required
                                     style={{
                                         width: '100%',
@@ -950,7 +914,7 @@ export const RoleSelectModal: React.FC = () => {
                         </div>
 
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                            Designated league administrator (<strong style={{ color: '#c084fc' }}>ngwanatuka@fivesway.xyz</strong>) has full administrative controls: manage teams, scores, referee assignments & payments.
+                            Authorized league administrators have full administrative controls: manage teams, scores, referee assignments & payments.
                         </p>
 
                         <form onSubmit={(e) => { e.preventDefault(); handleCredentialLogin('ADMIN'); }}>
@@ -962,7 +926,7 @@ export const RoleSelectModal: React.FC = () => {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="ngwanatuka@fivesway.xyz"
+                                    placeholder="Enter admin email"
                                     required
                                     style={{
                                         width: '100%',
@@ -984,7 +948,7 @@ export const RoleSelectModal: React.FC = () => {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="password123"
+                                    placeholder="Enter password"
                                     required
                                     style={{
                                         width: '100%',
@@ -1031,24 +995,6 @@ export const RoleSelectModal: React.FC = () => {
                             </button>
                         </form>
 
-                        <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
-                            <button
-                                type="button"
-                                onClick={handleDemoAdminLogin}
-                                style={{
-                                    background: 'none',
-                                    border: '1px solid #a855f7',
-                                    color: '#c084fc',
-                                    padding: '0.5rem 1rem',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ⚡ 1-Click Demo Admin Login
-                            </button>
-                        </div>
                     </div>
                 )}
                 </div>

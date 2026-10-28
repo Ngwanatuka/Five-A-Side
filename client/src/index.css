@@ -751,4 +751,153 @@ tbody tr:last-child td {
   background: rgba(255, 255, 255, 0.35);
 }
 
+.referee-console-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
+@media (max-width: 640px) {
+  .referee-console-main {
+    align-items: center;
+    padding: 0.75rem;
+  }
+
+  .referee-console-main > * {
+    min-width: 0;
+  }
+
+  .referee-console-heading {
+    width: 100%;
+    margin-bottom: 1rem !important;
+  }
+
+  .referee-console-title {
+    font-size: clamp(1.65rem, 7vw, 2rem) !important;
+  }
+
+  .referee-console-description {
+    font-size: 0.875rem !important;
+  }
+
+  .referee-station-bar {
+    max-width: 700px !important;
+    padding: 0.75rem !important;
+  }
+
+  .referee-station-identity {
+    align-items: flex-start !important;
+    min-width: 0;
+  }
+
+  .referee-station-identity > div {
+    min-width: 0;
+  }
+
+  .referee-fixture-card,
+  .referee-match-card {
+    max-width: 700px !important;
+    padding: 1rem !important;
+  }
+
+  .referee-match-card {
+    gap: 1.25rem !important;
+  }
+
+  .referee-match-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .referee-match-header > div:first-child {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .referee-match-title {
+    font-size: clamp(1.1rem, 4.5vw, 1.4rem) !important;
+    overflow-wrap: anywhere;
+  }
+
+  .referee-timer-panel {
+    width: 100%;
+    padding: 1rem 0.75rem !important;
+  }
+
+  .referee-timer-display {
+    font-size: clamp(3rem, 15vw, 4rem) !important;
+  }
+
+  .referee-match-format-options {
+    width: 100%;
+  }
+
+  .referee-match-format-options > button {
+    flex: 1;
+    padding-inline: 0.5rem !important;
+  }
+
+  .referee-timer-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem !important;
+    margin-top: 1.25rem !important;
+  }
+
+  .referee-timer-controls > button {
+    flex: 1 1 125px;
+    justify-content: center;
+    padding-inline: 0.75rem !important;
+  }
+
+  .referee-scoreboard {
+    width: 100%;
+    gap: 0.35rem !important;
+  }
+
+  .referee-score-side {
+    flex: 1 1 0;
+    min-width: 0 !important;
+    gap: 0.55rem !important;
+  }
+
+  .referee-score-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 0.25rem !important;
+  }
+
+  .referee-score-controls > button {
+    flex: 0 0 28px;
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .referee-score-value {
+    flex: 0 1 auto;
+    min-width: 1.5ch !important;
+    font-size: clamp(2.4rem, 11vw, 3rem) !important;
+  }
+
+  .referee-score-separator {
+    flex: 0 0 auto;
+    padding-bottom: 2.5rem !important;
+    font-size: 1.5rem !important;
+  }
+
+  .referee-goal-action {
+    padding: 0.45rem 0.5rem !important;
+    font-size: 0.82rem !important;
+  }
+
+  .referee-goal-timeline {
+    padding: 0.9rem !important;
+  }
+
+  .referee-goal-timeline-heading {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    align-items: flex-start !important;
+  }
+}

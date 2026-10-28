@@ -1203,19 +1203,19 @@ export const MatchDayConsole = () => {
             <Navbar />
             {ConfirmUI}
 
-            <main className="main-content flex-center animate-fade-in" style={{ flex: 1, flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+            <main className="main-content referee-console-main animate-fade-in" style={{ flex: 1, flexDirection: 'column' }}>
+                <div className="referee-console-heading" style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
                     <div className="flex-center" style={{ width: '64px', height: '64px', backgroundColor: 'var(--color-primary)', borderRadius: '1rem', margin: '0 auto 1.25rem auto' }}>
                         <Flag size={32} color="#050505" />
                     </div>
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Match Day Console</h1>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+                    <h1 className="referee-console-title" style={{ marginBottom: '0.5rem' }}>Match Day Console</h1>
+                    <p className="referee-console-description" style={{ color: 'var(--color-text-muted)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
                         Official Referee Console • Two matches can only be officiated by two separate referees simultaneously.
                     </p>
                 </div>
 
                 {/* Designated Official Station Bar */}
-                <div style={{
+                <div className="referee-station-bar" style={{
                     width: '100%',
                     maxWidth: selectedMatch ? '700px' : '560px',
                     marginBottom: '1.5rem',
@@ -1229,7 +1229,7 @@ export const MatchDayConsole = () => {
                     flexWrap: 'wrap',
                     gap: '0.75rem'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <div className="referee-station-identity" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <span style={{ fontSize: '1.35rem' }}>⏱️</span>
                         <div>
                             <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', letterSpacing: '0.5px', fontWeight: 600 }}>
@@ -1294,7 +1294,7 @@ export const MatchDayConsole = () => {
                 </div>
 
                 {!selectedMatch ? (
-                    <div className="glass-card" style={{ width: '100%', maxWidth: '560px', padding: '2.5rem' }}>
+                    <div className="glass-card referee-fixture-card" style={{ width: '100%', maxWidth: '560px', padding: '2.5rem' }}>
                         <div style={{ marginBottom: '1.25rem' }}>
                             <h2 className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.5rem', fontSize: '1.25rem', marginBottom: '0.5rem' }}>
                                 <UserCheck size={20} /> Select Fixture
@@ -1528,7 +1528,7 @@ export const MatchDayConsole = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '700px', padding: '2.5rem', borderTop: '4px solid var(--color-primary)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div className="glass-card animate-fade-in referee-match-card" style={{ width: '100%', maxWidth: '700px', padding: '2.5rem', borderTop: '4px solid var(--color-primary)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
                         {/* Match In Progress by Other Referee Warning */}
                         {isLockedToOtherRef && (
@@ -1565,7 +1565,7 @@ export const MatchDayConsole = () => {
                         )}
 
                         {/* Match Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="referee-match-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                                     {selectedMatch.stageBadge && (
@@ -1611,7 +1611,7 @@ export const MatchDayConsole = () => {
                                         </button>
                                     )}
                                 </div>
-                                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
+                                <h3 className="referee-match-title" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>
                                     {selectedMatch.homeTeam?.name} vs {selectedMatch.awayTeam?.name}
                                 </h3>
                                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.5rem', display: 'flex', gap: '1rem' }}>
@@ -1626,20 +1626,20 @@ export const MatchDayConsole = () => {
                         </div>
 
                         {/* Timer Dashboard */}
-                        <div style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-md)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', border: matchState.isPaused ? '1px solid #eab308' : '1px solid transparent' }}>
+                        <div className="referee-timer-panel" style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-md)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', border: matchState.isPaused ? '1px solid #eab308' : '1px solid transparent' }}>
                             <div style={{ color: 'var(--color-primary)', fontWeight: 700, letterSpacing: '2px', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
                                 {matchState.matchFormat === 'halves'
                                     ? `HALF ${matchState.currentHalf}`
                                     : '15 MIN MATCH • NO HALF TIME'}
                             </div>
-                            <div style={{ fontSize: '5rem', fontWeight: 800, lineHeight: 1, color: matchState.isPaused ? '#eab308' : 'white', fontFamily: 'monospace' }}>
+                            <div className="referee-timer-display" style={{ fontSize: '5rem', fontWeight: 800, lineHeight: 1, color: matchState.isPaused ? '#eab308' : 'white', fontFamily: 'monospace' }}>
                                 {formatTime(matchState.timerSeconds)}
                             </div>
 
                             {!matchState.isRunning && !matchState.isPaused && !matchState.matchEnded &&
                                 matchState.currentHalf === 1 &&
                                 matchState.timerSeconds === getMatchDurationSeconds(matchState.matchFormat) && (
-                                    <div role="group" aria-label="Match format" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                    <div className="referee-match-format-options" role="group" aria-label="Match format" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                                         {([
                                             { format: 'continuous' as const, label: '15 min • No halves' },
                                             { format: 'halves' as const, label: '20 min halves' }
@@ -1675,7 +1675,7 @@ export const MatchDayConsole = () => {
 
                             {/* Timer Controls */}
                             {!matchState.matchEnded && (
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                                <div className="referee-timer-controls" style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                                     {!matchState.isRunning || matchState.isPaused ? (
                                         <button
                                             className="btn btn-primary flex-center gap-2"
@@ -1730,10 +1730,10 @@ export const MatchDayConsole = () => {
                         </div>
 
                         {/* Score Board */}
-                        <div style={{ display: 'flex', gap: '2.5rem', justifyContent: 'center', alignItems: 'center', padding: '1rem 0' }}>
+                        <div className="referee-scoreboard" style={{ display: 'flex', gap: '2.5rem', justifyContent: 'center', alignItems: 'center', padding: '1rem 0' }}>
                             {/* Home Side */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div className="referee-score-side" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
+                                <div className="referee-score-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(Math.max(0, matchState.homeScore - 1), matchState.awayScore)}
@@ -1758,7 +1758,7 @@ export const MatchDayConsole = () => {
                                     >
                                         -
                                     </button>
-                                    <div style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
+                                    <div className="referee-score-value" style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
                                         {matchState.homeScore}
                                     </div>
                                     <button
@@ -1790,7 +1790,7 @@ export const MatchDayConsole = () => {
                                     {selectedMatch.homeTeam?.name || 'HOME'}
                                 </div>
                                 <button
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary referee-goal-action"
                                     disabled={isLockedToOtherRef || matchState.matchEnded}
                                     style={{
                                         padding: '0.5rem 1.25rem',
@@ -1810,11 +1810,11 @@ export const MatchDayConsole = () => {
                                 </button>
                             </div>
 
-                            <div style={{ fontSize: '2.5rem', color: 'var(--color-border)', fontWeight: 300, paddingBottom: '3rem' }}>-</div>
+                            <div className="referee-score-separator" style={{ fontSize: '2.5rem', color: 'var(--color-border)', fontWeight: 300, paddingBottom: '3rem' }}>-</div>
 
                             {/* Away Side */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div className="referee-score-side" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', minWidth: '140px' }}>
+                                <div className="referee-score-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                     <button
                                         type="button"
                                         onClick={() => handleUpdateScore(matchState.homeScore, Math.max(0, matchState.awayScore - 1))}
@@ -1839,7 +1839,7 @@ export const MatchDayConsole = () => {
                                     >
                                         -
                                     </button>
-                                    <div style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
+                                    <div className="referee-score-value" style={{ fontSize: '3.75rem', fontWeight: 800, lineHeight: 1, color: 'white', minWidth: '2ch', textAlign: 'center' }}>
                                         {matchState.awayScore}
                                     </div>
                                     <button
@@ -1871,7 +1871,7 @@ export const MatchDayConsole = () => {
                                     {selectedMatch.awayTeam?.name || 'AWAY'}
                                 </div>
                                 <button
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary referee-goal-action"
                                     disabled={isLockedToOtherRef || matchState.matchEnded}
                                     style={{
                                         padding: '0.5rem 1.25rem',
@@ -1938,8 +1938,8 @@ export const MatchDayConsole = () => {
                         {(() => {
                             const matchGoalEvents = goalEvents.filter(ev => ev.matchId === selectedMatch.id.toString());
                             return (
-                                <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-md)', padding: '1.25rem 1.5rem', border: '1px solid var(--color-border)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div className="referee-goal-timeline" style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-md)', padding: '1.25rem 1.5rem', border: '1px solid var(--color-border)' }}>
+                                    <div className="referee-goal-timeline-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                         <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
                                             <span>⚽</span> Match Goal Timeline ({matchGoalEvents.length})
                                         </h4>

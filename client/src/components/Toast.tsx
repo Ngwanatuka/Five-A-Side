@@ -336,24 +336,25 @@ interface ConfirmOptions {
 
 export function useConfirm() {
     const [dialog, setDialog] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null);
+    const dialogRef = useRef(dialog);
 
     const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
         return new Promise(resolve => {
-            setDialog({ ...options, resolve });
+            const nextDialog = { ...options, resolve };
+            dialogRef.current = nextDialog;
+            setDialog(nextDialog);
         });
     }, []);
 
     const handleConfirm = useCallback(() => {
-        setDialog(current => {
-            current?.resolve(true);
-            return null;
-        });
+        dialogRef.current?.resolve(true);
+        dialogRef.current = null;
+        setDialog(null);
     }, []);
     const handleCancel = useCallback(() => {
-        setDialog(current => {
-            current?.resolve(false);
-            return null;
-        });
+        dialogRef.current?.resolve(false);
+        dialogRef.current = null;
+        setDialog(null);
     }, []);
 
     const ConfirmUI = dialog ? (

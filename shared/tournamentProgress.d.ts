@@ -14,6 +14,23 @@ export type TournamentProgressTeam = {
     color: string;
     group: string;
 };
+type GroupOrderTeam = {
+    name: string;
+    group: string;
+};
+type GroupOrderMatch = {
+    id?: string;
+    stage?: string;
+    group?: string;
+    status?: string;
+    homeScore?: number | null;
+    awayScore?: number | null;
+    homeTeamKey?: string | null;
+    awayTeamKey?: string | null;
+    homePlaceholder?: string;
+    awayPlaceholder?: string;
+};
+export declare const migrateRequestedTournamentGroups: <Team extends GroupOrderTeam, Match extends GroupOrderMatch>(teams: Record<string, Team>, matches: Match[]) => boolean;
 export type GroupStanding = {
     teamKey: string;
     name: string;
@@ -33,4 +50,5 @@ export declare const getKnockoutOutcome: (match: Pick<TournamentProgressMatch, "
     winnerKey: string | null;
     loserKey: string | null;
 };
+export {};
 //# sourceMappingURL=tournamentProgress.d.ts.map

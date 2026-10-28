@@ -3,6 +3,7 @@ import prisma from '../prisma';
 import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
 import { adminUpdateCaptain } from '../services/captainService';
 import { readTournamentData, updateTournamentData, writeTournamentData } from '../services/tournamentStore';
+import { migrateRequestedTournamentGroups } from '../../../shared/tournamentProgress';
 
 export { DATA_DIR, DATA_FILE, readTournamentData, writeTournamentData } from '../services/tournamentStore';
 
@@ -463,6 +464,11 @@ export async function initDerbyTournament() {
             await writeTournamentData(currentData);
         }
 
+        if (migrateRequestedTournamentGroups(currentData.teams, currentData.matches || [])) {
+            currentData.updatedAt = new Date().toISOString();
+            await writeTournamentData(currentData);
+        }
+
         await syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []);
         console.log('Dench Derby Tournament database sync complete - all mock teams purged.');
     } catch (e) {
@@ -490,6 +496,10 @@ export const getDerbyData = async (req: Request, res: Response) => {
         }
         if (!Array.isArray(currentData.goalEvents)) {
             currentData.goalEvents = [];
+        }
+        if (migrateRequestedTournamentGroups(currentData.teams, currentData.matches)) {
+            currentData.updatedAt = new Date().toISOString();
+            await writeTournamentData(currentData);
         }
 
         // Merge DB players into currentData.players to keep squads completely unified

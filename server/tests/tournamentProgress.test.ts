@@ -2,6 +2,7 @@ import {
     calculateGroupStandings,
     getKnockoutOutcome,
     isGroupStageComplete,
+    migrateRequestedTournamentGroups,
     type TournamentProgressMatch,
     type TournamentProgressTeam
 } from '../../shared/tournamentProgress';
@@ -20,6 +21,73 @@ const groupFixtures = (overrides: Partial<{
 }));
 
 describe('Dench tournament progression', () => {
+    it('migrates saved teams and unplayed fixtures to the requested groups and order', () => {
+        const teams: Record<string, TournamentProgressTeam> = {
+            'team-dench': { name: 'Dench City FC', color: 'green', group: 'A' },
+            'cpt-superstars': { name: 'BARCODE FC', color: 'blue', group: 'A' },
+            'bras-ba-kasi': { name: 'GSW FC', color: 'orange', group: 'A' },
+            'gauteng-warriors': { name: 'Mambisa FC', color: 'purple', group: 'B' },
+            'woza-madzala': { name: 'Ayoba fc', color: 'red', group: 'B' },
+            'areyeng-fc': { name: 'Areyeng fc', color: 'cyan', group: 'B' }
+        };
+        const matches: TournamentProgressMatch[] = [
+            { id: 'ga-m1', stage: 'group', group: 'A', homeScore: null, awayScore: null },
+            { id: 'ga-m2', stage: 'group', group: 'A', homeScore: null, awayScore: null },
+            { id: 'ga-m3', stage: 'group', group: 'A', homeScore: null, awayScore: null },
+            { id: 'gb-m1', stage: 'group', group: 'B', homeScore: null, awayScore: null },
+            { id: 'gb-m2', stage: 'group', group: 'B', homeScore: null, awayScore: null },
+            { id: 'gb-m3', stage: 'group', group: 'B', homeScore: null, awayScore: null }
+        ];
+
+        expect(migrateRequestedTournamentGroups(teams, matches)).toBe(true);
+        expect(Object.values(teams).map(team => `${team.name} (${team.group})`)).toEqual([
+            'Dench City FC (A)',
+            'Ayoba FC (A)',
+            'Areyeng FC (A)',
+            'GSW FC (B)',
+            'Mambisa FC (B)',
+            'Barcode FC (B)'
+        ]);
+        expect(matches.map(match => [match.homeTeamKey, match.awayTeamKey])).toEqual([
+            ['team-dench', 'woza-madzala'],
+            ['woza-madzala', 'areyeng-fc'],
+            ['areyeng-fc', 'team-dench'],
+            ['bras-ba-kasi', 'gauteng-warriors'],
+            ['gauteng-warriors', 'cpt-superstars'],
+            ['cpt-superstars', 'bras-ba-kasi']
+        ]);
+        expect(migrateRequestedTournamentGroups(teams, matches)).toBe(false);
+    });
+
+    it('preserves scored fixtures while migrating saved team groups', () => {
+        const teams: Record<string, TournamentProgressTeam> = {
+            'team-dench': { name: 'Dench City FC', color: 'green', group: 'A' },
+            'cpt-superstars': { name: 'Barcode FC', color: 'blue', group: 'A' },
+            'bras-ba-kasi': { name: 'GSW FC', color: 'orange', group: 'A' },
+            'gauteng-warriors': { name: 'Mambisa FC', color: 'purple', group: 'B' },
+            'woza-madzala': { name: 'Ayoba FC', color: 'red', group: 'B' },
+            'areyeng-fc': { name: 'Areyeng FC', color: 'cyan', group: 'B' }
+        };
+        const matches = [{
+            id: 'ga-m1',
+            stage: 'group',
+            group: 'A',
+            homeTeamKey: 'team-dench',
+            awayTeamKey: 'cpt-superstars',
+            homeScore: 2,
+            awayScore: 1
+        }];
+
+        expect(migrateRequestedTournamentGroups(teams, matches)).toBe(true);
+        expect(matches[0]).toMatchObject({
+            homeTeamKey: 'team-dench',
+            awayTeamKey: 'cpt-superstars',
+            homeScore: 2,
+            awayScore: 1
+        });
+        expect(teams['cpt-superstars']?.group).toBe('B');
+    });
+
     it('does not complete group stage until every scheduled group fixture has a completed score', () => {
         expect(isGroupStageComplete(groupFixtures(), 'A')).toBe(true);
         expect(isGroupStageComplete(groupFixtures().slice(0, 2), 'A')).toBe(false);

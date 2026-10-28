@@ -60,6 +60,78 @@ export interface PublicCaptain {
     group?: string;
 }
 
+export const MOCK_CAPTAIN_NAMES = new Set([
+    'bafana sithole',
+    'mo hendricks',
+    'thabo dlamini',
+    'sipho zulu',
+    'mandla nkosi',
+    'kagiso molefe'
+]);
+
+export const isMockCaptain = (name?: string | null): boolean => {
+    if (!name) return false;
+    const clean = name.toLowerCase().trim();
+    if (MOCK_CAPTAIN_NAMES.has(clean)) return true;
+    return clean === 'bafana' || clean === 'mo' || clean === 'hendricks' || clean === 'sithole';
+};
+
+export const cleanseLegacyMockData = (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+        const rawPlayers = localStorage.getItem('dench_derby_players_v4');
+        if (rawPlayers) {
+            const parsed = JSON.parse(rawPlayers);
+            if (Array.isArray(parsed)) {
+                const cleaned = parsed.filter(p =>
+                    !isMockCaptain(p?.name) &&
+                    !p?.id?.startsWith('p-dench-') &&
+                    !p?.id?.startsWith('p-cpt-') &&
+                    !p?.id?.startsWith('p-bras-') &&
+                    !p?.id?.startsWith('p-gaut-') &&
+                    !p?.id?.startsWith('p-woza-') &&
+                    !p?.id?.startsWith('p-arey-')
+                );
+                if (cleaned.length !== parsed.length) {
+                    localStorage.setItem('dench_derby_players_v4', JSON.stringify(cleaned));
+                }
+            }
+        }
+        const rawTeams = localStorage.getItem('dench_derby_teams_v4');
+        if (rawTeams) {
+            const parsed = JSON.parse(rawTeams);
+            let changed = false;
+            Object.keys(parsed).forEach(k => {
+                if (parsed[k]?.captain) {
+                    delete parsed[k].captain;
+                    changed = true;
+                }
+                if (parsed[k]?.captainName) {
+                    if (isMockCaptain(parsed[k].captainName)) {
+                        delete parsed[k].captainName;
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) {
+                localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
+            }
+        }
+        const storedCapName = localStorage.getItem('captain_name');
+        if (storedCapName && isMockCaptain(storedCapName)) {
+            localStorage.removeItem('captain_name');
+        }
+        localStorage.removeItem('captains');
+        localStorage.removeItem('captains_list');
+        localStorage.removeItem('dench_derby_captains');
+    } catch {}
+};
+
+// Immediately execute cleansing on client import
+if (typeof window !== 'undefined') {
+    cleanseLegacyMockData();
+}
+
 export const DEFAULT_CAPTAINS: PublicCaptain[] = [
     { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: '', pin: '1111', group: 'A' },
     { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: '', pin: '2222', group: 'A' },
@@ -71,6 +143,7 @@ export const DEFAULT_CAPTAINS: PublicCaptain[] = [
 
 export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
     try {
+        cleanseLegacyMockData();
         const storedTeamsRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_teams_v4') : null;
         const storedTeams = storedTeamsRaw ? JSON.parse(storedTeamsRaw) : {};
         const playersRaw = typeof window !== 'undefined' ? localStorage.getItem('dench_derby_players_v4') : null;
@@ -78,7 +151,11 @@ export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {
             playersRaw ? JSON.parse(playersRaw) : [];
 
         const getRosterCaptainName = (teamKey: string): string => {
-            return rosterPlayers.find(p => p.teamKey === teamKey && p.isCaptain === true)?.name?.trim() || '';
+            const player = rosterPlayers.find(p => p.teamKey === teamKey && p.isCaptain === true);
+            if (player?.name && !isMockCaptain(player.name)) {
+                return player.name.trim();
+            }
+            return '';
         };
 
         const list = DEFAULT_CAPTAINS.map(def => ({
@@ -133,7 +210,10 @@ export const getPublicCaptains = async (): Promise<PublicCaptain[]> => {
         if (response.ok) {
             const data = await response.json();
             if (Array.isArray(data) && data.length > 0) {
-                return data;
+                return data.map((c: any) => ({
+                    ...c,
+                    captainName: isMockCaptain(c.captainName) ? '' : (c.captainName || '')
+                }));
             }
         }
     } catch (err) {

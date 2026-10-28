@@ -11,6 +11,7 @@ export declare const captainLogin: (req: Request, res: Response) => Promise<void
 /**
  * Public listing of team captains (without PINs)
  * Sourced dynamically and generically from whoever is currently designated as Captain (isCaptain: true) in each team's squad roster.
+ * If no player is assigned as captain or the squad is empty, captainName is empty.
  */
 export declare const getCaptainsList: (_req: Request, res: Response) => Promise<void>;
 /**

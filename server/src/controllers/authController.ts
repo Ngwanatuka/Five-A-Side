@@ -108,7 +108,7 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
             console.warn('Notice reading derby-tournament.json during captain login:', jsonErr);
         }
 
-        const captainDisplayName = effectiveCaptainName || captain.captainName || 'Team Captain';
+        const captainDisplayName = effectiveCaptainName || 'Team Captain';
 
         const token = jwt.sign(
             {
@@ -143,35 +143,64 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 /**
  * Public listing of team captains (without PINs)
  * Sourced dynamically and generically from whoever is currently designated as Captain (isCaptain: true) in each team's squad roster.
+ * If no player is assigned as captain or the squad is empty, captainName is empty.
  */
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
-        const list = getPublicCaptains();
-        const captainNamesByTeam = new Map<string, string>();
+        const path = require('path');
+        const fs = require('fs');
+        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
 
-        // Read derby-tournament.json to find the isCaptain player for each team
-        try {
-            const path = require('path');
-            const fs = require('fs');
-            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-            if (fs.existsSync(dataFile)) {
+        let tournamentTeams: Record<string, any> = {};
+        let tournamentPlayers: any[] = [];
+
+        if (fs.existsSync(dataFile)) {
+            try {
                 const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const filePlayers: any[] = Array.isArray(derby.players) ? derby.players : [];
-
-                filePlayers.forEach((p) => {
-                    if (p?.teamKey && p?.name) {
-                        if (p.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
-                            captainNamesByTeam.set(p.teamKey, p.name.trim());
-                        }
-                    }
-                });
+                if (derby.teams) tournamentTeams = derby.teams;
+                if (Array.isArray(derby.players)) tournamentPlayers = derby.players;
+            } catch (fileErr) {
+                console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
             }
-        } catch (fileErr) {
-            console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
         }
 
-        list.forEach((entry) => {
-            entry.captainName = captainNamesByTeam.get(entry.teamKey) || '';
+        const configCaptains = getPublicCaptains();
+        const configMap = new Map(configCaptains.map((c: any) => [c.teamKey, c]));
+
+        // Read squad roster to find designated captains and player counts
+        const captainNamesByTeam = new Map<string, string>();
+        const squadCountByTeam = new Map<string, number>();
+
+        tournamentPlayers.forEach((p: any) => {
+            if (p?.teamKey && p?.name) {
+                const cleanName = p.name.trim();
+                squadCountByTeam.set(p.teamKey, (squadCountByTeam.get(p.teamKey) || 0) + 1);
+                if (p.isCaptain === true && !captainNamesByTeam.has(p.teamKey)) {
+                    captainNamesByTeam.set(p.teamKey, cleanName);
+                }
+            }
+        });
+
+        // Determine team keys in tournament order
+        const teamKeys = Object.keys(tournamentTeams).length > 0
+            ? Object.keys(tournamentTeams)
+            : ['team-dench', 'cpt-superstars', 'bras-ba-kasi', 'gauteng-warriors', 'woza-madzala', 'areyeng-fc'];
+
+        const list = teamKeys.map(teamKey => {
+            const conf = configMap.get(teamKey);
+            const team = tournamentTeams[teamKey];
+            const squadCount = squadCountByTeam.get(teamKey) || 0;
+            const captainName = captainNamesByTeam.get(teamKey) || '';
+
+            return {
+                teamKey,
+                teamName: team?.name || conf?.teamName || teamKey,
+                captainName,
+                hasCaptain: Boolean(captainName),
+                squadCount,
+                email: conf?.email || `${teamKey}@5aside.com`,
+                group: team?.group || conf?.group || 'A'
+            };
         });
 
         res.json(list);
@@ -199,6 +228,30 @@ export const getDeadline = async (_req: Request, res: Response): Promise<void> =
 export const getAdminCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
         const data = getAdminCaptains();
+        const path = require('path');
+        const fs = require('fs');
+        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
+
+        if (fs.existsSync(dataFile)) {
+            try {
+                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                const filePlayers: any[] = Array.isArray(derby.players) ? derby.players : [];
+                const captainByTeam = new Map<string, string>();
+                filePlayers.forEach((p: any) => {
+                    if (p?.teamKey && p?.name && p.isCaptain === true && !captainByTeam.has(p.teamKey)) {
+                        captainByTeam.set(p.teamKey, p.name.trim());
+                    }
+                });
+                data.captains.forEach((entry: any) => {
+                    entry.captainName = captainByTeam.get(entry.teamKey) || '';
+                    if (derby.teams?.[entry.teamKey]?.name) {
+                        entry.teamName = derby.teams[entry.teamKey].name;
+                    }
+                });
+            } catch (err) {
+                console.warn('Notice reading derby data in getAdminCaptainsList:', err);
+            }
+        }
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve admin captains' });

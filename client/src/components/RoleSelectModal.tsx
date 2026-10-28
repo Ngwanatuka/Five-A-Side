@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { getPublicCaptains, getStoredOrFallbackCaptains, DEFAULT_CAPTAINS, API_BASE_URL, getBackendUrl } from '../services/api';
+import { getPublicCaptains, getStoredOrFallbackCaptains, DEFAULT_CAPTAINS, API_BASE_URL, getBackendUrl, cleanseLegacyMockData } from '../services/api';
 import { io } from 'socket.io-client';
 import {
     ChevronRight,
@@ -27,8 +27,11 @@ export const RoleSelectModal: React.FC = () => {
     // Active sub-view inside the modal: 'choose' | 'captain' | 'referee' | 'admin'
     const [view, setView] = useState<'choose' | 'captain' | 'referee' | 'admin'>('choose');
 
-    // Captain selection state - initialized with stored/fallback teams so dropdown is NEVER empty
-    const [captainsList, setCaptainsList] = useState<any[]>(() => getStoredOrFallbackCaptains());
+    // Captain selection state - cleansed on initialize
+    const [captainsList, setCaptainsList] = useState<any[]>(() => {
+        cleanseLegacyMockData();
+        return getStoredOrFallbackCaptains();
+    });
     const [selectedTeamKey, setSelectedTeamKey] = useState<string>('team-dench');
     const [captainPin, setCaptainPin] = useState<string>('1111');
     const [captainError, setCaptainError] = useState<string | null>(null);
@@ -42,36 +45,9 @@ export const RoleSelectModal: React.FC = () => {
 
     useEffect(() => {
         if (isRoleModalOpen) {
+            cleanseLegacyMockData();
             const originalOverflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
-
-            // Cleanse any legacy cached mock captain names in localStorage
-            try {
-                const MOCK_NAMES = new Set(['bafana sithole', 'mo hendricks', 'thabo dlamini', 'sipho zulu', 'mandla nkosi', 'kagiso molefe']);
-                const rawPlayers = localStorage.getItem('dench_derby_players_v4');
-                if (rawPlayers) {
-                    const parsedP = JSON.parse(rawPlayers);
-                    if (Array.isArray(parsedP) && parsedP.some(p => p?.name && MOCK_NAMES.has(p.name.toLowerCase().trim()))) {
-                        localStorage.removeItem('dench_derby_players_v4');
-                    }
-                }
-                const rawTeams = localStorage.getItem('dench_derby_teams_v4');
-                if (rawTeams) {
-                    const parsed = JSON.parse(rawTeams);
-                    let changed = false;
-                    Object.keys(parsed).forEach(k => {
-                        if (parsed[k]?.captain) {
-                            delete parsed[k].captain;
-                            changed = true;
-                        }
-                        if (parsed[k]?.captainName && MOCK_NAMES.has(parsed[k].captainName.toLowerCase().trim())) {
-                            delete parsed[k].captainName;
-                            changed = true;
-                        }
-                    });
-                    if (changed) localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
-                }
-            } catch {}
 
             const fetchCaptains = () => {
                 getPublicCaptains()
@@ -103,13 +79,7 @@ export const RoleSelectModal: React.FC = () => {
                 document.body.style.overflow = originalOverflow;
             };
         }
-    }, [isRoleModalOpen]);
-
-    useEffect(() => {
-        if (view === 'captain' && (!captainsList || captainsList.length === 0)) {
-            setCaptainsList(getStoredOrFallbackCaptains());
-        }
-    }, [view, captainsList]);
+    }, [isRoleModalOpen, view]);
 
     if (!isRoleModalOpen) return null;
 
@@ -721,9 +691,9 @@ export const RoleSelectModal: React.FC = () => {
                                             }}
                                         >
                                             {displayList.map(c => {
-                                                const captainDisplay = c.captainName
-                                                    ? `(Captain: ${c.captainName})`
-                                                    : '(No Captain Assigned)';
+                                                const captainDisplay = (c.captainName && c.captainName.trim().length > 0)
+                                                    ? `(Captain: ${c.captainName.trim()})`
+                                                    : '(No player selected)';
                                                 return (
                                                     <option key={c.teamKey} value={c.teamKey} style={{ backgroundColor: '#161b22', color: 'white' }}>
                                                         {c.teamName} {captainDisplay}

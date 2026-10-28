@@ -593,8 +593,16 @@
       "jerseyNumber": 8,
       "position": "FWD",
       "isCaptain": false
+    },
+    {
+      "id": "p-390001",
+      "teamKey": "team-dench",
+      "name": "Kagiso Sithole",
+      "jerseyNumber": 8,
+      "position": "MID",
+      "isCaptain": false
     }
   ],
   "goalEvents": [],
-  "updatedAt": "2026-10-27T19:27:10.863Z"
+  "updatedAt": "2026-10-28T08:34:18.775Z"
 }

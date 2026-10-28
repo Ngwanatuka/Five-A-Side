@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTeams = exports.approveRegistration = exports.registerTeam = exports.createTeam = void 0;
 const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
+const tournamentStore_1 = require("../services/tournamentStore");
 const createTeamSchema = zod_1.z.object({
     name: zod_1.z.string().min(1, 'Team name is required'),
     logoUrl: zod_1.z.string().url().optional(),
@@ -155,41 +156,37 @@ const getTeams = async (req, res) => {
                 players: true
             }
         });
-        // Enrich tournament teams with squad players from derby-tournament.json
+        // Enrich tournament teams with squad players from persistent tournament state
         try {
-            const path = require('path');
-            const fs = require('fs');
-            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-            if (fs.existsSync(dataFile)) {
-                const derbyData = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                if (Array.isArray(derbyData.players)) {
-                    teams.forEach((t) => {
-                        if (t.managerContact && t.managerContact.endsWith('@tournament.local')) {
-                            const teamKey = t.managerContact.replace('@tournament.local', '');
-                            const teamPlayers = derbyData.players.filter((p) => p.teamKey === teamKey);
-                            if (teamPlayers.length > 0) {
-                                teamPlayers.forEach((tp) => {
-                                    const exists = (t.players || []).some((p) => `${p.firstName} ${p.lastName === '-' ? '' : p.lastName}`.trim().toLowerCase() === tp.name.trim().toLowerCase());
-                                    if (!exists) {
-                                        const parts = tp.name.trim().split(' ');
-                                        t.players.push({
-                                            id: tp.id,
-                                            teamId: t.id,
-                                            firstName: parts[0] || tp.name,
-                                            lastName: parts.slice(1).join(' ') || '-',
-                                            isCaptain: tp.isCaptain === true,
-                                            createdAt: new Date().toISOString(),
-                                            updatedAt: new Date().toISOString()
-                                        });
-                                    }
+            const derbyData = await (0, tournamentStore_1.readTournamentData)();
+            if (derbyData && Array.isArray(derbyData.players)) {
+                teams.forEach((t) => {
+                    if (t.managerContact && t.managerContact.endsWith('@tournament.local')) {
+                        const teamKey = t.managerContact.replace('@tournament.local', '');
+                        const teamPlayers = derbyData.players.filter((p) => p.teamKey === teamKey);
+                        teamPlayers.forEach((tp) => {
+                            const exists = (t.players || []).some((p) => `${p.firstName} ${p.lastName === '-' ? '' : p.lastName}`.trim().toLowerCase() === tp.name.trim().toLowerCase());
+                            if (!exists) {
+                                const parts = tp.name.trim().split(' ');
+                                t.players.push({
+                                    id: tp.id,
+                                    teamId: t.id,
+                                    firstName: parts[0] || tp.name,
+                                    lastName: parts.slice(1).join(' ') || '-',
+                                    isCaptain: tp.isCaptain === true,
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString()
                                 });
                             }
-                        }
-                    });
-                }
+                        });
+                    }
+                });
             }
         }
-        catch { }
+        catch (error) {
+            console.error('Failed to enrich tournament teams from persistent tournament state:', error);
+            throw error;
+        }
         res.status(200).json(teams);
     }
     catch (error) {

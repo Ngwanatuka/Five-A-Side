@@ -67,9 +67,20 @@ The platform enforces strict rules on match day and during registration:
 
 ## Tournament data persistence
 
-The Dench Derby tournament currently stores its shared tournament state in a JSON file. The default file is `server/data/derby-tournament.json`. In production, set `TOURNAMENT_DATA_FILE` to a path on persistent, writable storage mounted for the server; container-local filesystems may be erased on restart or redeployment. The server replaces the file atomically for each update, but atomic writes do not make an ephemeral filesystem persistent or coordinate multiple server instances.
+The Dench Derby tournament's authoritative state is stored in the MySQL `TournamentState` row. The server also maintains `server/data/derby-tournament.json` as a local mirror and as a one-time bootstrap source when the database row does not yet exist. The JSON file is not the production source of truth and does not need a persistent Render disk.
 
-Before the tournament, back up the configured data file and verify that a result remains available after restarting the server. If multiple server instances are used, use a shared database-backed store instead of the JSON file.
+### Production rollout
+
+1. Before changing the live service, export and retain a backup of the current `GET /api/derby` response. This includes team edits, squads, match results, goal events, and referee assignments.
+2. Back up the MySQL database using the provider's normal backup/export facility.
+3. Generate the Prisma client and apply the additive schema change to the existing MySQL database with `cd server && npx prisma db push`. Do this against the intended database only after confirming the backup is usable.
+4. If the `TournamentState` row is empty, import the verified API snapshot **before deploying the new server**. Save the response to a temporary JSON file and run `cd server && npm run import:tournament -- /path/to/verified-derby-snapshot.json` with the production `DATABASE_URL` supplied through the deployment environment. The importer refuses to overwrite an existing row.
+5. Deploy the server and verify `GET /api/derby` matches the exported snapshot. Do not use the checked-in JSON to replace an existing database row.
+6. In a controlled maintenance window, record a harmless test change, read it back, restart/redeploy the service, and verify it remains. Revert the test change after verification.
+
+If MySQL is unavailable or the schema has not been applied, startup fails instead of serving tournament data from a temporary filesystem. Keep the pre-migration API export and database backup until read-after-restart verification is complete.
+
+Captain PIN/email and roster-deadline configuration is still stored separately in `server/data/captains.json`; changes to that configuration are not covered by the tournament-state migration and may be lost on a Render restart or redeploy.
 
 ---
 *Property of MoSoft Solutions. All rights reserved.*

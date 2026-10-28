@@ -12,6 +12,7 @@ import {
 } from '../services/captainService';
 
 import { SOLE_ADMIN_EMAIL, isAuthorizedAdminEmail } from '../middleware/auth';
+import { readTournamentData } from '../services/tournamentStore';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
@@ -93,19 +94,12 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
 
         // Resolve actual roster captain name dynamically
         let effectiveCaptainName = '';
-        try {
-            const path = require('path');
-            const fs = require('fs');
-            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-            if (fs.existsSync(dataFile)) {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const fileCap = (derby.players || []).find((p: any) => p.teamKey === teamKey && p.isCaptain === true);
-                if (fileCap?.name) {
-                    effectiveCaptainName = fileCap.name.trim();
-                }
+        const derby: any = await readTournamentData();
+        if (derby) {
+            const fileCap = (derby.players || []).find((p: any) => p.teamKey === teamKey && p.isCaptain === true);
+            if (fileCap?.name) {
+                effectiveCaptainName = fileCap.name.trim();
             }
-        } catch (jsonErr) {
-            console.warn('Notice reading derby-tournament.json during captain login:', jsonErr);
         }
 
         const captainDisplayName = effectiveCaptainName || 'Team Captain';
@@ -147,21 +141,13 @@ export const captainLogin = async (req: Request, res: Response): Promise<void> =
  */
 export const getCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
-        const path = require('path');
-        const fs = require('fs');
-        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-
         let tournamentTeams: Record<string, any> = {};
         let tournamentPlayers: any[] = [];
 
-        if (fs.existsSync(dataFile)) {
-            try {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                if (derby.teams) tournamentTeams = derby.teams;
-                if (Array.isArray(derby.players)) tournamentPlayers = derby.players;
-            } catch (fileErr) {
-                console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
-            }
+        const derby: any = await readTournamentData();
+        if (derby) {
+            if (derby.teams) tournamentTeams = derby.teams;
+            if (Array.isArray(derby.players)) tournamentPlayers = derby.players;
         }
 
         const configCaptains = getPublicCaptains();
@@ -228,13 +214,8 @@ export const getDeadline = async (_req: Request, res: Response): Promise<void> =
 export const getAdminCaptainsList = async (_req: Request, res: Response): Promise<void> => {
     try {
         const data = getAdminCaptains();
-        const path = require('path');
-        const fs = require('fs');
-        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-
-        if (fs.existsSync(dataFile)) {
-            try {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+        const derby: any = await readTournamentData();
+        if (derby) {
                 const filePlayers: any[] = Array.isArray(derby.players) ? derby.players : [];
                 const captainByTeam = new Map<string, string>();
                 filePlayers.forEach((p: any) => {
@@ -248,9 +229,6 @@ export const getAdminCaptainsList = async (_req: Request, res: Response): Promis
                         entry.teamName = derby.teams[entry.teamKey].name;
                     }
                 });
-            } catch (err) {
-                console.warn('Notice reading derby data in getAdminCaptainsList:', err);
-            }
         }
         res.json(data);
     } catch (error) {

@@ -179,3 +179,9 @@ model MatchRoster {
 
   @@unique([matchId, playerId]) // A player can only be on a roster once per match
 }
+
+model TournamentState {
+  id        String   @id @default("dench-derby")
+  payload   Json
+  updatedAt DateTime @updatedAt
+}

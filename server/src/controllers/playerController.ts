@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
-import { DATA_FILE, writeTournamentData } from './derbyController';
+import { readTournamentData, writeTournamentData } from '../services/tournamentStore';
 import { adminUpdateCaptain } from '../services/captainService';
 
 const addPlayerSchema = z.object({
@@ -75,14 +74,14 @@ export const addPlayerToTeam = async (req: any, res: Response): Promise<void> =>
             include: { team: true }
         });
 
-        // Also sync into derby-tournament.json if this team belongs to the tournament
+        // Also sync into persistent tournament state if this team belongs to the tournament
         const io = req.app.get('io');
         try {
             if (team.managerContact && team.managerContact.endsWith('@tournament.local')) {
                 const teamKey = team.managerContact.replace('@tournament.local', '');
-                if (fs.existsSync(DATA_FILE)) {
-                    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-                    const derbyData = JSON.parse(raw);
+                {
+                    const derbyData: any = await readTournamentData();
+                    if (derbyData) {
                     if (!derbyData.players) derbyData.players = [];
 
                     const fullName = `${newPlayer.firstName} ${newPlayer.lastName}`.trim();
@@ -98,15 +97,17 @@ export const addPlayerToTeam = async (req: any, res: Response): Promise<void> =>
                     });
 
                     derbyData.updatedAt = new Date().toISOString();
-                    writeTournamentData(derbyData);
+                    await writeTournamentData(derbyData);
 
                     if (io) {
                         io.emit('derbyUpdate', derbyData);
+                        }
                     }
                 }
             }
         } catch (derbyPlayerSyncErr) {
             console.error('Notice syncing player to derby file:', derbyPlayerSyncErr);
+            throw derbyPlayerSyncErr;
         }
 
         if (io) {
@@ -135,9 +136,13 @@ export const getPlayers = async (req: Request, res: Response): Promise<void> => 
         });
 
         let allPlayers = [...dbPlayers];
-        if (fs.existsSync(DATA_FILE)) {
+        {
             try {
-                const derbyData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+                const derbyData: any = await readTournamentData();
+                if (!derbyData) {
+                    res.status(503).json({ error: 'Tournament state is unavailable' });
+                    return;
+                }
                 if (Array.isArray(derbyData.players)) {
                     const dbTeams = await prisma.team.findMany();
                     const teamKeyToId: Record<string, any> = {};
@@ -174,6 +179,7 @@ export const getPlayers = async (req: Request, res: Response): Promise<void> => 
                 }
             } catch (err) {
                 console.error('Notice merging derby players in getPlayers:', err);
+                throw err;
             }
         }
 
@@ -301,11 +307,12 @@ export const deletePlayer = async (req: any, res: Response): Promise<void> => {
             await prisma.player.delete({ where: { id: dbPlayer.id } }).catch(() => {});
         }
 
-        // 2. Remove player from derby-tournament.json file
+        // 2. Remove player from persistent tournament state
         let derbyData: any = null;
-        if (fs.existsSync(DATA_FILE)) {
+        {
             try {
-                derbyData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+                derbyData = await readTournamentData();
+                if (derbyData) {
                 if (Array.isArray(derbyData.players)) {
                     derbyData.players = derbyData.players.filter((p: any) => {
                         if (!p) return false;
@@ -329,10 +336,12 @@ export const deletePlayer = async (req: any, res: Response): Promise<void> => {
                     }
 
                     derbyData.updatedAt = new Date().toISOString();
-                    writeTournamentData(derbyData);
+                    await writeTournamentData(derbyData);
+                }
                 }
             } catch (err) {
                 console.error('Notice updating derby file on player delete:', err);
+                throw err;
             }
         }
 
@@ -383,12 +392,10 @@ export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void>
             numericId = parseInt(rawId.replace(/^p-/, ''), 10);
         }
 
-        const dataFile = DATA_FILE;
-
-        // 1. Sync to derby tournament json file as primary real-time source
+        // 1. Sync to the primary persistent tournament state
         try {
-            if (fs.existsSync(dataFile)) {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+            const derby: any = await readTournamentData();
+            if (derby) {
                 if (Array.isArray(derby.players)) {
                     // If target info wasn't in body, search in JSON
                     if (!tournamentTeamKey || !playerName) {
@@ -442,12 +449,13 @@ export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void>
                         }
 
                         derby.updatedAt = new Date().toISOString();
-                        fs.writeFileSync(dataFile, JSON.stringify(derby, null, 2), 'utf-8');
+                        await writeTournamentData(derby);
                     }
                 }
             }
         } catch (jsonErr) {
             console.error('Notice updating captain in derby JSON:', jsonErr);
+            throw jsonErr;
         }
 
         // 2. Also update captains.json so login dropdown immediately reflects the designated captain
@@ -513,4 +521,3 @@ export const setPlayerAsCaptain = async (req: any, res: Response): Promise<void>
         res.status(500).json({ error: 'Internal server error while setting captain' });
     }
 };
-

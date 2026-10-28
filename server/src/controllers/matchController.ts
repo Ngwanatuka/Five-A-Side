@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
 import { z } from 'zod';
 import prisma from '../prisma';
-import { DATA_FILE, writeTournamentData } from './derbyController';
+import { readTournamentData, updateTournamentData } from '../services/tournamentStore';
 
 const updateScoreSchema = z.object({
     homeScore: z.number().int().nonnegative().nullable(),
@@ -124,89 +123,104 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // 1. If matchId is NaN or tournament string ID, handle directly in derby tournament file
+        // 1. If matchId is NaN or a tournament string ID, update persistent tournament state
         if (isNaN(matchId)) {
-            if (fs.existsSync(DATA_FILE)) {
-                const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-                const derbyData = JSON.parse(raw);
-                if (derbyData.matches && Array.isArray(derbyData.matches)) {
-                    const matchIndex = derbyData.matches.findIndex((m: any) => m.id === rawId);
-                    if (matchIndex !== -1) {
-                        const tm = derbyData.matches[matchIndex];
-                        if (tieBreakWinnerKey !== undefined) {
-                            const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
-                            const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
-                            const isParticipant = tieBreakWinnerKey === tm.homeTeamKey || tieBreakWinnerKey === tm.awayTeamKey;
-                            if (tieBreakWinnerKey !== null && (!isKnockout || !hasTiedScore || status?.toLowerCase() !== 'completed' || !isParticipant)) {
-                                res.status(400).json({ error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.' });
-                                return;
-                            }
-                            tm.tieBreakWinnerKey = tieBreakWinnerKey;
-                        } else if (status?.toLowerCase() !== 'completed' || homeScore !== awayScore) {
-                            tm.tieBreakWinnerKey = null;
-                        }
-                        tm.homeScore = homeScore;
-                        tm.awayScore = awayScore;
-                        if (status) {
-                            tm.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
-                        }
-                        if (goalEvents) {
-                            const existingGoalEvents = Array.isArray(derbyData.goalEvents) ? derbyData.goalEvents : [];
-                            derbyData.goalEvents = [
-                                ...existingGoalEvents.filter((event: any) => event.matchId !== rawId),
-                                ...goalEvents
-                            ];
-                        }
-                        derbyData.updatedAt = new Date().toISOString();
-                        writeTournamentData(derbyData);
-                        try {
-                            await syncTournamentScoreToDatabase(
-                                tm.homeTeamKey,
-                                tm.awayTeamKey,
-                                homeScore,
-                                awayScore,
-                                status
-                            );
-                        } catch (dbErr) {
-                            console.error('Notice syncing tournament match score to database:', dbErr);
-                        }
-
-                        const derbyTeams = derbyData.teams || {};
-                        const homeName = tm.homeTeamKey && derbyTeams[tm.homeTeamKey]?.name
-                            ? derbyTeams[tm.homeTeamKey].name
-                            : (tm.homePlaceholder || 'TBD');
-                        const awayName = tm.awayTeamKey && derbyTeams[tm.awayTeamKey]?.name
-                            ? derbyTeams[tm.awayTeamKey].name
-                            : (tm.awayPlaceholder || 'TBD');
-
-                        const resultMatch = {
-                            id: tm.id,
-                            seasonId: 1,
-                            divisionId: 1,
-                            pitchNumber: tm.pitch || 1,
-                            time: tm.time || '18:30',
-                            homeScore: tm.homeScore,
-                            awayScore: tm.awayScore,
-                            tieBreakWinnerKey: tm.tieBreakWinnerKey || null,
-                            status: (tm.status || 'scheduled').toUpperCase(),
-                            stage: tm.stage,
-                            group: tm.group,
-                            homeTeam: { id: tm.homeTeamKey || tm.id, name: homeName },
-                            awayTeam: { id: tm.awayTeamKey || tm.id, name: awayName }
-                        };
-
-                        const io = req.app.get('io');
-                        if (io) {
-                            io.emit('derbyUpdate', derbyData);
-                            io.emit('scoreUpdate', resultMatch);
-                        }
-
-                        res.status(200).json(resultMatch);
+            let matchNotFound = false;
+            let invalidTieBreakWinner = false;
+            const derbyData = await updateTournamentData<any>((data) => {
+                if (!Array.isArray(data.matches)) {
+                    matchNotFound = true;
+                    return;
+                }
+                const matchIndex = data.matches.findIndex((match: any) => match.id === rawId);
+                if (matchIndex === -1) {
+                    matchNotFound = true;
+                    return;
+                }
+                const tm = data.matches[matchIndex];
+                if (tieBreakWinnerKey !== undefined) {
+                    const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
+                    const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
+                    const isParticipant = tieBreakWinnerKey === tm.homeTeamKey || tieBreakWinnerKey === tm.awayTeamKey;
+                    if (tieBreakWinnerKey !== null && (!isKnockout || !hasTiedScore || status?.toLowerCase() !== 'completed' || !isParticipant)) {
+                        invalidTieBreakWinner = true;
                         return;
                     }
+                    tm.tieBreakWinnerKey = tieBreakWinnerKey;
+                } else if (status?.toLowerCase() !== 'completed' || homeScore !== awayScore) {
+                    tm.tieBreakWinnerKey = null;
                 }
+                tm.homeScore = homeScore;
+                tm.awayScore = awayScore;
+                if (status) {
+                    tm.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
+                }
+                if (goalEvents) {
+                    const existingGoalEvents = Array.isArray(data.goalEvents) ? data.goalEvents : [];
+                    data.goalEvents = [
+                        ...existingGoalEvents.filter((event: any) => event.matchId !== rawId),
+                        ...goalEvents
+                    ];
+                }
+                data.updatedAt = new Date().toISOString();
+            });
+
+            if (matchNotFound) {
+                res.status(404).json({ error: 'Tournament match not found' });
+                return;
             }
-            res.status(404).json({ error: 'Tournament match not found' });
+            if (invalidTieBreakWinner) {
+                res.status(400).json({ error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.' });
+                return;
+            }
+            const tm = derbyData.matches.find((match: any) => match.id === rawId);
+            if (!tm) {
+                res.status(404).json({ error: 'Tournament match not found' });
+                return;
+            }
+            try {
+                await syncTournamentScoreToDatabase(
+                    tm.homeTeamKey,
+                    tm.awayTeamKey,
+                    homeScore,
+                    awayScore,
+                    status
+                );
+            } catch (dbErr) {
+                console.error('Notice syncing tournament match score to database:', dbErr);
+            }
+
+            const derbyTeams = derbyData.teams || {};
+            const homeName = tm.homeTeamKey && derbyTeams[tm.homeTeamKey]?.name
+                ? derbyTeams[tm.homeTeamKey].name
+                : (tm.homePlaceholder || 'TBD');
+            const awayName = tm.awayTeamKey && derbyTeams[tm.awayTeamKey]?.name
+                ? derbyTeams[tm.awayTeamKey].name
+                : (tm.awayPlaceholder || 'TBD');
+
+            const resultMatch = {
+                id: tm.id,
+                seasonId: 1,
+                divisionId: 1,
+                pitchNumber: tm.pitch || 1,
+                time: tm.time || '18:30',
+                homeScore: tm.homeScore,
+                awayScore: tm.awayScore,
+                tieBreakWinnerKey: tm.tieBreakWinnerKey || null,
+                status: (tm.status || 'scheduled').toUpperCase(),
+                stage: tm.stage,
+                group: tm.group,
+                homeTeam: { id: tm.homeTeamKey || tm.id, name: homeName },
+                awayTeam: { id: tm.awayTeamKey || tm.id, name: awayName }
+            };
+
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('derbyUpdate', derbyData);
+                io.emit('scoreUpdate', resultMatch);
+            }
+
+            res.status(200).json(resultMatch);
             return;
         }
         if (tieBreakWinnerKey !== undefined) {
@@ -239,33 +253,29 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
             console.error('Notice updating DB match:', dbErr);
         }
 
-        // Sync to derby tournament JSON file if matches exist
+        // Synchronize legacy numeric match scores into persistent tournament state
         try {
-            if (fs.existsSync(DATA_FILE)) {
-                const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-                const derbyData = JSON.parse(raw);
-                if (derbyData.matches && Array.isArray(derbyData.matches)) {
-                    let changed = false;
-                    for (const m of derbyData.matches) {
-                        const homeKeyMatch = m.homeTeamKey && updatedMatch?.homeTeam?.managerContact?.startsWith(m.homeTeamKey);
-                        const awayKeyMatch = m.awayTeamKey && updatedMatch?.awayTeam?.managerContact?.startsWith(m.awayTeamKey);
-                        if (homeKeyMatch && awayKeyMatch) {
-                            m.homeScore = homeScore;
-                            m.awayScore = awayScore;
-                            if (status) {
-                                m.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
-                            }
-                            changed = true;
+            let changed = false;
+            const derbyData = await updateTournamentData<any>(data => {
+                if (!Array.isArray(data.matches)) return;
+                for (const match of data.matches) {
+                    const homeKeyMatch = match.homeTeamKey && updatedMatch?.homeTeam?.managerContact?.startsWith(match.homeTeamKey);
+                    const awayKeyMatch = match.awayTeamKey && updatedMatch?.awayTeam?.managerContact?.startsWith(match.awayTeamKey);
+                    if (homeKeyMatch && awayKeyMatch) {
+                        match.homeScore = homeScore;
+                        match.awayScore = awayScore;
+                        if (status) {
+                            match.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
                         }
+                        changed = true;
                     }
-                    if (changed) {
-                        derbyData.updatedAt = new Date().toISOString();
-                        writeTournamentData(derbyData);
-                        const io = req.app.get('io');
-                        if (io) {
-                            io.emit('derbyUpdate', derbyData);
-                        }
-                    }
+                }
+                if (changed) data.updatedAt = new Date().toISOString();
+            });
+            if (changed) {
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('derbyUpdate', derbyData);
                 }
             }
         } catch (derbySyncErr) {
@@ -418,11 +428,14 @@ export const getMatches = async (req: Request, res: Response) => {
             console.error('Notice querying DB matches:', dbErr);
         }
 
-        // Overlay latest tournament data and edited team names from derby-tournament.json
-        if (fs.existsSync(DATA_FILE)) {
+        // Overlay latest tournament data and edited team names from persistent state
+        {
             try {
-                const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-                const derbyData = JSON.parse(raw);
+                const derbyData: any = await readTournamentData();
+                if (!derbyData) {
+                    res.status(503).json({ error: 'Tournament state is unavailable' });
+                    return;
+                }
                 const derbyTeams = derbyData.teams || {};
 
                 // Map team keys to edited club names

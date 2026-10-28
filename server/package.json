@@ -6,6 +6,7 @@
     "build": "npx prisma generate && tsc",
     "dev": "ts-node -T src/index.ts",
     "start": "node src/index.js",
+    "import:tournament": "ts-node -T scripts/importTournamentState.ts",
     "test": "jest"
   },
   "keywords": [],

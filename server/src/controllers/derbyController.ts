@@ -1,21 +1,10 @@
 import { Request, Response } from 'express';
-import { randomUUID } from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import prisma from '../prisma';
 import { SOLE_ADMIN_EMAIL } from '../middleware/auth';
 import { adminUpdateCaptain } from '../services/captainService';
+import { readTournamentData, updateTournamentData, writeTournamentData } from '../services/tournamentStore';
 
-export const DATA_DIR = path.join(__dirname, '../../data');
-export const DATA_FILE = path.resolve(process.env.TOURNAMENT_DATA_FILE || path.join(DATA_DIR, 'derby-tournament.json'));
-
-fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-
-export const writeTournamentData = (data: unknown): void => {
-    const temporaryFile = `${DATA_FILE}.${process.pid}.${randomUUID()}.tmp`;
-    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), { encoding: 'utf-8', mode: 0o600 });
-    fs.renameSync(temporaryFile, DATA_FILE);
-};
+export { DATA_DIR, DATA_FILE, readTournamentData, writeTournamentData } from '../services/tournamentStore';
 
 export const DEFAULT_DERBY_TEAMS: Record<string, any> = {
     'team-dench': {
@@ -461,11 +450,7 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
 
 export async function initDerbyTournament() {
     try {
-        let currentData: any = null;
-        if (fs.existsSync(DATA_FILE)) {
-            const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-            currentData = JSON.parse(raw);
-        }
+        let currentData: any = await readTournamentData();
 
         if (!currentData || !currentData.teams) {
             currentData = {
@@ -475,30 +460,25 @@ export async function initDerbyTournament() {
                 goalEvents: [],
                 updatedAt: new Date().toISOString()
             };
-            writeTournamentData(currentData);
+            await writeTournamentData(currentData);
         }
 
         await syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []);
         console.log('Dench Derby Tournament database sync complete - all mock teams purged.');
     } catch (e) {
         console.error('Failed to initialize Derby tournament:', e);
+        throw e;
     }
 }
 
 export const getDerbyData = async (req: Request, res: Response) => {
     try {
-        let currentData: any = {
+        let currentData: any = await readTournamentData() || {
             teams: DEFAULT_DERBY_TEAMS,
             matches: DEFAULT_DERBY_MATCHES,
             players: [],
             goalEvents: []
         };
-        if (fs.existsSync(DATA_FILE)) {
-            try {
-                const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-                currentData = JSON.parse(raw);
-            } catch {}
-        }
         if (!currentData.teams || Object.keys(currentData.teams).length === 0) {
             currentData.teams = DEFAULT_DERBY_TEAMS;
         }
@@ -562,8 +542,11 @@ export const getDerbyData = async (req: Request, res: Response) => {
                 if (updatedFile) {
                     try {
                         currentData.updatedAt = new Date().toISOString();
-                        writeTournamentData(currentData);
-                    } catch {}
+                        await writeTournamentData(currentData);
+                    } catch (writeErr) {
+                        console.error('Failed to persist merged tournament players:', writeErr);
+                        throw writeErr;
+                    }
                 }
             }
         } catch (dbErr) {
@@ -585,17 +568,12 @@ export const saveDerbyData = async (req: any, res: Response) => {
         const captainTeamKey = authUser?.teamKey || (req.headers['x-captain-team-key'] as string);
 
         // Read current tournament state
-        let currentData: any = {
+        let currentData: any = await readTournamentData() || {
             teams: DEFAULT_DERBY_TEAMS,
             matches: DEFAULT_DERBY_MATCHES,
             players: [],
             goalEvents: []
         };
-        if (fs.existsSync(DATA_FILE)) {
-            try {
-                currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-            } catch {}
-        }
         if (!Array.isArray(currentData.players)) currentData.players = [];
 
         const { teams, matches, players, goalEvents } = req.body;
@@ -739,7 +717,7 @@ export const saveDerbyData = async (req: any, res: Response) => {
             updatedAt: new Date().toISOString()
         };
 
-        writeTournamentData(payload);
+        await writeTournamentData(payload);
 
         syncToPrismaDatabase(payload.teams, payload.matches, payload.players).catch(err => {
             console.error('Async DB sync notice on saveDerbyData:', err);
@@ -767,66 +745,55 @@ export const claimRefereeMatch = async (req: Request, res: Response): Promise<vo
         const { matchId, pitch, refereeName, action } = req.body;
         const pitchNum = Number(pitch || 1);
 
-        let currentData: any = {
-            teams: DEFAULT_DERBY_TEAMS,
-            matches: DEFAULT_DERBY_MATCHES,
-            players: [],
-            goalEvents: [],
-            activeReferees: {}
-        };
-        if (fs.existsSync(DATA_FILE)) {
-            try {
-                currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-            } catch {}
-        }
-        if (!currentData.activeReferees) currentData.activeReferees = {};
+        let alreadyClaimedBy: string | null = null;
+        const currentData = await updateTournamentData<any>(data => {
+            if (!data.activeReferees) data.activeReferees = {};
 
-        // If claiming, ensure match isn't already active by the other pitch/referee
-        if (action === 'claim' && matchId) {
-            const otherPitchKey = Object.keys(currentData.activeReferees).find(
-                p => currentData.activeReferees[p]?.matchId === matchId && Number(p) !== pitchNum
-            );
-            if (otherPitchKey) {
-                res.status(409).json({
-                    error: `Match is already actively claimed by Referee on Pitch ${otherPitchKey}`,
-                    claimedBy: currentData.activeReferees[otherPitchKey]
-                });
-                return;
-            }
+            if (action === 'claim' && matchId) {
+                alreadyClaimedBy = Object.keys(data.activeReferees).find(
+                    key => data.activeReferees[key]?.matchId === matchId && Number(key) !== pitchNum
+                ) || null;
+                if (alreadyClaimedBy) return;
 
-            const claimInfo = {
-                matchId,
-                pitch: pitchNum,
-                refereeName: refereeName || `Referee ${pitchNum}`,
-                claimedAt: new Date().toISOString(),
-                status: 'live'
-            };
+                const claimInfo = {
+                    matchId,
+                    pitch: pitchNum,
+                    refereeName: refereeName || `Referee ${pitchNum}`,
+                    claimedAt: new Date().toISOString(),
+                    status: 'live'
+                };
+                data.activeReferees[String(pitchNum)] = claimInfo;
 
-            currentData.activeReferees[String(pitchNum)] = claimInfo;
-
-            // Also update match status in matches array
-            if (Array.isArray(currentData.matches)) {
-                const target = currentData.matches.find((m: any) => m.id === matchId);
-                if (target) {
-                    target.status = 'live';
-                    target.officiatedBy = claimInfo;
+                if (Array.isArray(data.matches)) {
+                    const target = data.matches.find((match: any) => match.id === matchId);
+                    if (target) {
+                        target.status = 'live';
+                        target.officiatedBy = claimInfo;
+                    }
                 }
-            }
-        } else if (action === 'release') {
-            const existingClaim = currentData.activeReferees[String(pitchNum)];
-            if (existingClaim) {
-                delete currentData.activeReferees[String(pitchNum)];
-                if (existingClaim.matchId && Array.isArray(currentData.matches)) {
-                    const target = currentData.matches.find((m: any) => m.id === existingClaim.matchId);
-                    if (target && target.status === 'live') {
-                        target.status = 'completed';
+            } else if (action === 'release') {
+                const existingClaim = data.activeReferees[String(pitchNum)];
+                if (existingClaim) {
+                    delete data.activeReferees[String(pitchNum)];
+                    if (existingClaim.matchId && Array.isArray(data.matches)) {
+                        const target = data.matches.find((match: any) => match.id === existingClaim.matchId);
+                        if (target && target.status === 'live') {
+                            target.status = 'completed';
+                        }
                     }
                 }
             }
-        }
 
-        currentData.updatedAt = new Date().toISOString();
-        writeTournamentData(currentData);
+            data.updatedAt = new Date().toISOString();
+        });
+
+        if (alreadyClaimedBy) {
+            res.status(409).json({
+                error: `Match is already actively claimed by Referee on Pitch ${alreadyClaimedBy}`,
+                claimedBy: currentData.activeReferees[alreadyClaimedBy]
+            });
+            return;
+        }
 
         const io = req.app?.get ? req.app.get('io') : null;
         if (io) {
@@ -859,18 +826,13 @@ export const resetSingleMatch = async (req: Request, res: Response) => {
             return;
         }
 
-        let currentData: any = {
+        let currentData: any = await readTournamentData() || {
             teams: DEFAULT_DERBY_TEAMS,
             matches: DEFAULT_DERBY_MATCHES,
             players: [],
             goalEvents: [],
             activeReferees: {}
         };
-        if (fs.existsSync(DATA_FILE)) {
-            try {
-                currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-            } catch {}
-        }
         if (!currentData.activeReferees) currentData.activeReferees = {};
 
         const matchIndex = (currentData.matches || []).findIndex((m: any) => m.id === matchId);
@@ -897,7 +859,7 @@ export const resetSingleMatch = async (req: Request, res: Response) => {
         currentData.goalEvents = (currentData.goalEvents || []).filter((ev: any) => ev.matchId !== matchId);
         currentData.updatedAt = new Date().toISOString();
 
-        writeTournamentData(currentData);
+        await writeTournamentData(currentData);
 
         // Reset corresponding match in Prisma database if it exists
         try {
@@ -955,18 +917,14 @@ export const resetDerbyData = async (req: Request, res: Response) => {
             return;
         }
 
+        const existing = await readTournamentData() || {};
         let currentTeams = DEFAULT_DERBY_TEAMS;
         let currentPlayers: any[] = [];
-        if (fs.existsSync(DATA_FILE)) {
-            try {
-                const existing = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-                if (existing.teams && Object.keys(existing.teams).length > 0) {
-                    currentTeams = existing.teams;
-                }
-                if (Array.isArray(existing.players)) {
-                    currentPlayers = existing.players;
-                }
-            } catch {}
+        if (existing.teams && Object.keys(existing.teams).length > 0) {
+            currentTeams = existing.teams;
+        }
+        if (Array.isArray(existing.players)) {
+            currentPlayers = existing.players;
         }
 
         const purgePlayers = req.body?.purgePlayers === true || req.query?.purgePlayers === 'true';
@@ -980,7 +938,7 @@ export const resetDerbyData = async (req: Request, res: Response) => {
             updatedAt: new Date().toISOString()
         };
 
-        writeTournamentData(payload);
+        await writeTournamentData(payload);
 
         syncToPrismaDatabase(currentTeams, DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
             console.error('Async DB sync notice on reset:', err);

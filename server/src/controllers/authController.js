@@ -9,6 +9,7 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const captainService_1 = require("../services/captainService");
 const auth_1 = require("../middleware/auth");
+const tournamentStore_1 = require("../services/tournamentStore");
 const prisma = new client_1.PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-fallback';
 /**
@@ -73,20 +74,12 @@ const captainLogin = async (req, res) => {
         }
         // Resolve actual roster captain name dynamically
         let effectiveCaptainName = '';
-        try {
-            const path = require('path');
-            const fs = require('fs');
-            const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-            if (fs.existsSync(dataFile)) {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const fileCap = (derby.players || []).find((p) => p.teamKey === teamKey && p.isCaptain === true);
-                if (fileCap?.name) {
-                    effectiveCaptainName = fileCap.name.trim();
-                }
+        const derby = await (0, tournamentStore_1.readTournamentData)();
+        if (derby) {
+            const fileCap = (derby.players || []).find((p) => p.teamKey === teamKey && p.isCaptain === true);
+            if (fileCap?.name) {
+                effectiveCaptainName = fileCap.name.trim();
             }
-        }
-        catch (jsonErr) {
-            console.warn('Notice reading derby-tournament.json during captain login:', jsonErr);
         }
         const captainDisplayName = effectiveCaptainName || 'Team Captain';
         const token = jsonwebtoken_1.default.sign({
@@ -122,22 +115,14 @@ exports.captainLogin = captainLogin;
  */
 const getCaptainsList = async (_req, res) => {
     try {
-        const path = require('path');
-        const fs = require('fs');
-        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
         let tournamentTeams = {};
         let tournamentPlayers = [];
-        if (fs.existsSync(dataFile)) {
-            try {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                if (derby.teams)
-                    tournamentTeams = derby.teams;
-                if (Array.isArray(derby.players))
-                    tournamentPlayers = derby.players;
-            }
-            catch (fileErr) {
-                console.warn('Notice reading derby-tournament.json in getCaptainsList:', fileErr);
-            }
+        const derby = await (0, tournamentStore_1.readTournamentData)();
+        if (derby) {
+            if (derby.teams)
+                tournamentTeams = derby.teams;
+            if (Array.isArray(derby.players))
+                tournamentPlayers = derby.players;
         }
         const configCaptains = (0, captainService_1.getPublicCaptains)();
         const configMap = new Map(configCaptains.map((c) => [c.teamKey, c]));
@@ -199,29 +184,21 @@ exports.getDeadline = getDeadline;
 const getAdminCaptainsList = async (_req, res) => {
     try {
         const data = (0, captainService_1.getAdminCaptains)();
-        const path = require('path');
-        const fs = require('fs');
-        const dataFile = path.join(__dirname, '../../data/derby-tournament.json');
-        if (fs.existsSync(dataFile)) {
-            try {
-                const derby = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
-                const filePlayers = Array.isArray(derby.players) ? derby.players : [];
-                const captainByTeam = new Map();
-                filePlayers.forEach((p) => {
-                    if (p?.teamKey && p?.name && p.isCaptain === true && !captainByTeam.has(p.teamKey)) {
-                        captainByTeam.set(p.teamKey, p.name.trim());
-                    }
-                });
-                data.captains.forEach((entry) => {
-                    entry.captainName = captainByTeam.get(entry.teamKey) || '';
-                    if (derby.teams?.[entry.teamKey]?.name) {
-                        entry.teamName = derby.teams[entry.teamKey].name;
-                    }
-                });
-            }
-            catch (err) {
-                console.warn('Notice reading derby data in getAdminCaptainsList:', err);
-            }
+        const derby = await (0, tournamentStore_1.readTournamentData)();
+        if (derby) {
+            const filePlayers = Array.isArray(derby.players) ? derby.players : [];
+            const captainByTeam = new Map();
+            filePlayers.forEach((p) => {
+                if (p?.teamKey && p?.name && p.isCaptain === true && !captainByTeam.has(p.teamKey)) {
+                    captainByTeam.set(p.teamKey, p.name.trim());
+                }
+            });
+            data.captains.forEach((entry) => {
+                entry.captainName = captainByTeam.get(entry.teamKey) || '';
+                if (derby.teams?.[entry.teamKey]?.name) {
+                    entry.teamName = derby.teams[entry.teamKey].name;
+                }
+            });
         }
         res.json(data);
     }

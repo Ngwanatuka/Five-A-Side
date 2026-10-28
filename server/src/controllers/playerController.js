@@ -37,10 +37,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setPlayerAsCaptain = exports.deletePlayer = exports.getPlayers = exports.addPlayerToTeam = void 0;
-const fs_1 = __importDefault(require("fs"));
 const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
-const derbyController_1 = require("./derbyController");
+const tournamentStore_1 = require("../services/tournamentStore");
 const captainService_1 = require("../services/captainService");
 const addPlayerSchema = zod_1.z.object({
     teamId: zod_1.z.number().int().positive(),
@@ -102,36 +101,38 @@ const addPlayerToTeam = async (req, res) => {
             },
             include: { team: true }
         });
-        // Also sync into derby-tournament.json if this team belongs to the tournament
+        // Also sync into persistent tournament state if this team belongs to the tournament
         const io = req.app.get('io');
         try {
             if (team.managerContact && team.managerContact.endsWith('@tournament.local')) {
                 const teamKey = team.managerContact.replace('@tournament.local', '');
-                if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
-                    const raw = fs_1.default.readFileSync(derbyController_1.DATA_FILE, 'utf-8');
-                    const derbyData = JSON.parse(raw);
-                    if (!derbyData.players)
-                        derbyData.players = [];
-                    const fullName = `${newPlayer.firstName} ${newPlayer.lastName}`.trim();
-                    const nextJersey = derbyData.players.filter((p) => p.teamKey === teamKey).length + 1;
-                    derbyData.players.push({
-                        id: `p-${newPlayer.id}`,
-                        teamKey,
-                        name: fullName,
-                        jerseyNumber: nextJersey,
-                        position: 'MID',
-                        isCaptain: false
-                    });
-                    derbyData.updatedAt = new Date().toISOString();
-                    (0, derbyController_1.writeTournamentData)(derbyData);
-                    if (io) {
-                        io.emit('derbyUpdate', derbyData);
+                {
+                    const derbyData = await (0, tournamentStore_1.readTournamentData)();
+                    if (derbyData) {
+                        if (!derbyData.players)
+                            derbyData.players = [];
+                        const fullName = `${newPlayer.firstName} ${newPlayer.lastName}`.trim();
+                        const nextJersey = derbyData.players.filter((p) => p.teamKey === teamKey).length + 1;
+                        derbyData.players.push({
+                            id: `p-${newPlayer.id}`,
+                            teamKey,
+                            name: fullName,
+                            jerseyNumber: nextJersey,
+                            position: 'MID',
+                            isCaptain: false
+                        });
+                        derbyData.updatedAt = new Date().toISOString();
+                        await (0, tournamentStore_1.writeTournamentData)(derbyData);
+                        if (io) {
+                            io.emit('derbyUpdate', derbyData);
+                        }
                     }
                 }
             }
         }
         catch (derbyPlayerSyncErr) {
             console.error('Notice syncing player to derby file:', derbyPlayerSyncErr);
+            throw derbyPlayerSyncErr;
         }
         if (io) {
             io.emit('playerAdded', newPlayer);
@@ -158,9 +159,13 @@ const getPlayers = async (req, res) => {
             orderBy: { id: 'asc' }
         });
         let allPlayers = [...dbPlayers];
-        if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
+        {
             try {
-                const derbyData = JSON.parse(fs_1.default.readFileSync(derbyController_1.DATA_FILE, 'utf-8'));
+                const derbyData = await (0, tournamentStore_1.readTournamentData)();
+                if (!derbyData) {
+                    res.status(503).json({ error: 'Tournament state is unavailable' });
+                    return;
+                }
                 if (Array.isArray(derbyData.players)) {
                     const dbTeams = await prisma_1.default.team.findMany();
                     const teamKeyToId = {};
@@ -194,6 +199,7 @@ const getPlayers = async (req, res) => {
             }
             catch (err) {
                 console.error('Notice merging derby players in getPlayers:', err);
+                throw err;
             }
         }
         res.status(200).json(allPlayers);
@@ -312,39 +318,42 @@ const deletePlayer = async (req, res) => {
             await prisma_1.default.playerSeasonFinance.deleteMany({ where: { playerId: dbPlayer.id } }).catch(() => { });
             await prisma_1.default.player.delete({ where: { id: dbPlayer.id } }).catch(() => { });
         }
-        // 2. Remove player from derby-tournament.json file
+        // 2. Remove player from persistent tournament state
         let derbyData = null;
-        if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
+        {
             try {
-                derbyData = JSON.parse(fs_1.default.readFileSync(derbyController_1.DATA_FILE, 'utf-8'));
-                if (Array.isArray(derbyData.players)) {
-                    derbyData.players = derbyData.players.filter((p) => {
-                        if (!p)
-                            return false;
-                        if (p.id === rawId)
-                            return false;
-                        if (dbPlayer && (p.id === `p-${dbPlayer.id}` || p.id === String(dbPlayer.id)))
-                            return false;
-                        if (paramTeamKey && paramName && p.teamKey === paramTeamKey && p.name.trim().toLowerCase() === paramName.toLowerCase())
-                            return false;
-                        if (dbPlayer && dbPlayer.team?.managerContact?.startsWith(p.teamKey) &&
-                            `${dbPlayer.firstName} ${dbPlayer.lastName !== '-' ? dbPlayer.lastName : ''}`.trim().toLowerCase() === p.name.trim().toLowerCase()) {
-                            return false;
+                derbyData = await (0, tournamentStore_1.readTournamentData)();
+                if (derbyData) {
+                    if (Array.isArray(derbyData.players)) {
+                        derbyData.players = derbyData.players.filter((p) => {
+                            if (!p)
+                                return false;
+                            if (p.id === rawId)
+                                return false;
+                            if (dbPlayer && (p.id === `p-${dbPlayer.id}` || p.id === String(dbPlayer.id)))
+                                return false;
+                            if (paramTeamKey && paramName && p.teamKey === paramTeamKey && p.name.trim().toLowerCase() === paramName.toLowerCase())
+                                return false;
+                            if (dbPlayer && dbPlayer.team?.managerContact?.startsWith(p.teamKey) &&
+                                `${dbPlayer.firstName} ${dbPlayer.lastName !== '-' ? dbPlayer.lastName : ''}`.trim().toLowerCase() === p.name.trim().toLowerCase()) {
+                                return false;
+                            }
+                            return true;
+                        });
+                        // Clean up any associated goal events
+                        if (Array.isArray(derbyData.goalEvents)) {
+                            derbyData.goalEvents = derbyData.goalEvents.filter((ev) => ev.scorerPlayerId !== rawId &&
+                                ev.assistPlayerId !== rawId &&
+                                (!dbPlayer || (ev.scorerPlayerId !== `p-${dbPlayer.id}` && ev.assistPlayerId !== `p-${dbPlayer.id}`)));
                         }
-                        return true;
-                    });
-                    // Clean up any associated goal events
-                    if (Array.isArray(derbyData.goalEvents)) {
-                        derbyData.goalEvents = derbyData.goalEvents.filter((ev) => ev.scorerPlayerId !== rawId &&
-                            ev.assistPlayerId !== rawId &&
-                            (!dbPlayer || (ev.scorerPlayerId !== `p-${dbPlayer.id}` && ev.assistPlayerId !== `p-${dbPlayer.id}`)));
+                        derbyData.updatedAt = new Date().toISOString();
+                        await (0, tournamentStore_1.writeTournamentData)(derbyData);
                     }
-                    derbyData.updatedAt = new Date().toISOString();
-                    (0, derbyController_1.writeTournamentData)(derbyData);
                 }
             }
             catch (err) {
                 console.error('Notice updating derby file on player delete:', err);
+                throw err;
             }
         }
         // Broadcast removal via Socket.IO
@@ -391,11 +400,10 @@ const setPlayerAsCaptain = async (req, res) => {
         else if (/^p-\d+$/.test(rawId)) {
             numericId = parseInt(rawId.replace(/^p-/, ''), 10);
         }
-        const dataFile = derbyController_1.DATA_FILE;
-        // 1. Sync to derby tournament json file as primary real-time source
+        // 1. Sync to the primary persistent tournament state
         try {
-            if (fs_1.default.existsSync(dataFile)) {
-                const derby = JSON.parse(fs_1.default.readFileSync(dataFile, 'utf-8'));
+            const derby = await (0, tournamentStore_1.readTournamentData)();
+            if (derby) {
                 if (Array.isArray(derby.players)) {
                     // If target info wasn't in body, search in JSON
                     if (!tournamentTeamKey || !playerName) {
@@ -442,13 +450,14 @@ const setPlayerAsCaptain = async (req, res) => {
                             });
                         }
                         derby.updatedAt = new Date().toISOString();
-                        fs_1.default.writeFileSync(dataFile, JSON.stringify(derby, null, 2), 'utf-8');
+                        await (0, tournamentStore_1.writeTournamentData)(derby);
                     }
                 }
             }
         }
         catch (jsonErr) {
             console.error('Notice updating captain in derby JSON:', jsonErr);
+            throw jsonErr;
         }
         // 2. Also update captains.json so login dropdown immediately reflects the designated captain
         if (tournamentTeamKey && playerName) {

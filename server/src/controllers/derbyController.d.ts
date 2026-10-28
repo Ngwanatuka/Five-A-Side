@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-export declare const DATA_DIR: string;
-export declare const DATA_FILE: string;
-export declare const writeTournamentData: (data: unknown) => void;
+export { DATA_DIR, DATA_FILE, readTournamentData, writeTournamentData } from '../services/tournamentStore';
 export declare const DEFAULT_DERBY_TEAMS: Record<string, any>;
 export declare const DEFAULT_DERBY_MATCHES: ({
     id: string;

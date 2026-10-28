@@ -43,6 +43,20 @@ jest.mock('../src/prisma', () => ({
         division: {
             upsert: jest.fn().mockResolvedValue({}),
         },
+        tournamentState: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({}),
+            upsert: jest.fn().mockResolvedValue({}),
+            update: jest.fn().mockResolvedValue({})
+        },
+        $transaction: jest.fn(async (operation: (transaction: any) => Promise<unknown>) => operation({
+            $queryRaw: async () => [{
+                payload: JSON.parse(require('fs').readFileSync('mock-tournament-state', 'utf-8'))
+            }],
+            tournamentState: {
+                update: jest.fn().mockResolvedValue({})
+            }
+        }))
     },
 }));
 

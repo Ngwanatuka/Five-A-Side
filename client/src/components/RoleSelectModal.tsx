@@ -130,21 +130,6 @@ export const RoleSelectModal: React.FC = () => {
         }
     };
 
-    // Quick demo captain login
-    const handleQuickCaptainDemo = async (teamKey: string, demoPin: string) => {
-        setSelectedTeamKey(teamKey);
-        setCaptainPin(demoPin);
-        setCaptainLoading(true);
-        setCaptainError(null);
-        try {
-            await loginAsCaptain(teamKey, demoPin);
-            navigate('/dench-derby');
-        } catch (err: any) {
-            setCaptainError(err.message);
-        } finally {
-            setCaptainLoading(false);
-        }
-    };
 
     // Handle Referee / Admin standard login
     const handleCredentialLogin = async (expectedRole: 'REFEREE' | 'ADMIN') => {

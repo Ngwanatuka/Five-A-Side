@@ -30,10 +30,6 @@ npm install --silent
 npx prisma db push
 npx prisma generate
 npx ts-node prisma/seed.ts
-# Optionally seed test data if the file exists
-if [ -f "prisma/seed-test.ts" ]; then
-  npx ts-node prisma/seed-test.ts
-fi
 
 echo "🚀 Starting Backend Server (Port 5000)..."
 npm run dev > server.log 2>&1 &

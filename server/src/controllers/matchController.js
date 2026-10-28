@@ -11,7 +11,18 @@ const derbyController_1 = require("./derbyController");
 const updateScoreSchema = zod_1.z.object({
     homeScore: zod_1.z.number().int().nonnegative().nullable(),
     awayScore: zod_1.z.number().int().nonnegative().nullable(),
-    status: zod_1.z.enum(['UPCOMING', 'LIVE', 'COMPLETED', 'SCHEDULED', 'scheduled', 'upcoming', 'live', 'completed']).optional()
+    status: zod_1.z.enum(['UPCOMING', 'LIVE', 'COMPLETED', 'SCHEDULED', 'scheduled', 'upcoming', 'live', 'completed']).optional(),
+    goalEvents: zod_1.z.array(zod_1.z.object({
+        id: zod_1.z.string(),
+        matchId: zod_1.z.string(),
+        teamKey: zod_1.z.string(),
+        scorerPlayerId: zod_1.z.string(),
+        scorerPlayerName: zod_1.z.string().optional(),
+        assistPlayerId: zod_1.z.string().nullable().optional(),
+        assistPlayerName: zod_1.z.string().nullable().optional(),
+        minute: zod_1.z.number().int().nonnegative(),
+        side: zod_1.z.enum(['home', 'away']).optional()
+    }).passthrough()).optional()
 });
 const createMatchSchema = zod_1.z.object({
     seasonId: zod_1.z.number().int().positive(),
@@ -22,6 +33,41 @@ const createMatchSchema = zod_1.z.object({
     time: zod_1.z.string(), // "18:00"
     pitchNumber: zod_1.z.number().int().min(1).max(3) // Pitch Limit Constraint
 });
+const syncTournamentScoreToDatabase = async (homeTeamKey, awayTeamKey, homeScore, awayScore, status) => {
+    if (!homeTeamKey || !awayTeamKey)
+        return;
+    const [homeTeam, awayTeam] = await Promise.all([
+        prisma_1.default.team.findFirst({ where: { managerContact: `${homeTeamKey}@tournament.local` } }),
+        prisma_1.default.team.findFirst({ where: { managerContact: `${awayTeamKey}@tournament.local` } })
+    ]);
+    if (!homeTeam || !awayTeam)
+        return;
+    const databaseMatch = await prisma_1.default.match.findFirst({
+        where: {
+            seasonId: 1,
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id
+        }
+    });
+    if (!databaseMatch)
+        return;
+    const normalizedStatus = status?.toLowerCase();
+    const prismaStatus = normalizedStatus === 'completed'
+        ? 'COMPLETED'
+        : normalizedStatus === 'live'
+            ? 'LIVE'
+            : normalizedStatus
+                ? 'UPCOMING'
+                : undefined;
+    await prisma_1.default.match.update({
+        where: { id: databaseMatch.id },
+        data: {
+            homeScore,
+            awayScore,
+            ...(prismaStatus && { status: prismaStatus })
+        }
+    });
+};
 const createMatch = async (req, res) => {
     try {
         const body = createMatchSchema.parse(req.body);
@@ -61,7 +107,11 @@ const updateMatchScore = async (req, res) => {
     try {
         const rawId = req.params.id;
         const matchId = parseInt(rawId, 10);
-        const { homeScore, awayScore, status } = updateScoreSchema.parse(req.body);
+        const { homeScore, awayScore, status, goalEvents } = updateScoreSchema.parse(req.body);
+        if (goalEvents?.some(event => event.matchId !== rawId)) {
+            res.status(400).json({ error: 'Goal events must belong to the submitted match' });
+            return;
+        }
         // 1. If matchId is NaN or tournament string ID, handle directly in derby tournament file
         if (isNaN(matchId)) {
             if (fs_1.default.existsSync(derbyController_1.DATA_FILE)) {
@@ -76,8 +126,21 @@ const updateMatchScore = async (req, res) => {
                         if (status) {
                             tm.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
                         }
+                        if (goalEvents) {
+                            const existingGoalEvents = Array.isArray(derbyData.goalEvents) ? derbyData.goalEvents : [];
+                            derbyData.goalEvents = [
+                                ...existingGoalEvents.filter((event) => event.matchId !== rawId),
+                                ...goalEvents
+                            ];
+                        }
                         derbyData.updatedAt = new Date().toISOString();
                         fs_1.default.writeFileSync(derbyController_1.DATA_FILE, JSON.stringify(derbyData, null, 2), 'utf-8');
+                        try {
+                            await syncTournamentScoreToDatabase(tm.homeTeamKey, tm.awayTeamKey, homeScore, awayScore, status);
+                        }
+                        catch (dbErr) {
+                            console.error('Notice syncing tournament match score to database:', dbErr);
+                        }
                         const derbyTeams = derbyData.teams || {};
                         const homeName = tm.homeTeamKey && derbyTeams[tm.homeTeamKey]?.name
                             ? derbyTeams[tm.homeTeamKey].name

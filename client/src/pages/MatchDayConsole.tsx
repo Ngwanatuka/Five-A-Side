@@ -84,6 +84,7 @@ export const MatchDayConsole = () => {
         teamName: string;
     } | null>(null);
     const [customPlayerName, setCustomPlayerName] = useState('');
+    const [selectedAssistPlayerId, setSelectedAssistPlayerId] = useState('');
 
     // Knockout team override picker states
     const [isKnockoutPickerOpen, setIsKnockoutPickerOpen] = useState(false);
@@ -212,10 +213,15 @@ export const MatchDayConsole = () => {
             }
 
             const effectivePlayers = Array.from(playerMap.values());
-            const effectiveGoalEvents: any[] = localGoalEvents.length > 0 ? localGoalEvents : (derbyRemote?.goalEvents || []);
+            const effectiveGoalEvents: any[] = Array.isArray(derbyRemote?.goalEvents)
+                ? derbyRemote.goalEvents
+                : localGoalEvents;
 
             setTournamentPlayers(effectivePlayers);
             setGoalEvents(effectiveGoalEvents);
+            try {
+                localStorage.setItem('dench_derby_events_v4', JSON.stringify(effectiveGoalEvents));
+            } catch {}
             setAvailableTeamsMap(effectiveTeams);
             if (derbyRemote?.activeReferees) {
                 setActiveReferees(derbyRemote.activeReferees);
@@ -274,23 +280,7 @@ export const MatchDayConsole = () => {
                     ? serverMatches.map(sm => {
                         const lm = localMatches.find((m: any) => m.id === sm.id || m.id.toString() === sm.id.toString());
                         if (!lm) return sm;
-                        const isCompleted = sm.status === 'completed' || lm.status === 'completed';
-                        const isLive = sm.status === 'live' || lm.status === 'live';
-                        const effectiveStatus = isCompleted ? 'completed' : (isLive ? 'live' : (lm.status || sm.status || 'scheduled'));
-                        const effectiveHome = sm.homeScore !== null && sm.homeScore !== undefined 
-                            ? (lm.homeScore !== null && lm.homeScore !== undefined ? Math.max(sm.homeScore, lm.homeScore) : sm.homeScore)
-                            : (lm.homeScore ?? null);
-                        const effectiveAway = sm.awayScore !== null && sm.awayScore !== undefined 
-                            ? (lm.awayScore !== null && lm.awayScore !== undefined ? Math.max(sm.awayScore, lm.awayScore) : sm.awayScore)
-                            : (lm.awayScore ?? null);
-
-                        return {
-                            ...sm,
-                            ...lm,
-                            status: effectiveStatus,
-                            homeScore: effectiveHome,
-                            awayScore: effectiveAway
-                        };
+                        return { ...lm, ...sm };
                     })
                     : serverMatches)
                 : localMatches;
@@ -701,7 +691,14 @@ export const MatchDayConsole = () => {
         setIsDropdownOpen(false);
     };
 
-    const handleUpdateScore = async (home: number, away: number, claimOverride?: any) => {
+    const handleUpdateScore = async (
+        home: number,
+        away: number,
+        claimOverride?: any,
+        matchGoalEvents = selectedMatch
+            ? goalEvents.filter(ev => ev.matchId === selectedMatch.id.toString())
+            : []
+    ) => {
         if (!selectedMatch) return;
         const matchIdStr = selectedMatch.id.toString();
         const currentStatus = matchState.matchEnded ? 'COMPLETED' : 'LIVE';
@@ -742,7 +739,7 @@ export const MatchDayConsole = () => {
             officiatedBy: currentStatus === 'LIVE' ? effectiveClaim : prev.officiatedBy
         } : null);
 
-        // 3. Synchronize tournament matches so Dench Derby tournament page reflects immediately
+        // Keep this browser's fixture cache current; the server update below is match-scoped.
         try {
             const savedMatches = localStorage.getItem('dench_derby_matches_v4');
             if (savedMatches) {
@@ -756,18 +753,18 @@ export const MatchDayConsole = () => {
                         target.officiatedBy = effectiveClaim;
                     }
                     localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
-                    await saveDerbyData({ matches: parsed });
                 }
             }
         } catch (syncErr) {
-            console.error("Notice syncing live tournament matches:", syncErr);
+            console.error("Notice updating local tournament match cache:", syncErr);
         }
 
-        // 4. Update backend score API
+        // Update only this match so simultaneous referees cannot overwrite one another's results.
         try {
-            await updateMatchScore(selectedMatch.id, home, away, currentStatus);
+            await updateMatchScore(selectedMatch.id, home, away, currentStatus, matchGoalEvents);
         } catch (e) {
             console.error('Failed to update score via API', e);
+            toast.error(e instanceof Error ? e.message : 'Failed to save match score.');
         }
     };
 
@@ -795,6 +792,7 @@ export const MatchDayConsole = () => {
             teamName: teamName || (isHome ? 'Home Team' : 'Away Team')
         });
         setCustomPlayerName('');
+        setSelectedAssistPlayerId('');
     };
 
     const handleRecordGoal = async (player?: any) => {
@@ -811,6 +809,10 @@ export const MatchDayConsole = () => {
             teamKey: effectiveTeamKey,
             scorerPlayerId: player?.id || 'unassigned',
             scorerPlayerName: player?.name || (customPlayerName.trim() || 'Goal'),
+            assistPlayerId: player && selectedAssistPlayerId ? selectedAssistPlayerId : null,
+            assistPlayerName: player && selectedAssistPlayerId
+                ? tournamentPlayers.find(p => p.id === selectedAssistPlayerId)?.name || null
+                : null,
             minute: minute
         };
 
@@ -836,16 +838,16 @@ export const MatchDayConsole = () => {
         const newHomeScore = Math.max(matchState.homeScore + (isHome ? 1 : 0), homeScoreFromEvents);
         const newAwayScore = Math.max(matchState.awayScore + (!isHome ? 1 : 0), awayScoreFromEvents);
 
-        await handleUpdateScore(newHomeScore, newAwayScore);
-
-        try {
-            await saveDerbyData({ goalEvents: nextEvents });
-        } catch (e) {
-            console.error("Failed to persist goal event", e);
-        }
+        await handleUpdateScore(
+            newHomeScore,
+            newAwayScore,
+            undefined,
+            nextEvents.filter(ev => ev.matchId === selectedMatch.id.toString())
+        );
 
         setPendingGoalTeam(null);
         setCustomPlayerName('');
+        setSelectedAssistPlayerId('');
     };
 
     const handleDeleteGoal = async (eventToDelete: any) => {
@@ -873,13 +875,12 @@ export const MatchDayConsole = () => {
         const newHomeScore = isHome ? Math.max(0, homeScoreFromEvents) : matchState.homeScore;
         const newAwayScore = !isHome ? Math.max(0, awayScoreFromEvents) : matchState.awayScore;
 
-        await handleUpdateScore(newHomeScore, newAwayScore);
-
-        try {
-            await saveDerbyData({ goalEvents: nextEvents });
-        } catch (e) {
-            console.error("Failed to delete goal event", e);
-        }
+        await handleUpdateScore(
+            newHomeScore,
+            newAwayScore,
+            undefined,
+            nextEvents.filter(ev => ev.matchId === selectedMatch.id.toString())
+        );
     };
 
     const togglePlayPause = () => {
@@ -1010,14 +1011,19 @@ export const MatchDayConsole = () => {
 
         localStorage.setItem('dench_derby_matches_v4', JSON.stringify(tournamentMatchesList));
 
-        // Sync to server API and Derby Data
+        // Persist this match and its goal events together, without uploading a stale tournament snapshot.
         try {
-            await Promise.all([
-                updateMatchScore(selectedMatch.id, finalHome, finalAway, 'COMPLETED'),
-                saveDerbyData({ matches: tournamentMatchesList, goalEvents })
-            ]);
+            await updateMatchScore(
+                selectedMatch.id,
+                finalHome,
+                finalAway,
+                'COMPLETED',
+                matchEvents
+            );
         } catch (syncErr) {
             console.error("Notice syncing final score to server:", syncErr);
+            toast.error(syncErr instanceof Error ? syncErr.message : 'Failed to submit the final result. Please try again.');
+            return;
         }
 
         // Release referee claim on server
@@ -1894,6 +1900,11 @@ export const MatchDayConsole = () => {
                                                                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                                                                     ({teamName || 'Team'})
                                                                 </span>
+                                                                {(ev.assistPlayerName || ev.assistPlayerId) && (
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                                                                        Assist: {ev.assistPlayerName || tournamentPlayers.find(p => p.id === ev.assistPlayerId)?.name || 'Unknown player'}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
 
@@ -2057,8 +2068,22 @@ export const MatchDayConsole = () => {
                                     }
 
                                     return (
+                                        <>
+                                        <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                            Assist (optional)
+                                            <select
+                                                value={selectedAssistPlayerId}
+                                                onChange={e => setSelectedAssistPlayerId(e.target.value)}
+                                                style={{ display: 'block', width: '100%', marginTop: '0.35rem', padding: '0.65rem', borderRadius: 'var(--radius-sm)', backgroundColor: '#1b1b1b', color: '#fff', border: '1px solid var(--color-border)' }}
+                                            >
+                                                <option value="">No assist recorded</option>
+                                                {availableSquadPlayers.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </select>
+                                        </label>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                                            {availableSquadPlayers.map(p => (
+                                            {availableSquadPlayers.filter(p => p.id !== selectedAssistPlayerId).map(p => (
                                                 <button
                                                     key={p.id}
                                                     onClick={() => handleRecordGoal(p)}
@@ -2098,6 +2123,7 @@ export const MatchDayConsole = () => {
                                                 </button>
                                             ))}
                                         </div>
+                                        </>
                                     );
                                 })()}
                             </div>

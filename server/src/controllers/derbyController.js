@@ -597,10 +597,31 @@ const saveDerbyData = async (req, res) => {
             }
         }
         else if (isReferee) {
-            if (matches)
-                finalMatches = matches;
-            if (goalEvents)
-                finalGoalEvents = goalEvents;
+            if (Array.isArray(matches)) {
+                const incomingMatches = new Map(matches
+                    .filter((match) => match?.id !== undefined && match?.id !== null)
+                    .map((match) => [String(match.id), match]));
+                finalMatches = finalMatches.map((existingMatch) => {
+                    const incomingMatch = incomingMatches.get(String(existingMatch.id));
+                    if (!incomingMatch)
+                        return existingMatch;
+                    return {
+                        ...existingMatch,
+                        ...(incomingMatch.homeTeamKey !== undefined && { homeTeamKey: incomingMatch.homeTeamKey }),
+                        ...(incomingMatch.awayTeamKey !== undefined && { awayTeamKey: incomingMatch.awayTeamKey }),
+                        ...(incomingMatch.homePlaceholder !== undefined && { homePlaceholder: incomingMatch.homePlaceholder }),
+                        ...(incomingMatch.awayPlaceholder !== undefined && { awayPlaceholder: incomingMatch.awayPlaceholder })
+                    };
+                });
+            }
+            if (Array.isArray(goalEvents)) {
+                const eventById = new Map();
+                [...finalGoalEvents, ...goalEvents].forEach((event) => {
+                    if (event?.id)
+                        eventById.set(String(event.id), event);
+                });
+                finalGoalEvents = Array.from(eventById.values());
+            }
         }
         else if (isCaptain && captainTeamKey) {
             if (teams && teams[captainTeamKey]) {

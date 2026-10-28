@@ -286,13 +286,34 @@ export const getMatches = async (params?: { seasonId?: number, divisionId?: numb
     return response.json();
 };
 
-export const updateMatchScore = async (matchId: string | number, homeScore: number, awayScore: number, status?: string) => {
+type MatchGoalEvent = {
+    id: string;
+    matchId: string;
+    teamKey: string;
+    scorerPlayerId: string;
+    scorerPlayerName?: string;
+    assistPlayerId?: string | null;
+    assistPlayerName?: string | null;
+    minute: number;
+    side?: 'home' | 'away';
+};
+
+export const updateMatchScore = async (
+    matchId: string | number,
+    homeScore: number,
+    awayScore: number,
+    status?: string,
+    goalEvents?: MatchGoalEvent[]
+) => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchId}/score`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ homeScore, awayScore, ...(status && { status }) }),
+        body: JSON.stringify({ homeScore, awayScore, ...(status && { status }), ...(goalEvents && { goalEvents }) }),
     });
-    if (!response.ok) throw new Error('Failed to update score');
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to update score' }));
+        throw new Error(err.error || 'Failed to update score');
+    }
     return response.json();
 };
 

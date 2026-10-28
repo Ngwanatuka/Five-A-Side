@@ -55,11 +55,11 @@ describe('Dench tournament progression', () => {
     it('resolves a complete Dench tournament from group fixtures through the trophy match', () => {
         const teams: Record<string, TournamentProgressTeam> = {
             dench: { name: 'Dench City FC', color: 'green', group: 'A' },
-            barcode: { name: 'BARCODE FC', color: 'blue', group: 'A' },
-            gsw: { name: 'GSW FC', color: 'orange', group: 'A' },
+            ayoba: { name: 'Ayoba FC', color: 'red', group: 'A' },
+            areyeng: { name: 'Areyeng FC', color: 'cyan', group: 'A' },
+            gsw: { name: 'GSW FC', color: 'orange', group: 'B' },
             mambisa: { name: 'Mambisa FC', color: 'purple', group: 'B' },
-            ayoba: { name: 'Ayoba FC', color: 'red', group: 'B' },
-            areyeng: { name: 'Areyeng FC', color: 'cyan', group: 'B' }
+            barcode: { name: 'Barcode FC', color: 'blue', group: 'B' }
         };
         const completedMatch = (
             id: string,
@@ -79,12 +79,12 @@ describe('Dench tournament progression', () => {
             status: 'completed'
         });
         const groupMatches = [
-            completedMatch('ga-m1', 'A', 'dench', 'barcode', 2, 1),
-            completedMatch('ga-m2', 'A', 'barcode', 'gsw', 3, 0),
-            completedMatch('ga-m3', 'A', 'gsw', 'dench', 1, 0),
-            completedMatch('gb-m1', 'B', 'mambisa', 'ayoba', 1, 0),
-            completedMatch('gb-m2', 'B', 'ayoba', 'areyeng', 2, 0),
-            completedMatch('gb-m3', 'B', 'areyeng', 'mambisa', 0, 1)
+            completedMatch('ga-m1', 'A', 'dench', 'ayoba', 3, 0),
+            completedMatch('ga-m2', 'A', 'ayoba', 'areyeng', 3, 0),
+            completedMatch('ga-m3', 'A', 'areyeng', 'dench', 1, 0),
+            completedMatch('gb-m1', 'B', 'gsw', 'mambisa', 3, 0),
+            completedMatch('gb-m2', 'B', 'mambisa', 'barcode', 2, 0),
+            completedMatch('gb-m3', 'B', 'barcode', 'gsw', 0, 1)
         ];
 
         expect(isGroupStageComplete(groupMatches, 'A')).toBe(true);
@@ -92,23 +92,23 @@ describe('Dench tournament progression', () => {
 
         const groupA = calculateGroupStandings(teams, groupMatches, 'A');
         const groupB = calculateGroupStandings(teams, groupMatches, 'B');
-        expect(groupA.slice(0, 2).map(team => team.teamKey)).toEqual(['barcode', 'dench']);
-        expect(groupB.slice(0, 2).map(team => team.teamKey)).toEqual(['mambisa', 'ayoba']);
+        expect(groupA.slice(0, 2).map(team => team.teamKey)).toEqual(['dench', 'ayoba']);
+        expect(groupB.slice(0, 2).map(team => team.teamKey)).toEqual(['gsw', 'mambisa']);
         const [groupAFirst, groupASecond] = groupA;
         const [groupBFirst, groupBSecond] = groupB;
         if (!groupAFirst || !groupASecond || !groupBFirst || !groupBSecond) {
             throw new Error('Expected two ranked teams in each completed group.');
         }
 
-        const semi1 = { homeScore: 2, awayScore: 2, tieBreakWinnerKey: 'barcode' };
+        const semi1 = { homeScore: 2, awayScore: 2, tieBreakWinnerKey: 'dench' };
         const semi2 = { homeScore: 1, awayScore: 0 };
         const semi1Outcome = getKnockoutOutcome(semi1, groupAFirst.teamKey, groupBSecond.teamKey);
         const semi2Outcome = getKnockoutOutcome(semi2, groupASecond.teamKey, groupBFirst.teamKey);
-        expect(semi1Outcome).toEqual({ winnerKey: 'barcode', loserKey: 'ayoba' });
-        expect(semi2Outcome).toEqual({ winnerKey: 'dench', loserKey: 'mambisa' });
+        expect(semi1Outcome).toEqual({ winnerKey: 'dench', loserKey: 'mambisa' });
+        expect(semi2Outcome).toEqual({ winnerKey: 'ayoba', loserKey: 'gsw' });
 
         const finalOutcome = getKnockoutOutcome(
-            { homeScore: 3, awayScore: 3, tieBreakWinnerKey: 'dench' },
+            { homeScore: 3, awayScore: 3, tieBreakWinnerKey: 'ayoba' },
             semi1Outcome.winnerKey,
             semi2Outcome.winnerKey
         );
@@ -118,7 +118,7 @@ describe('Dench tournament progression', () => {
             semi2Outcome.loserKey
         );
 
-        expect(finalOutcome).toEqual({ winnerKey: 'dench', loserKey: 'barcode' });
-        expect(thirdPlaceOutcome).toEqual({ winnerKey: 'ayoba', loserKey: 'mambisa' });
+        expect(finalOutcome).toEqual({ winnerKey: 'ayoba', loserKey: 'dench' });
+        expect(thirdPlaceOutcome).toEqual({ winnerKey: 'mambisa', loserKey: 'gsw' });
     });
 });

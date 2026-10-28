@@ -141,7 +141,7 @@ const getCaptainsList = async (_req, res) => {
         // Determine team keys in tournament order
         const teamKeys = Object.keys(tournamentTeams).length > 0
             ? Object.keys(tournamentTeams)
-            : ['team-dench', 'cpt-superstars', 'bras-ba-kasi', 'gauteng-warriors', 'woza-madzala', 'areyeng-fc'];
+            : ['team-dench', 'woza-madzala', 'areyeng-fc', 'bras-ba-kasi', 'gauteng-warriors', 'cpt-superstars'];
         const list = teamKeys.map(teamKey => {
             const conf = configMap.get(teamKey);
             const team = tournamentTeams[teamKey];

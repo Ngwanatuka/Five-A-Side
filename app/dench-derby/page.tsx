@@ -75,18 +75,26 @@ const TEAMS: Record<string, TeamInfo> = {
     city: "Dench Grounds",
     slogan: "The Pride of Dench City"
   },
-  "cpt-superstars": {
-    id: "cpt-superstars",
-    name: "BARCODE FC",
+  "woza-madzala": {
+    id: "woza-madzala",
+    name: "Ayoba FC",
     group: "A",
-    color: "#3b82f6",
-    city: "Cape Town",
-    slogan: "Scanning The Field, Striking With Precision"
+    color: "#ef4444",
+    city: "Ekurhuleni",
+    slogan: "Ayoba! Pure Kasi Magic & Speed"
+  },
+  "areyeng-fc": {
+    id: "areyeng-fc",
+    name: "Areyeng FC",
+    group: "A",
+    color: "#06b6d4",
+    city: "Tshwane",
+    slogan: "Forward Together, Never Back"
   },
   "bras-ba-kasi": {
     id: "bras-ba-kasi",
     name: "GSW FC",
-    group: "A",
+    group: "B",
     color: "#f59e0b",
     city: "Gauteng",
     slogan: "Golden State Warriors on Pitch"
@@ -99,34 +107,26 @@ const TEAMS: Record<string, TeamInfo> = {
     city: "Mambisa",
     slogan: "Royal Purple, Pure Football Flair"
   },
-  "woza-madzala": {
-    id: "woza-madzala",
-    name: "Ayoba fc",
+  "cpt-superstars": {
+    id: "cpt-superstars",
+    name: "Barcode FC",
     group: "B",
-    color: "#ef4444",
-    city: "Ekurhuleni",
-    slogan: "Ayoba! Pure Kasi Magic & Speed"
-  },
-  "areyeng-fc": {
-    id: "areyeng-fc",
-    name: "Areyeng fc",
-    group: "B",
-    color: "#06b6d4",
-    city: "Tshwane",
-    slogan: "Forward Together, Never Back"
+    color: "#3b82f6",
+    city: "Cape Town",
+    slogan: "Scanning The Field, Striking With Precision"
   }
 }
 
 const INITIAL_PLAYERS: TournamentPlayer[] = []
 
 const DEFAULT_MATCHES: TournamentMatch[] = [
-  { id: "ga-m1", stage: "group", group: "A", matchOrder: 1, homeTeamKey: "team-dench", awayTeamKey: "cpt-superstars", homePlaceholder: "Dench City FC", awayPlaceholder: "BARCODE FC", time: "18:30", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Opening Clash" },
-  { id: "ga-m2", stage: "group", group: "A", matchOrder: 3, homeTeamKey: "cpt-superstars", awayTeamKey: "bras-ba-kasi", homePlaceholder: "BARCODE FC", awayPlaceholder: "GSW FC", time: "19:05", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Round 2" },
-  { id: "ga-m3", stage: "group", group: "A", matchOrder: 5, homeTeamKey: "bras-ba-kasi", awayTeamKey: "team-dench", homePlaceholder: "GSW FC", awayPlaceholder: "Dench City FC", time: "19:40", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Decider" },
+  { id: "ga-m1", stage: "group", group: "A", matchOrder: 1, homeTeamKey: "team-dench", awayTeamKey: "woza-madzala", homePlaceholder: "Dench City FC", awayPlaceholder: "Ayoba FC", time: "18:30", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Opening Clash" },
+  { id: "ga-m2", stage: "group", group: "A", matchOrder: 3, homeTeamKey: "woza-madzala", awayTeamKey: "areyeng-fc", homePlaceholder: "Ayoba FC", awayPlaceholder: "Areyeng FC", time: "19:05", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Round 2" },
+  { id: "ga-m3", stage: "group", group: "A", matchOrder: 5, homeTeamKey: "areyeng-fc", awayTeamKey: "team-dench", homePlaceholder: "Areyeng FC", awayPlaceholder: "Dench City FC", time: "19:40", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Group A Decider" },
 
-  { id: "gb-m1", stage: "group", group: "B", matchOrder: 2, homeTeamKey: "gauteng-warriors", awayTeamKey: "woza-madzala", homePlaceholder: "Mambisa FC", awayPlaceholder: "Ayoba fc", time: "18:30", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B High-Stakes Opener" },
-  { id: "gb-m2", stage: "group", group: "B", matchOrder: 4, homeTeamKey: "woza-madzala", awayTeamKey: "areyeng-fc", homePlaceholder: "Ayoba fc", awayPlaceholder: "Areyeng fc", time: "19:05", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B Round 2" },
-  { id: "gb-m3", stage: "group", group: "B", matchOrder: 6, homeTeamKey: "areyeng-fc", awayTeamKey: "gauteng-warriors", homePlaceholder: "Areyeng fc", awayPlaceholder: "Mambisa FC", time: "19:40", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B Decider" },
+  { id: "gb-m1", stage: "group", group: "B", matchOrder: 2, homeTeamKey: "bras-ba-kasi", awayTeamKey: "gauteng-warriors", homePlaceholder: "GSW FC", awayPlaceholder: "Mambisa FC", time: "18:30", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B High-Stakes Opener" },
+  { id: "gb-m2", stage: "group", group: "B", matchOrder: 4, homeTeamKey: "gauteng-warriors", awayTeamKey: "cpt-superstars", homePlaceholder: "Mambisa FC", awayPlaceholder: "Barcode FC", time: "19:05", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B Round 2" },
+  { id: "gb-m3", stage: "group", group: "B", matchOrder: 6, homeTeamKey: "cpt-superstars", awayTeamKey: "bras-ba-kasi", homePlaceholder: "Barcode FC", awayPlaceholder: "GSW FC", time: "19:40", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Group B Decider" },
 
   { id: "sf-1", stage: "semi", matchOrder: 7, homeTeamKey: null, awayTeamKey: null, homePlaceholder: "Winner Group A", awayPlaceholder: "Runner-up Group B", time: "20:15", pitch: 1, homeScore: null, awayScore: null, status: "scheduled", note: "Semi-Final 1" },
   { id: "sf-2", stage: "semi", matchOrder: 8, homeTeamKey: null, awayTeamKey: null, homePlaceholder: "Winner Group B", awayPlaceholder: "Runner-up Group A", time: "20:15", pitch: 2, homeScore: null, awayScore: null, status: "scheduled", note: "Semi-Final 2" },

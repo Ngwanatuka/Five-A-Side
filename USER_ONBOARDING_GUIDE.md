@@ -95,11 +95,11 @@ As a Team Captain, you are in charge of registering your players and submitting 
 1. Click the **Role Switcher** in the navbar or select **🧢 Team Captain** upon opening the site.
 2. Select your team from the dropdown list (each team displays its designated squad roster captain):
    - **Dench City FC**
-   - **BARCODE FC**
+   - **Ayoba FC**
+   - **Areyeng FC**
    - **GSW FC**
    - **Mambisa FC**
-   - **Ayoba fc**
-   - **Areyeng fc**
+   - **Barcode FC**
 3. Enter your team’s **4-digit secret PIN** (issued by the tournament admin).
 4. Click **Log In as Captain**. You will be taken straight to the tournament squad manager.
 
@@ -145,8 +145,8 @@ Referees and timekeepers run the tournament from the **Match Day Console** (`/re
 ### Step 2: Selecting an Active Match
 1. Click the **Select Match** dropdown at the top of the console.
 2. Matches are grouped by pitch and kickoff order:
-   - **Pitch 1 Matches:** Dench City vs BARCODE FC, GSW vs Dench City, Semi-Final 1, Grand Final.
-   - **Pitch 2 Matches:** Mambisa vs Ayoba, Ayoba vs Areyeng, Semi-Final 2, 3rd Place Match.
+   - **Pitch 1 Matches:** Dench City vs Ayoba, Ayoba vs Areyeng, Areyeng vs Dench City, Semi-Final 1, Grand Final.
+   - **Pitch 2 Matches:** GSW vs Mambisa, Mambisa vs Barcode, Barcode vs GSW, Semi-Final 2, 3rd Place Match.
 3. Select the fixture you are officiating. The console loads both team squads and scorecards.
 
 ### Step 3: Operating the Match Clock
@@ -227,8 +227,8 @@ The **Dench Derby** is the flagship tournament on the platform. The `/dench-derb
 
 ### 2. 📊 Groups Tab
 - Standings tables for **Group A** and **Group B**:
-  - **Group A Teams:** Dench City FC, BARCODE FC, GSW FC
-  - **Group B Teams:** Mambisa FC, Ayoba fc, Areyeng fc
+  - **Group A Teams:** Dench City FC, Ayoba FC, Areyeng FC
+  - **Group B Teams:** GSW FC, Mambisa FC, Barcode FC
 - Automatically calculates:
   - `P` (Played), `W` (Won), `D` (Drawn), `L` (Lost)
   - `GF` (Goals For), `GA` (Goals Against), `GD` (Goal Difference)
@@ -236,12 +236,12 @@ The **Dench Derby** is the flagship tournament on the platform. The `/dench-derb
 
 ### 3. 📅 Schedule Tab
 - Complete breakdown of all 10 tournament matches:
-  - **Match 1 (18:30, Pitch 1):** Dench City FC vs BARCODE FC
-  - **Match 2 (18:30, Pitch 2):** Mambisa FC vs Ayoba fc
-  - **Match 3 (19:05, Pitch 1):** BARCODE FC vs GSW FC
-  - **Match 4 (19:05, Pitch 2):** Ayoba fc vs Areyeng fc
-  - **Match 5 (19:40, Pitch 1):** GSW FC vs Dench City FC
-  - **Match 6 (19:40, Pitch 2):** Areyeng fc vs Mambisa FC
+  - **Match 1 (18:30, Pitch 1):** Dench City FC vs Ayoba FC
+  - **Match 2 (18:30, Pitch 2):** GSW FC vs Mambisa FC
+  - **Match 3 (19:05, Pitch 1):** Ayoba FC vs Areyeng FC
+  - **Match 4 (19:05, Pitch 2):** Mambisa FC vs Barcode FC
+  - **Match 5 (19:40, Pitch 1):** Areyeng FC vs Dench City FC
+  - **Match 6 (19:40, Pitch 2):** Barcode FC vs GSW FC
   - **Matches 7 & 8 (20:15):** Semi-Finals
   - **Matches 9 & 10 (20:55 & 21:00):** 3rd Place Match & Grand Final
 - Each card displays kickoff time, pitch number, status badge (`Scheduled`, `LIVE`, `Full Time`), and expandable goalscorers list.

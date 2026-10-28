@@ -134,11 +134,11 @@ if (typeof window !== 'undefined') {
 
 export const DEFAULT_CAPTAINS: PublicCaptain[] = [
     { teamKey: 'team-dench', teamName: 'Dench City FC', captainName: '', pin: '1111', group: 'A' },
-    { teamKey: 'cpt-superstars', teamName: 'BARCODE FC', captainName: '', pin: '2222', group: 'A' },
-    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: '', pin: '3333', group: 'A' },
+    { teamKey: 'woza-madzala', teamName: 'Ayoba FC', captainName: '', pin: '5555', group: 'A' },
+    { teamKey: 'areyeng-fc', teamName: 'Areyeng FC', captainName: '', pin: '6666', group: 'A' },
+    { teamKey: 'bras-ba-kasi', teamName: 'GSW FC', captainName: '', pin: '3333', group: 'B' },
     { teamKey: 'gauteng-warriors', teamName: 'Mambisa FC', captainName: '', pin: '4444', group: 'B' },
-    { teamKey: 'woza-madzala', teamName: 'Ayoba fc', captainName: '', pin: '5555', group: 'B' },
-    { teamKey: 'areyeng-fc', teamName: 'Areyeng fc', captainName: '', pin: '6666', group: 'B' }
+    { teamKey: 'cpt-superstars', teamName: 'Barcode FC', captainName: '', pin: '2222', group: 'B' }
 ];
 
 export const getStoredOrFallbackCaptains = (): PublicCaptain[] => {

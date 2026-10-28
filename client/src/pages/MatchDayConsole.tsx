@@ -42,11 +42,11 @@ const getMatchDurationSeconds = (matchFormat: MatchFormat) =>
 
 const OFFICIAL_TEAMS_FALLBACK: Record<string, { name: string; group: 'A' | 'B' }> = {
     'team-dench': { name: 'Dench City FC', group: 'A' },
-    'cpt-superstars': { name: 'BARCODE FC', group: 'A' },
-    'bras-ba-kasi': { name: 'GSW FC', group: 'A' },
+    'woza-madzala': { name: 'Ayoba FC', group: 'A' },
+    'areyeng-fc': { name: 'Areyeng FC', group: 'A' },
+    'bras-ba-kasi': { name: 'GSW FC', group: 'B' },
     'gauteng-warriors': { name: 'Mambisa FC', group: 'B' },
-    'woza-madzala': { name: 'Ayoba fc', group: 'B' },
-    'areyeng-fc': { name: 'Areyeng fc', group: 'B' },
+    'cpt-superstars': { name: 'Barcode FC', group: 'B' },
 };
 
 export const MatchDayConsole = () => {
@@ -123,24 +123,24 @@ export const MatchDayConsole = () => {
                 if (savedTeams) {
                     localTeams = JSON.parse(savedTeams);
                     if (localTeams['team-dench']?.name === 'Team Dench') localTeams['team-dench'].name = 'Dench City FC';
-                    if (localTeams['cpt-superstars']?.name === 'CPT superstars fc') localTeams['cpt-superstars'].name = 'BARCODE FC';
+                    if (localTeams['cpt-superstars']?.name === 'CPT superstars fc') localTeams['cpt-superstars'].name = 'Barcode FC';
                     if (localTeams['bras-ba-kasi']?.name === 'Bras ba kasi') localTeams['bras-ba-kasi'].name = 'GSW FC';
                     if (localTeams['gauteng-warriors']?.name === 'Gauteng state warriors') localTeams['gauteng-warriors'].name = 'Mambisa FC';
-                    if (localTeams['woza-madzala']?.name === 'Woza madzala fc') localTeams['woza-madzala'].name = 'Ayoba fc';
+                    if (localTeams['woza-madzala']?.name === 'Woza madzala fc') localTeams['woza-madzala'].name = 'Ayoba FC';
                 }
                 const savedMatches = localStorage.getItem('dench_derby_matches_v4');
                 if (savedMatches) {
                     localMatches = JSON.parse(savedMatches);
                     localMatches.forEach((m: any) => {
                         if (m.homePlaceholder === 'Team Dench') m.homePlaceholder = 'Dench City FC';
-                        if (m.awayPlaceholder === 'CPT superstars fc') m.awayPlaceholder = 'BARCODE FC';
-                        if (m.homePlaceholder === 'CPT superstars fc') m.homePlaceholder = 'BARCODE FC';
+                        if (m.awayPlaceholder === 'CPT superstars fc') m.awayPlaceholder = 'Barcode FC';
+                        if (m.homePlaceholder === 'CPT superstars fc') m.homePlaceholder = 'Barcode FC';
                         if (m.awayPlaceholder === 'Bras ba kasi') m.awayPlaceholder = 'GSW FC';
                         if (m.homePlaceholder === 'Bras ba kasi') m.homePlaceholder = 'GSW FC';
                         if (m.awayPlaceholder === 'Team Dench') m.awayPlaceholder = 'Dench City FC';
                         if (m.homePlaceholder === 'Gauteng state warriors') m.homePlaceholder = 'Mambisa FC';
-                        if (m.awayPlaceholder === 'Woza madzala fc') m.awayPlaceholder = 'Ayoba fc';
-                        if (m.homePlaceholder === 'Woza madzala fc') m.homePlaceholder = 'Ayoba fc';
+                        if (m.awayPlaceholder === 'Woza madzala fc') m.awayPlaceholder = 'Ayoba FC';
+                        if (m.homePlaceholder === 'Woza madzala fc') m.homePlaceholder = 'Ayoba FC';
                         if (m.awayPlaceholder === 'Gauteng state warriors') m.awayPlaceholder = 'Mambisa FC';
                     });
                 }

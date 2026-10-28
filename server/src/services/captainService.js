@@ -19,12 +19,20 @@ const DEFAULT_CONFIG = {
             pin: '1111',
             group: 'A'
         },
-        'cpt-superstars': {
-            teamKey: 'cpt-superstars',
-            teamName: 'BARCODE FC',
+        'woza-madzala': {
+            teamKey: 'woza-madzala',
+            teamName: 'Ayoba FC',
             captainName: '',
-            email: 'cpt.captain@5aside.com',
-            pin: '2222',
+            email: 'woza.captain@5aside.com',
+            pin: '5555',
+            group: 'A'
+        },
+        'areyeng-fc': {
+            teamKey: 'areyeng-fc',
+            teamName: 'Areyeng FC',
+            captainName: '',
+            email: 'areyeng.captain@5aside.com',
+            pin: '6666',
             group: 'A'
         },
         'bras-ba-kasi': {
@@ -33,7 +41,7 @@ const DEFAULT_CONFIG = {
             captainName: '',
             email: 'kasi.captain@5aside.com',
             pin: '3333',
-            group: 'A'
+            group: 'B'
         },
         'gauteng-warriors': {
             teamKey: 'gauteng-warriors',
@@ -43,20 +51,12 @@ const DEFAULT_CONFIG = {
             pin: '4444',
             group: 'B'
         },
-        'woza-madzala': {
-            teamKey: 'woza-madzala',
-            teamName: 'Ayoba fc',
+        'cpt-superstars': {
+            teamKey: 'cpt-superstars',
+            teamName: 'Barcode FC',
             captainName: '',
-            email: 'woza.captain@5aside.com',
-            pin: '5555',
-            group: 'B'
-        },
-        'areyeng-fc': {
-            teamKey: 'areyeng-fc',
-            teamName: 'Areyeng fc',
-            captainName: '',
-            email: 'areyeng.captain@5aside.com',
-            pin: '6666',
+            email: 'cpt.captain@5aside.com',
+            pin: '2222',
             group: 'B'
         }
     }

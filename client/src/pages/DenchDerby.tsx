@@ -25,7 +25,7 @@ import {
     Lock,
     Crown
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer, setPlayerCaptain } from '../services/api';
 import { useRole } from '../context/RoleContext';
@@ -641,8 +641,22 @@ export const DenchDerby = () => {
         };
     }, []);
 
-    // Active Navigation Tab
-    const [activeTab, setActiveTab] = useState<'bracket' | 'groups' | 'schedule' | 'leaderboard' | 'teams' | 'rules'>('bracket');
+    // Active Navigation Tab (Supports URL ?tab=teams or ?tab=leaderboard, etc.)
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<'bracket' | 'groups' | 'schedule' | 'leaderboard' | 'teams' | 'rules'>(() => {
+        const tabParam = new URLSearchParams(window.location.search).get('tab');
+        if (tabParam && ['bracket', 'groups', 'schedule', 'leaderboard', 'teams', 'rules'].includes(tabParam)) {
+            return tabParam as any;
+        }
+        return 'bracket';
+    });
+
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam && ['bracket', 'groups', 'schedule', 'leaderboard', 'teams', 'rules'].includes(tabParam)) {
+            setActiveTab(tabParam as any);
+        }
+    }, [searchParams]);
 
     // Add Player Modal State
     const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);

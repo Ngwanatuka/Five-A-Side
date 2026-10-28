@@ -1,13 +1,36 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { Shield, Users, Trophy, Plus, Lock, Trash2, Crown } from 'lucide-react';
-import { getStandings, getTeams, addPlayerToTeam, deletePlayer, setPlayerCaptain, getBackendUrl } from '../services/api';
+import { Shield, Users, Trophy, Plus, Lock, Trash2, Crown, ChevronDown, ChevronUp } from 'lucide-react';
+import { getStandings, getTeams, getDerbyData, addPlayerToTeam, deletePlayer, setPlayerCaptain, getBackendUrl } from '../services/api';
 import { NavLink } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useRole } from '../context/RoleContext';
 import { useToast, useConfirm } from '../components/Toast';
+import { DEFAULT_TOURNAMENT_PLAYERS } from '../data/tournamentPlayers';
 
 const socket = io(getBackendUrl());
+
+const TEAM_KEY_NAME_MAP: Record<string, string[]> = {
+    'team-dench': ['dench city fc', 'team dench', 'dench'],
+    'cpt-superstars': ['barcode fc', 'cpt superstars', 'cpt superstars fc', 'barcode'],
+    'bras-ba-kasi': ['gsw fc', 'bras ba kasi', 'gsw'],
+    'gauteng-warriors': ['mambisa fc', 'gauteng state warriors', 'gauteng warriors', 'mambisa'],
+    'woza-madzala': ['ayoba fc', 'woza madzala', 'woza madzala fc', 'ayoba'],
+    'areyeng-fc': ['areyeng fc', 'areyeng']
+};
+
+const mapTeamNameToKey = (name?: string, contact?: string): string => {
+    if (contact && contact.includes('@tournament.local')) {
+        return contact.replace('@tournament.local', '');
+    }
+    const n = (name || '').toLowerCase().trim();
+    for (const [key, aliases] of Object.entries(TEAM_KEY_NAME_MAP)) {
+        if (aliases.some(a => n.includes(a) || a.includes(n))) {
+            return key;
+        }
+    }
+    return '';
+};
 
 export const Teams = () => {
     const { role, captainTeamName, canEditTeam, isPastDeadline, deadlineRemaining, openRoleModal } = useRole();
@@ -15,29 +38,37 @@ export const Teams = () => {
     const { confirm, ConfirmUI } = useConfirm();
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
+    const [collapsedTeamIds, setCollapsedTeamIds] = useState<Record<string | number, boolean>>({});
     const [inlinePlayerNames, setInlinePlayerNames] = useState<Record<number, string>>({});
 
     const fetchTeams = async () => {
         try {
-            const [standingsData, fullTeamsData] = await Promise.all([
+            const [standingsData, fullTeamsData, derbyData] = await Promise.all([
                 getStandings(1, 1).catch(() => []),
-                getTeams().catch(() => [])
+                getTeams().catch(() => []),
+                getDerbyData().catch(() => null)
             ]);
 
+            const tournamentPlayersList = (Array.isArray(derbyData?.players) && derbyData.players.length > 0)
+                ? derbyData.players
+                : DEFAULT_TOURNAMENT_PLAYERS;
+
             // Combine standings data with full team records including players
-            let combined: any[] = [];
+            let baseList: any[] = [];
             if (Array.isArray(standingsData) && standingsData.length > 0) {
-                combined = standingsData.map((st: any) => {
-                    const fullTeam = fullTeamsData.find((t: any) => t.id === st.teamId);
+                baseList = standingsData.map((st: any) => {
+                    const fullTeam = (fullTeamsData || []).find((t: any) =>
+                        Number(t.id) === Number(st.teamId) ||
+                        (t.name && st.teamName && t.name.trim().toLowerCase() === st.teamName.trim().toLowerCase())
+                    );
                     return {
                         ...st,
-                        players: fullTeam?.players || [],
+                        rawDbPlayers: fullTeam?.players || [],
                         managerContact: fullTeam?.managerContact || ''
                     };
                 });
             } else if (Array.isArray(fullTeamsData) && fullTeamsData.length > 0) {
-                combined = fullTeamsData.map((ft: any) => ({
+                baseList = fullTeamsData.map((ft: any) => ({
                     teamId: ft.id,
                     teamName: ft.name,
                     played: 0,
@@ -48,11 +79,71 @@ export const Teams = () => {
                     goalsAgainst: 0,
                     goalDifference: 0,
                     points: 0,
-                    players: ft.players || [],
+                    rawDbPlayers: ft.players || [],
                     managerContact: ft.managerContact || ''
                 }));
             }
-            setTeams(combined);
+
+            // Enrich each team with full tournament roster from derby-tournament.json
+            const enriched = baseList.map((team: any) => {
+                const teamKey = mapTeamNameToKey(team.teamName, team.managerContact);
+                const tournamentRoster = teamKey
+                    ? tournamentPlayersList.filter((p: any) => p.teamKey === teamKey)
+                    : [];
+
+                const playerMap = new Map<string, any>();
+
+                // Add DB players
+                (team.rawDbPlayers || []).forEach((p: any) => {
+                    const cleanName = (p.name || `${p.firstName || ''} ${p.lastName && p.lastName !== '-' ? p.lastName : ''}`).trim();
+                    if (cleanName) {
+                        playerMap.set(cleanName.toLowerCase(), {
+                            id: p.id,
+                            name: cleanName,
+                            firstName: p.firstName || cleanName.split(' ')[0],
+                            lastName: p.lastName || cleanName.split(' ').slice(1).join(' ') || '-',
+                            isCaptain: p.isCaptain === true,
+                            position: p.position || 'MID',
+                            jerseyNumber: p.jerseyNumber
+                        });
+                    }
+                });
+
+                // Add tournament roster players
+                tournamentRoster.forEach((tp: any) => {
+                    const cleanName = tp.name.trim();
+                    const key = cleanName.toLowerCase();
+                    if (!playerMap.has(key)) {
+                        playerMap.set(key, {
+                            id: tp.id,
+                            name: cleanName,
+                            firstName: cleanName.split(' ')[0],
+                            lastName: cleanName.split(' ').slice(1).join(' ') || '-',
+                            isCaptain: tp.isCaptain === true,
+                            position: tp.position || 'MID',
+                            jerseyNumber: tp.jerseyNumber
+                        });
+                    } else if (tp.isCaptain) {
+                        playerMap.get(key).isCaptain = true;
+                    }
+                });
+
+                const finalPlayers = Array.from(playerMap.values());
+                // Sort by jersey number if available, then by captain, then name
+                finalPlayers.sort((a, b) => {
+                    if (a.jerseyNumber && b.jerseyNumber) return a.jerseyNumber - b.jerseyNumber;
+                    if (a.isCaptain) return -1;
+                    if (b.isCaptain) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+                return {
+                    ...team,
+                    players: finalPlayers
+                };
+            });
+
+            setTeams(enriched);
         } catch (error) {
             console.error("Failed to fetch teams", error);
         } finally {
@@ -135,7 +226,7 @@ export const Teams = () => {
         try {
             await addPlayerToTeam({ teamId, firstName, lastName });
             setInlinePlayerNames(prev => ({ ...prev, [teamId]: '' }));
-            setExpandedTeamId(teamId);
+            setCollapsedTeamIds(prev => ({ ...prev, [teamId]: false }));
             toast.success(`Player "${rawName}" added successfully!`);
             fetchTeams();
         } catch (err: any) {
@@ -318,107 +409,128 @@ export const Teams = () => {
 
                                     {/* Squad Roster & Quick Add Player */}
                                     <div style={{ marginTop: '0.75rem' }}>
-                                        <div className="flex-between" style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
-                                            <span style={{ fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                <Users size={13} /> Squad ({team.players?.length || 0}/9)
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setExpandedTeamId(expandedTeamId === team.teamId ? null : team.teamId)}
-                                                style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
-                                            >
-                                                {expandedTeamId === team.teamId ? 'Hide' : 'View'}
-                                            </button>
-                                        </div>
-
-                                        {/* Player List */}
-                                        {expandedTeamId === team.teamId && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem', maxHeight: '130px', overflowY: 'auto' }}>
-                                                {(!team.players || team.players.length === 0) ? (
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '0.25rem 0' }}>
-                                                        No players registered yet.
+                                        {(() => {
+                                            const isExpanded = !collapsedTeamIds[team.teamId];
+                                            return (
+                                                <>
+                                                    <div className="flex-between" style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
+                                                        <span style={{ fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                            <Users size={13} /> Squad ({team.players?.length || 0}/9)
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setCollapsedTeamIds(prev => ({ ...prev, [team.teamId]: !prev[team.teamId] }))}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                                        >
+                                                            {isExpanded ? (
+                                                                <><span>Collapse</span> <ChevronUp size={12} /></>
+                                                            ) : (
+                                                                <><span>View Roster</span> <ChevronDown size={12} /></>
+                                                            )}
+                                                        </button>
                                                     </div>
-                                                ) : (
-                                                    team.players.map((p: any) => {
-                                                        const pFullName = `${p.firstName} ${p.lastName !== '-' ? p.lastName : ''}`.trim();
-                                                        return (
-                                                            <div key={p.id} style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'space-between',
-                                                                padding: '0.35rem 0.5rem',
-                                                                backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                                                                borderRadius: '4px',
-                                                                fontSize: '0.75rem',
-                                                                color: 'white'
-                                                            }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                                    <span>👤 {pFullName}</span>
-                                                                    {p.isCaptain && (
-                                                                        <span style={{
-                                                                            fontSize: '0.62rem',
-                                                                            backgroundColor: '#f59e0b',
-                                                                            color: '#050505',
-                                                                            fontWeight: 800,
-                                                                            padding: '0.1rem 0.35rem',
-                                                                            borderRadius: '3px',
-                                                                            display: 'inline-flex',
+
+                                                    {/* Player List (Expanded by default) */}
+                                                    {isExpanded && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem', maxHeight: '180px', overflowY: 'auto' }}>
+                                                            {(!team.players || team.players.length === 0) ? (
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '0.25rem 0' }}>
+                                                                    No players registered yet.
+                                                                </div>
+                                                            ) : (
+                                                                team.players.map((p: any) => {
+                                                                    const pFullName = p.name || `${p.firstName || ''} ${p.lastName && p.lastName !== '-' ? p.lastName : ''}`.trim();
+                                                                    return (
+                                                                        <div key={p.id} style={{
+                                                                            display: 'flex',
                                                                             alignItems: 'center',
-                                                                            gap: '0.2rem'
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '0.35rem 0.5rem',
+                                                                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '0.75rem',
+                                                                            color: 'white'
                                                                         }}>
-                                                                            <Crown size={10} /> CAPTAIN
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                                    {canEditTeam(team.teamName) && !p.isCaptain && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleMakeCaptain(p.id, pFullName, team.teamName)}
-                                                                            style={{
-                                                                                background: 'rgba(245, 158, 11, 0.1)',
-                                                                                border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                                                color: '#f59e0b',
-                                                                                cursor: 'pointer',
-                                                                                padding: '0.15rem 0.4rem',
-                                                                                borderRadius: '3px',
-                                                                                fontSize: '0.68rem',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                gap: '0.2rem',
-                                                                                fontWeight: 600
-                                                                            }}
-                                                                            title="Designate as Team Captain"
-                                                                        >
-                                                                            <Crown size={11} /> Captain
-                                                                        </button>
-                                                                    )}
-                                                                    {canEditTeam(team.teamName) && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleDeletePlayer(p.id, team.teamName, pFullName)}
-                                                                            style={{
-                                                                                background: 'none',
-                                                                                border: 'none',
-                                                                                color: '#ef4444',
-                                                                                cursor: 'pointer',
-                                                                                padding: '0 0.2rem',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                opacity: 0.8
-                                                                            }}
-                                                                            title="Remove player from squad"
-                                                                        >
-                                                                            <Trash2 size={12} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
-                                            </div>
-                                        )}
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                                {p.jerseyNumber && (
+                                                                                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--color-primary)', minWidth: '16px' }}>
+                                                                                        #{p.jerseyNumber}
+                                                                                    </span>
+                                                                                )}
+                                                                                <span>👤 {pFullName}</span>
+                                                                                {p.position && (
+                                                                                    <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', backgroundColor: 'rgba(255,255,255,0.06)', padding: '0.05rem 0.25rem', borderRadius: '2px' }}>
+                                                                                        {p.position}
+                                                                                    </span>
+                                                                                )}
+                                                                                {p.isCaptain && (
+                                                                                    <span style={{
+                                                                                        fontSize: '0.62rem',
+                                                                                        backgroundColor: '#f59e0b',
+                                                                                        color: '#050505',
+                                                                                        fontWeight: 800,
+                                                                                        padding: '0.1rem 0.35rem',
+                                                                                        borderRadius: '3px',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        gap: '0.2rem'
+                                                                                    }}>
+                                                                                        <Crown size={10} /> CAPTAIN
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                                {canEditTeam(team.teamName) && !p.isCaptain && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleMakeCaptain(p.id, pFullName, team.teamName)}
+                                                                                        style={{
+                                                                                            background: 'rgba(245, 158, 11, 0.1)',
+                                                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                                                            color: '#f59e0b',
+                                                                                            cursor: 'pointer',
+                                                                                            padding: '0.15rem 0.4rem',
+                                                                                            borderRadius: '3px',
+                                                                                            fontSize: '0.68rem',
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            gap: '0.2rem',
+                                                                                            fontWeight: 600
+                                                                                        }}
+                                                                                        title="Designate as Team Captain"
+                                                                                    >
+                                                                                        <Crown size={11} /> Captain
+                                                                                    </button>
+                                                                                )}
+                                                                                {canEditTeam(team.teamName) && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleDeletePlayer(p.id, team.teamName, pFullName)}
+                                                                                        style={{
+                                                                                            background: 'none',
+                                                                                            border: 'none',
+                                                                                            color: '#ef4444',
+                                                                                            cursor: 'pointer',
+                                                                                            padding: '0 0.2rem',
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            opacity: 0.8
+                                                                                        }}
+                                                                                        title="Remove player from squad"
+                                                                                    >
+                                                                                        <Trash2 size={12} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
 
                                         {/* Inline Add Player Input (Only if authorized Captain or Admin) */}
                                         {canEditTeam(team.teamName) ? (

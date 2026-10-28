@@ -219,7 +219,7 @@ export const AdminDashboard = () => {
         return (
             <div className="app-container">
                 <Navbar />
-                <ConfirmUI />
+                {ConfirmUI}
 
                 <main className="main-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1rem' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -349,7 +349,7 @@ export const AdminDashboard = () => {
     return (
         <div className="app-container">
             <Navbar />
-            <ConfirmUI />
+            {ConfirmUI}
 
             <main className="main-content" style={{ padding: '2rem 1.5rem', maxWidth: '1280px', margin: '0 auto' }}>
 

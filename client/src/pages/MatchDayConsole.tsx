@@ -1147,7 +1147,7 @@ export const MatchDayConsole = () => {
     return (
         <div className="app-container">
             <Navbar />
-            <ConfirmUI />
+            {ConfirmUI}
 
             <main className="main-content flex-center animate-fade-in" style={{ flex: 1, flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>

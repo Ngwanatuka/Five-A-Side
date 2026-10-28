@@ -242,7 +242,7 @@ export const Teams = () => {
     return (
         <div className="app-container">
             <Navbar />
-            <ConfirmUI />
+            {ConfirmUI}
 
             <main className="main-content">
                 {/* ROLE BANNER */}

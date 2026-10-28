@@ -343,10 +343,20 @@ export function useConfirm() {
         });
     }, []);
 
-    const handleConfirm = () => { dialog?.resolve(true);  setDialog(null); };
-    const handleCancel  = () => { dialog?.resolve(false); setDialog(null); };
+    const handleConfirm = useCallback(() => {
+        setDialog(current => {
+            current?.resolve(true);
+            return null;
+        });
+    }, []);
+    const handleCancel = useCallback(() => {
+        setDialog(current => {
+            current?.resolve(false);
+            return null;
+        });
+    }, []);
 
-    const ConfirmUI = () => dialog ? (
+    const ConfirmUI = dialog ? (
         <ConfirmDialog
             message={dialog.message}
             confirmLabel={dialog.confirmLabel}

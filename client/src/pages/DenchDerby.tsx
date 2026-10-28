@@ -1680,7 +1680,7 @@ export const DenchDerby = () => {
     return (
         <div className="app-container">
             <Navbar />
-            <ConfirmUI />
+            {ConfirmUI}
 
             <main className="main-content">
 

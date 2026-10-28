@@ -4,8 +4,8 @@ export const getBackendUrl = (): string => {
     }
     if (typeof window !== 'undefined' && window.location) {
         const hostname = window.location.hostname;
-        // In local dev, Express runs on :5000
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        // In local dev, Express runs on :5000 (localhost, loopback, or private WSL/LAN IP)
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(hostname)) {
             return `http://${hostname}:5000`;
         }
         // On Render (or any production host), client and server share the same origin

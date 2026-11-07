@@ -33,6 +33,7 @@ describe('Player Endpoints', () => {
         expect(prisma_1.default.player.create).toHaveBeenCalledTimes(1);
         expect(prisma_1.default.player.create).toHaveBeenCalledWith({
             data: { teamId: 1, firstName: 'John', lastName: 'Doe' },
+            include: { team: true }
         });
     });
     it('should return 400 when trying to add a 10th player to a team', async () => {

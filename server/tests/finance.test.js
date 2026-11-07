@@ -29,6 +29,8 @@ describe('Finance Endpoints', () => {
         });
         const res = await (0, supertest_1.default)(app_1.app)
             .post('/api/finances/register')
+            .set('x-user-role', 'ADMIN')
+            .set('x-user-email', 'ngwanatuka@fivesway.xyz')
             .send({ playerId: 1, seasonId: 1, paymentTier: 'FULL', amountPaid: 622 });
         expect(res.statusCode).toEqual(201);
         expect(prisma_1.default.playerSeasonFinance.create).toHaveBeenCalledWith({
@@ -41,6 +43,8 @@ describe('Finance Endpoints', () => {
         });
         const res = await (0, supertest_1.default)(app_1.app)
             .post('/api/finances/register')
+            .set('x-user-role', 'ADMIN')
+            .set('x-user-email', 'ngwanatuka@fivesway.xyz')
             .send({ playerId: 2, seasonId: 1, paymentTier: 'HALF', amountPaid: 311 });
         expect(res.statusCode).toEqual(201);
         expect(prisma_1.default.playerSeasonFinance.create).toHaveBeenCalledWith({

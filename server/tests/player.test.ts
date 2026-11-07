@@ -33,6 +33,7 @@ describe('Player Endpoints', () => {
         expect(prisma.player.create).toHaveBeenCalledTimes(1);
         expect(prisma.player.create).toHaveBeenCalledWith({
             data: { teamId: 1, firstName: 'John', lastName: 'Doe' },
+            include: { team: true }
         });
     });
 

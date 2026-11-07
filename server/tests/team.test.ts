@@ -13,6 +13,13 @@ jest.mock('../src/prisma', () => ({
             create: jest.fn(),
             update: jest.fn(),
             count: jest.fn(),
+            findMany: jest.fn().mockResolvedValue([]),
+        },
+        season: {
+            upsert: jest.fn().mockResolvedValue({}),
+        },
+        division: {
+            upsert: jest.fn().mockResolvedValue({}),
         },
     },
 }));
@@ -43,7 +50,7 @@ describe('Team Endpoints', () => {
         expect(res.body.name).toEqual(mockTeam.name);
         expect(prisma.team.create).toHaveBeenCalledTimes(1);
         expect(prisma.team.create).toHaveBeenCalledWith({
-            data: { name: 'Tigers FC', managerContact: 'john@example.com', logoUrl: undefined },
+            data: { name: 'Tigers FC', managerContact: 'john@example.com', logoUrl: null },
         });
     });
 
@@ -60,8 +67,8 @@ describe('Team Endpoints', () => {
             id: 1,
             teamId: 1,
             seasonId: 1,
-            divisionId: null,
-            status: 'PENDING',
+            divisionId: 1,
+            status: 'APPROVED',
         };
 
         (prisma.teamSeasonRegistration.create as jest.Mock).mockResolvedValue(mockRegistration);
@@ -71,9 +78,9 @@ describe('Team Endpoints', () => {
             .send({ teamId: 1, seasonId: 1 });
 
         expect(res.statusCode).toEqual(201);
-        expect(res.body.status).toEqual('PENDING');
+        expect(res.body.status).toEqual('APPROVED');
         expect(prisma.teamSeasonRegistration.create).toHaveBeenCalledWith({
-            data: { teamId: 1, seasonId: 1, status: 'PENDING' },
+            data: { teamId: 1, seasonId: 1, divisionId: 1, status: 'APPROVED' },
         });
     });
 

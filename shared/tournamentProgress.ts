@@ -108,37 +108,38 @@ export const migrateRequestedTournamentGroups = <
     }
 
     const groupMatches = matches.filter(match => match.stage === 'group');
-    const fixturesAreUnplayed = groupMatches.length === 6 &&
-        groupMatches.every(match =>
+    for (const match of groupMatches) {
+        const fixture = match.id ? REQUESTED_GROUP_FIXTURES[match.id] : undefined;
+        if (!fixture) continue;
+        if (Object.keys(teams).length > 0 && (!teams[fixture.homeTeamKey] || !teams[fixture.awayTeamKey])) {
+            continue;
+        }
+
+        const matchIsUnplayed =
             (match.homeScore === null || match.homeScore === undefined) &&
             (match.awayScore === null || match.awayScore === undefined) &&
             match.status !== 'live' &&
-            match.status !== 'completed'
-        );
+            match.status !== 'completed';
 
-    if (fixturesAreUnplayed) {
-        for (const match of groupMatches) {
-            const fixture = match.id ? REQUESTED_GROUP_FIXTURES[match.id] : undefined;
-            if (!fixture) continue;
+        if (!matchIsUnplayed) continue;
 
-            const homePlaceholder = teams[fixture.homeTeamKey]?.name;
-            const awayPlaceholder = teams[fixture.awayTeamKey]?.name;
-            if (
-                match.group !== fixture.group ||
-                match.homeTeamKey !== fixture.homeTeamKey ||
-                match.awayTeamKey !== fixture.awayTeamKey ||
-                match.homePlaceholder !== homePlaceholder ||
-                match.awayPlaceholder !== awayPlaceholder
-            ) {
-                Object.assign(match, {
-                    group: fixture.group,
-                    homeTeamKey: fixture.homeTeamKey,
-                    awayTeamKey: fixture.awayTeamKey,
-                    homePlaceholder,
-                    awayPlaceholder
-                });
-                changed = true;
-            }
+        const homePlaceholder = teams[fixture.homeTeamKey]?.name;
+        const awayPlaceholder = teams[fixture.awayTeamKey]?.name;
+        if (
+            match.group !== fixture.group ||
+            match.homeTeamKey !== fixture.homeTeamKey ||
+            match.awayTeamKey !== fixture.awayTeamKey ||
+            match.homePlaceholder !== homePlaceholder ||
+            match.awayPlaceholder !== awayPlaceholder
+        ) {
+            Object.assign(match, {
+                group: fixture.group,
+                homeTeamKey: fixture.homeTeamKey,
+                awayTeamKey: fixture.awayTeamKey,
+                homePlaceholder,
+                awayPlaceholder
+            });
+            changed = true;
         }
     }
 
@@ -197,37 +198,51 @@ export const calculateGroupStandings = (
         });
 
     matches
-        .filter(match => match.stage === 'group' && match.group === group)
+        .filter(match => match.stage === 'group')
         .forEach(match => {
-            if (match.homeScore === null || match.awayScore === null || !match.homeTeamKey || !match.awayTeamKey) return;
+            if (match.status && ['scheduled', 'upcoming'].includes(match.status.toLowerCase())) return;
+            if (match.homeScore === null || match.homeScore === undefined || match.awayScore === null || match.awayScore === undefined) return;
+            if (!match.homeTeamKey || !match.awayTeamKey) return;
+
+            const homeScore = Number(match.homeScore);
+            const awayScore = Number(match.awayScore);
+            if (Number.isNaN(homeScore) || Number.isNaN(awayScore)) return;
+
             const home = standings[match.homeTeamKey];
             const away = standings[match.awayTeamKey];
-            if (!home || !away) return;
+            if (!home && !away) return;
 
-            home.played += 1;
-            away.played += 1;
-            home.goalsFor += match.homeScore;
-            home.goalsAgainst += match.awayScore;
-            away.goalsFor += match.awayScore;
-            away.goalsAgainst += match.homeScore;
-
-            if (match.homeScore > match.awayScore) {
-                home.won += 1;
-                home.points += 3;
-                away.lost += 1;
-            } else if (match.awayScore > match.homeScore) {
-                away.won += 1;
-                away.points += 3;
-                home.lost += 1;
-            } else {
-                home.drawn += 1;
-                away.drawn += 1;
-                home.points += 1;
-                away.points += 1;
+            if (home) {
+                home.played += 1;
+                home.goalsFor += homeScore;
+                home.goalsAgainst += awayScore;
+                if (homeScore > awayScore) {
+                    home.won += 1;
+                    home.points += 3;
+                } else if (awayScore > homeScore) {
+                    home.lost += 1;
+                } else {
+                    home.drawn += 1;
+                    home.points += 1;
+                }
+                home.goalDifference = home.goalsFor - home.goalsAgainst;
             }
 
-            home.goalDifference = home.goalsFor - home.goalsAgainst;
-            away.goalDifference = away.goalsFor - away.goalsAgainst;
+            if (away) {
+                away.played += 1;
+                away.goalsFor += awayScore;
+                away.goalsAgainst += homeScore;
+                if (awayScore > homeScore) {
+                    away.won += 1;
+                    away.points += 3;
+                } else if (homeScore > awayScore) {
+                    away.lost += 1;
+                } else {
+                    away.drawn += 1;
+                    away.points += 1;
+                }
+                away.goalDifference = away.goalsFor - away.goalsAgainst;
+            }
         });
 
     return Object.values(standings).sort((a, b) =>

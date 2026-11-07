@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma';
 import { readTournamentData, updateTournamentData } from '../services/tournamentStore';
+import { migrateRequestedTournamentGroups } from '../../../shared/tournamentProgress';
+import { RecordTournamentMatchScoreUseCase } from '../hexagon/application/tournamentUseCases';
+import {
+    PrismaRelationalSyncAdapter,
+    PrismaTournamentRepositoryAdapter,
+    SocketIoBroadcasterAdapter
+} from '../hexagon/adapters/outbound/prismaTournamentAdapters';
 
 const updateScoreSchema = z.object({
     homeScore: z.number().int().nonnegative().nullable(),
@@ -30,49 +37,6 @@ const createMatchSchema = z.object({
     time: z.string(), // "18:00"
     pitchNumber: z.number().int().min(1).max(3) // Pitch Limit Constraint
 });
-
-const syncTournamentScoreToDatabase = async (
-    homeTeamKey: string | null | undefined,
-    awayTeamKey: string | null | undefined,
-    homeScore: number | null,
-    awayScore: number | null,
-    status?: string
-) => {
-    if (!homeTeamKey || !awayTeamKey) return;
-
-    const [homeTeam, awayTeam] = await Promise.all([
-        prisma.team.findFirst({ where: { managerContact: `${homeTeamKey}@tournament.local` } }),
-        prisma.team.findFirst({ where: { managerContact: `${awayTeamKey}@tournament.local` } })
-    ]);
-    if (!homeTeam || !awayTeam) return;
-
-    const databaseMatch = await prisma.match.findFirst({
-        where: {
-            seasonId: 1,
-            homeTeamId: homeTeam.id,
-            awayTeamId: awayTeam.id
-        }
-    });
-    if (!databaseMatch) return;
-
-    const normalizedStatus = status?.toLowerCase();
-    const prismaStatus = normalizedStatus === 'completed'
-        ? 'COMPLETED'
-        : normalizedStatus === 'live'
-            ? 'LIVE'
-            : normalizedStatus
-                ? 'UPCOMING'
-                : undefined;
-
-    await prisma.match.update({
-        where: { id: databaseMatch.id },
-        data: {
-            homeScore,
-            awayScore,
-            ...(prismaStatus && { status: prismaStatus })
-        }
-    });
-};
 
 export const createMatch = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -123,104 +87,33 @@ export const updateMatchScore = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // 1. If matchId is NaN or a tournament string ID, update persistent tournament state
+        // 1. If matchId is NaN or a tournament string ID, delegate to Hexagonal Application Use Case
         if (isNaN(matchId)) {
-            let matchNotFound = false;
-            let invalidTieBreakWinner = false;
-            const derbyData = await updateTournamentData<any>((data) => {
-                if (!Array.isArray(data.matches)) {
-                    matchNotFound = true;
-                    return;
-                }
-                const matchIndex = data.matches.findIndex((match: any) => match.id === rawId);
-                if (matchIndex === -1) {
-                    matchNotFound = true;
-                    return;
-                }
-                const tm = data.matches[matchIndex];
-                if (tieBreakWinnerKey !== undefined) {
-                    const isKnockout = ['semi', 'final', 'third_place'].includes(tm.stage);
-                    const hasTiedScore = homeScore !== null && awayScore !== null && homeScore === awayScore;
-                    const isParticipant = tieBreakWinnerKey === tm.homeTeamKey || tieBreakWinnerKey === tm.awayTeamKey;
-                    if (tieBreakWinnerKey !== null && (!isKnockout || !hasTiedScore || status?.toLowerCase() !== 'completed' || !isParticipant)) {
-                        invalidTieBreakWinner = true;
-                        return;
-                    }
-                    tm.tieBreakWinnerKey = tieBreakWinnerKey;
-                } else if (status?.toLowerCase() !== 'completed' || homeScore !== awayScore) {
-                    tm.tieBreakWinnerKey = null;
-                }
-                tm.homeScore = homeScore;
-                tm.awayScore = awayScore;
-                if (status) {
-                    tm.status = status.toLowerCase() === 'completed' ? 'completed' : (status.toLowerCase() === 'live' ? 'live' : 'scheduled');
-                }
-                if (goalEvents) {
-                    const existingGoalEvents = Array.isArray(data.goalEvents) ? data.goalEvents : [];
-                    data.goalEvents = [
-                        ...existingGoalEvents.filter((event: any) => event.matchId !== rawId),
-                        ...goalEvents
-                    ];
-                }
-                data.updatedAt = new Date().toISOString();
+            const useCase = new RecordTournamentMatchScoreUseCase(
+                new PrismaTournamentRepositoryAdapter(),
+                new PrismaRelationalSyncAdapter(),
+                new SocketIoBroadcasterAdapter(req.app.get('io'))
+            );
+
+            const result = await useCase.execute({
+                matchId: rawId,
+                homeScore,
+                awayScore,
+                status,
+                tieBreakWinnerKey,
+                goalEvents
             });
 
-            if (matchNotFound) {
+            if (result.outcome === 'not_found') {
                 res.status(404).json({ error: 'Tournament match not found' });
                 return;
             }
-            if (invalidTieBreakWinner) {
+            if (result.outcome === 'invalid_tie_break') {
                 res.status(400).json({ error: 'A tie-break winner must be one of the teams in a completed, tied knockout match.' });
                 return;
             }
-            const tm = derbyData.matches.find((match: any) => match.id === rawId);
-            if (!tm) {
-                res.status(404).json({ error: 'Tournament match not found' });
-                return;
-            }
-            try {
-                await syncTournamentScoreToDatabase(
-                    tm.homeTeamKey,
-                    tm.awayTeamKey,
-                    tm.homeScore,
-                    tm.awayScore,
-                    tm.status
-                );
-            } catch (dbErr) {
-                console.error('Notice syncing tournament match score to database:', dbErr);
-            }
 
-            const derbyTeams = derbyData.teams || {};
-            const homeName = tm.homeTeamKey && derbyTeams[tm.homeTeamKey]?.name
-                ? derbyTeams[tm.homeTeamKey].name
-                : (tm.homePlaceholder || 'TBD');
-            const awayName = tm.awayTeamKey && derbyTeams[tm.awayTeamKey]?.name
-                ? derbyTeams[tm.awayTeamKey].name
-                : (tm.awayPlaceholder || 'TBD');
-
-            const resultMatch = {
-                id: tm.id,
-                seasonId: 1,
-                divisionId: 1,
-                pitchNumber: tm.pitch || 1,
-                time: tm.time || '18:30',
-                homeScore: tm.homeScore,
-                awayScore: tm.awayScore,
-                tieBreakWinnerKey: tm.tieBreakWinnerKey || null,
-                status: (tm.status || 'scheduled').toUpperCase(),
-                stage: tm.stage,
-                group: tm.group,
-                homeTeam: { id: tm.homeTeamKey || tm.id, name: homeName },
-                awayTeam: { id: tm.awayTeamKey || tm.id, name: awayName }
-            };
-
-            const io = req.app.get('io');
-            if (io) {
-                io.emit('derbyUpdate', derbyData);
-                io.emit('scoreUpdate', resultMatch);
-            }
-
-            res.status(200).json(resultMatch);
+            res.status(200).json(result.resultMatch);
             return;
         }
         if (tieBreakWinnerKey !== undefined) {
@@ -437,6 +330,9 @@ export const getMatches = async (req: Request, res: Response) => {
                     return;
                 }
                 const derbyTeams = derbyData.teams || {};
+                if (Array.isArray(derbyData.matches)) {
+                    migrateRequestedTournamentGroups(derbyTeams, derbyData.matches);
+                }
 
                 // Map team keys to edited club names
                 const teamKeyToName: Record<string, string> = {};

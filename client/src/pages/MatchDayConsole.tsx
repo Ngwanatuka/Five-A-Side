@@ -5,7 +5,7 @@ import { Navbar } from '../components/Navbar';
 import { ChevronDown, Flag, UserCheck, Play, Pause, Square, LogOut, Trash2, X, Sliders, RotateCcw, Lock, ShieldAlert } from 'lucide-react';
 import { useToast, useConfirm } from '../components/Toast';
 import { useRole } from '../context/RoleContext';
-import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete } from '../../../shared/tournamentProgress.ts';
+import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete, migrateRequestedTournamentGroups } from '../../../shared/tournamentProgress.ts';
 
 const socket = io(getBackendUrl());
 
@@ -159,12 +159,16 @@ export const MatchDayConsole = () => {
                 getPlayers().catch(() => [])
             ]);
 
-            // Effective tournament teams: remote first, then local browser storage takes highest priority
+            // Effective tournament teams: server is authoritative over local browser storage
             const effectiveTeams: Record<string, any> = {
                 ...OFFICIAL_TEAMS_FALLBACK,
-                ...(derbyRemote?.teams || {}),
-                ...localTeams
+                ...localTeams,
+                ...(derbyRemote?.teams || {})
             };
+            migrateRequestedTournamentGroups(effectiveTeams, []);
+            try {
+                localStorage.setItem('dench_derby_teams_v4', JSON.stringify(effectiveTeams));
+            } catch {}
 
             // Merge all players from derbyRemote, dbPlayers, and local browser storage
             const playerMap = new Map<string, any>();
@@ -289,6 +293,7 @@ export const MatchDayConsole = () => {
                 : localMatches;
 
             if (rawTournamentMatches.length > 0) {
+                migrateRequestedTournamentGroups(effectiveTeams, rawTournamentMatches);
                 // Calculate standings dynamically for knockout qualification slots
                 const standingsA = calculateGroupStandings(effectiveTeams, rawTournamentMatches, 'A');
                 const standingsB = calculateGroupStandings(effectiveTeams, rawTournamentMatches, 'B');
@@ -1030,20 +1035,24 @@ export const MatchDayConsole = () => {
             } catch {}
 
             if (!Array.isArray(tournamentMatchesList) || tournamentMatchesList.length === 0) {
-                tournamentMatchesList = updatedMatches.map(m => ({
-                    id: m.id,
-                    stage: m.stage,
-                    group: m.group,
-                    homeTeamKey: m.homeTeamKey,
-                    awayTeamKey: m.awayTeamKey,
-                    homePlaceholder: m.homeTeam?.name,
-                    awayPlaceholder: m.awayTeam?.name,
-                    homeScore: m.homeScore,
-                    awayScore: m.awayScore,
-                    status: m.status?.toLowerCase(),
-                    time: m.time,
-                    pitch: m.pitchNumber
-                }));
+                tournamentMatchesList = updatedMatches.map(m => {
+                    const st = m.status?.toLowerCase();
+                    const isPlayed = st === 'completed' || st === 'live';
+                    return {
+                        id: m.id,
+                        stage: m.stage,
+                        group: m.group,
+                        homeTeamKey: m.homeTeamKey,
+                        awayTeamKey: m.awayTeamKey,
+                        homePlaceholder: m.homeTeam?.name,
+                        awayPlaceholder: m.awayTeam?.name,
+                        homeScore: isPlayed ? m.homeScore : null,
+                        awayScore: isPlayed ? m.awayScore : null,
+                        status: st,
+                        time: m.time,
+                        pitch: m.pitchNumber
+                    };
+                });
             }
 
             const target = tournamentMatchesList.find((m: any) => m.id === selectedMatch.id || m.id.toString() === matchIdStr);

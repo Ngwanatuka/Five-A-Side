@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateFixtures = exports.getStandings = void 0;
 const zod_1 = require("zod");
 const prisma_1 = __importDefault(require("../prisma"));
+const tournamentUseCases_1 = require("../hexagon/application/tournamentUseCases");
+const prismaTournamentAdapters_1 = require("../hexagon/adapters/outbound/prismaTournamentAdapters");
 const getStandingsSchema = zod_1.z.object({
     seasonId: zod_1.z.coerce.number().int().positive(),
     divisionId: zod_1.z.coerce.number().int().positive(),
@@ -42,6 +44,28 @@ const getStandings = async (req, res) => {
                 form: [],
             });
         });
+        // If this season represents the Dench Derby tournament, overlay authoritative TournamentState scores via Hexagonal Use Case
+        const hasTournamentTeams = registrations.some((reg) => reg.team?.managerContact?.endsWith('@tournament.local'));
+        if (hasTournamentTeams || (registrations.length === 0 && prisma_1.default.tournamentState)) {
+            try {
+                const teamKeyToDbId = new Map();
+                registrations.forEach((reg) => {
+                    if (reg.team?.managerContact?.endsWith('@tournament.local')) {
+                        const key = reg.team.managerContact.replace(/@tournament\.local$/, '');
+                        teamKeyToDbId.set(key, reg.team.id);
+                    }
+                });
+                const standingsUseCase = new tournamentUseCases_1.GetTournamentStandingsUseCase(new prismaTournamentAdapters_1.PrismaTournamentRepositoryAdapter());
+                const derbyStandings = await standingsUseCase.execute(teamKeyToDbId);
+                if (derbyStandings && derbyStandings.length > 0) {
+                    res.status(200).json(derbyStandings);
+                    return;
+                }
+            }
+            catch (derbyErr) {
+                console.error('Notice overlaying tournament standings:', derbyErr);
+            }
+        }
         // Fetch all completed and live matches for season and division
         const matches = await prisma_1.default.match.findMany({
             where: {

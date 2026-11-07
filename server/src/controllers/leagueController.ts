@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { GetTournamentStandingsUseCase } from '../hexagon/application/tournamentUseCases';
+import { PrismaTournamentRepositoryAdapter } from '../hexagon/adapters/outbound/prismaTournamentAdapters';
 
 const getStandingsSchema = z.object({
     seasonId: z.coerce.number().int().positive(),
@@ -55,6 +57,29 @@ export const getStandings = async (req: Request, res: Response): Promise<void> =
                 form: [],
             });
         });
+
+        // If this season represents the Dench Derby tournament, overlay authoritative TournamentState scores via Hexagonal Use Case
+        const hasTournamentTeams = registrations.some((reg: any) => reg.team?.managerContact?.endsWith('@tournament.local'));
+        if (hasTournamentTeams || (registrations.length === 0 && (prisma as any).tournamentState)) {
+            try {
+                const teamKeyToDbId = new Map<string, number>();
+                registrations.forEach((reg: any) => {
+                    if (reg.team?.managerContact?.endsWith('@tournament.local')) {
+                        const key = reg.team.managerContact.replace(/@tournament\.local$/, '');
+                        teamKeyToDbId.set(key, reg.team.id);
+                    }
+                });
+
+                const standingsUseCase = new GetTournamentStandingsUseCase(new PrismaTournamentRepositoryAdapter());
+                const derbyStandings = await standingsUseCase.execute(teamKeyToDbId);
+                if (derbyStandings && derbyStandings.length > 0) {
+                    res.status(200).json(derbyStandings);
+                    return;
+                }
+            } catch (derbyErr) {
+                console.error('Notice overlaying tournament standings:', derbyErr);
+            }
+        }
 
         // Fetch all completed and live matches for season and division
         const matches = await prisma.match.findMany({

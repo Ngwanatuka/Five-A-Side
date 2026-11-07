@@ -86,6 +86,45 @@ describe('Dench tournament progression', () => {
             awayScore: 1
         });
         expect(teams['cpt-superstars']?.group).toBe('B');
+
+        const standingsA = calculateGroupStandings(teams, matches, 'A');
+        const denchRow = standingsA.find(row => row.teamKey === 'team-dench');
+        expect(denchRow).toMatchObject({
+            played: 1,
+            won: 1,
+            goalsFor: 2,
+            goalsAgainst: 1,
+            points: 3
+        });
+    });
+
+    it('migrates remaining unplayed fixtures even when one group match has already been scored', () => {
+        const teams: Record<string, TournamentProgressTeam> = {
+            'team-dench': { name: 'Dench City FC', color: 'green', group: 'A' },
+            'cpt-superstars': { name: 'BARCODE FC', color: 'blue', group: 'A' },
+            'bras-ba-kasi': { name: 'GSW FC', color: 'orange', group: 'A' },
+            'gauteng-warriors': { name: 'Mambisa FC', color: 'purple', group: 'B' },
+            'woza-madzala': { name: 'Ayoba fc', color: 'red', group: 'B' },
+            'areyeng-fc': { name: 'Areyeng fc', color: 'cyan', group: 'B' }
+        };
+        const matches: TournamentProgressMatch[] = [
+            { id: 'ga-m1', stage: 'group', group: 'A', homeTeamKey: 'team-dench', awayTeamKey: 'woza-madzala', homeScore: 3, awayScore: 1, status: 'completed' },
+            { id: 'ga-m2', stage: 'group', group: 'A', homeTeamKey: 'cpt-superstars', awayTeamKey: 'bras-ba-kasi', homeScore: null, awayScore: null, status: 'scheduled' },
+            { id: 'ga-m3', stage: 'group', group: 'A', homeTeamKey: 'bras-ba-kasi', awayTeamKey: 'team-dench', homeScore: null, awayScore: null, status: 'scheduled' },
+            { id: 'gb-m1', stage: 'group', group: 'B', homeTeamKey: 'gauteng-warriors', awayTeamKey: 'woza-madzala', homeScore: null, awayScore: null, status: 'scheduled' },
+            { id: 'gb-m2', stage: 'group', group: 'B', homeTeamKey: 'woza-madzala', awayTeamKey: 'areyeng-fc', homeScore: null, awayScore: null, status: 'scheduled' },
+            { id: 'gb-m3', stage: 'group', group: 'B', homeTeamKey: 'areyeng-fc', awayTeamKey: 'gauteng-warriors', homeScore: null, awayScore: null, status: 'scheduled' }
+        ];
+
+        expect(migrateRequestedTournamentGroups(teams, matches)).toBe(true);
+        expect(matches.map(m => [m.id, m.homeTeamKey, m.awayTeamKey])).toEqual([
+            ['ga-m1', 'team-dench', 'woza-madzala'],
+            ['ga-m2', 'woza-madzala', 'areyeng-fc'],
+            ['ga-m3', 'areyeng-fc', 'team-dench'],
+            ['gb-m1', 'bras-ba-kasi', 'gauteng-warriors'],
+            ['gb-m2', 'gauteng-warriors', 'cpt-superstars'],
+            ['gb-m3', 'cpt-superstars', 'bras-ba-kasi']
+        ]);
     });
 
     it('does not complete group stage until every scheduled group fixture has a completed score', () => {

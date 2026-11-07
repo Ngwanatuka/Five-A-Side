@@ -30,7 +30,7 @@ import { io } from 'socket.io-client';
 import { getDerbyData, saveDerbyData, resetDerbyData, resetSingleMatch, getBackendUrl, deletePlayer, setPlayerCaptain } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import { DEFAULT_TOURNAMENT_PLAYERS, type TournamentPlayer } from '../data/tournamentPlayers';
-import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete } from '../../../shared/tournamentProgress.ts';
+import { calculateGroupStandings, getKnockoutOutcome, isGroupStageComplete, migrateRequestedTournamentGroups } from '../../../shared/tournamentProgress.ts';
 
 const socket = io(getBackendUrl());
 
@@ -363,6 +363,9 @@ export const DenchDerby = () => {
                 if (parsed['bras-ba-kasi']?.name === 'Bras ba kasi') { parsed['bras-ba-kasi'].name = 'GSW FC'; changed = true; }
                 if (parsed['gauteng-warriors']?.name === 'Gauteng state warriors') { parsed['gauteng-warriors'].name = 'Mambisa FC'; changed = true; }
                 if (parsed['woza-madzala']?.name === 'Woza madzala fc') { parsed['woza-madzala'].name = 'Ayoba FC'; changed = true; }
+                if (migrateRequestedTournamentGroups(parsed, [])) {
+                    changed = true;
+                }
                 if (changed) {
                     localStorage.setItem('dench_derby_teams_v4', JSON.stringify(parsed));
                 }
@@ -411,6 +414,10 @@ export const DenchDerby = () => {
                         if (m.pitch !== 1) { m.pitch = 1; changed = true; }
                     }
                 });
+                const teamsCopy = { ...DEFAULT_TEAMS };
+                if (migrateRequestedTournamentGroups(teamsCopy, parsed)) {
+                    changed = true;
+                }
                 if (changed) {
                     localStorage.setItem('dench_derby_matches_v4', JSON.stringify(parsed));
                 }
@@ -524,16 +531,17 @@ export const DenchDerby = () => {
                         ? data.teams
                         : (localSavedTeams || {});
 
+                    // The server is the authoritative single source of truth for match fixtures and scores
+                    const serverMatches = Array.isArray(data?.matches) && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES;
+                    const effectiveMatches = serverMatches;
+                    migrateRequestedTournamentGroups(effectiveTeams, effectiveMatches);
+
                     if (Object.keys(effectiveTeams).length > 0) {
                         setTeams(effectiveTeams);
                         try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(effectiveTeams)); } catch {}
                     }
 
-                    // The server is the authoritative single source of truth for match fixtures and scores
-                    const serverMatches = Array.isArray(data?.matches) && data.matches.length > 0 ? data.matches : DEFAULT_MATCHES;
-                    const anyServerScored = serverMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
-
-                    const effectiveMatches = serverMatches;
+                    const anyServerScored = effectiveMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
                     setMatches(effectiveMatches);
                     try {
                         localStorage.setItem('dench_derby_matches_v4', JSON.stringify(effectiveMatches));
@@ -576,15 +584,22 @@ export const DenchDerby = () => {
 
         const handleRemoteUpdate = (data: any) => {
             if (!data) return;
-            if (data.teams && Object.keys(data.teams).length > 0) {
-                setTeams(data.teams);
-                try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(data.teams)); } catch {}
+            const nextTeams = data.teams && Object.keys(data.teams).length > 0 ? { ...data.teams } : null;
+            const nextMatches = Array.isArray(data.matches) && data.matches.length > 0 ? data.matches.map((m: any) => ({ ...m })) : null;
+            if (nextTeams && nextMatches) {
+                migrateRequestedTournamentGroups(nextTeams, nextMatches);
+            } else if (nextTeams) {
+                migrateRequestedTournamentGroups(nextTeams, []);
             }
-            if (data.matches && data.matches.length > 0) {
-                setMatches(data.matches);
+            if (nextTeams) {
+                setTeams(nextTeams);
+                try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(nextTeams)); } catch {}
+            }
+            if (nextMatches) {
+                setMatches(nextMatches);
                 try {
-                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(data.matches));
-                    const anyScored = data.matches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
+                    localStorage.setItem('dench_derby_matches_v4', JSON.stringify(nextMatches));
+                    const anyScored = nextMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
                     if (!anyScored) {
                         localStorage.removeItem('dench_derby_events_v4');
                         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -606,6 +621,27 @@ export const DenchDerby = () => {
             }
         };
 
+        const handleScoreUpdate = (updatedMatch?: any) => {
+            if (updatedMatch && updatedMatch.id) {
+                setMatches(prev => {
+                    const next = prev.map(m => {
+                        if (String(m.id) !== String(updatedMatch.id)) return m;
+                        return {
+                            ...m,
+                            homeScore: updatedMatch.homeScore ?? m.homeScore,
+                            awayScore: updatedMatch.awayScore ?? m.awayScore,
+                            ...(updatedMatch.tieBreakWinnerKey !== undefined && { tieBreakWinnerKey: updatedMatch.tieBreakWinnerKey }),
+                            ...(updatedMatch.status && { status: String(updatedMatch.status).toLowerCase() as any })
+                        };
+                    });
+                    try { localStorage.setItem('dench_derby_matches_v4', JSON.stringify(next)); } catch {}
+                    return next;
+                });
+            } else {
+                fetchRemote();
+            }
+        };
+
         const handlePlayerDeleted = (deleted: any) => {
             if (deleted) {
                 setPlayers(prev => prev.filter(p => {
@@ -619,6 +655,7 @@ export const DenchDerby = () => {
 
         socket.on('derbyUpdate', handleRemoteUpdate);
         socket.on('derbyReset', handleRemoteUpdate);
+        socket.on('scoreUpdate', handleScoreUpdate);
         socket.on('playerDeleted', handlePlayerDeleted);
         socket.on('playerAdded', () => { /* derbyUpdate socket handles the state update */ });
 
@@ -626,6 +663,7 @@ export const DenchDerby = () => {
             isMounted = false;
             socket.off('derbyUpdate', handleRemoteUpdate);
             socket.off('derbyReset', handleRemoteUpdate);
+            socket.off('scoreUpdate', handleScoreUpdate);
             socket.off('playerDeleted', handlePlayerDeleted);
             socket.off('playerAdded');
         };

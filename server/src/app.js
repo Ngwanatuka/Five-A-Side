@@ -39,6 +39,9 @@ io.on('connection', (socket) => {
 app.set('io', io);
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 app.use('/api/teams', teamRoutes_1.default);
 app.use('/api/players', playerRoutes_1.default);
 app.use('/api/finances', financeRoutes_1.default);

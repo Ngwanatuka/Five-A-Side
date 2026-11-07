@@ -28,6 +28,8 @@ describe('Finance Endpoints', () => {
 
         const res = await request(app)
             .post('/api/finances/register')
+            .set('x-user-role', 'ADMIN')
+            .set('x-user-email', 'ngwanatuka@fivesway.xyz')
             .send({ playerId: 1, seasonId: 1, paymentTier: 'FULL', amountPaid: 622 });
 
         expect(res.statusCode).toEqual(201);
@@ -43,6 +45,8 @@ describe('Finance Endpoints', () => {
 
         const res = await request(app)
             .post('/api/finances/register')
+            .set('x-user-role', 'ADMIN')
+            .set('x-user-email', 'ngwanatuka@fivesway.xyz')
             .send({ playerId: 2, seasonId: 1, paymentTier: 'HALF', amountPaid: 311 });
 
         expect(res.statusCode).toEqual(201);

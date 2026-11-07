@@ -32,7 +32,9 @@ export declare const DEFAULT_DERBY_MATCHES: ({
     note: string;
     group?: never;
 })[];
-export declare function syncToPrismaDatabase(teams: any, matches: any, players: any): Promise<void>;
+export declare function syncToPrismaDatabase(teams: any, matches: any, players: any, options?: {
+    allowPurgePlayers?: boolean;
+}): Promise<void>;
 export declare function initDerbyTournament(): Promise<void>;
 export declare const getDerbyData: (req: Request, res: Response) => Promise<void>;
 export declare const saveDerbyData: (req: any, res: Response) => Promise<void>;

@@ -229,7 +229,12 @@ export const DEFAULT_DERBY_MATCHES = [
     }
 ];
 
-export async function syncToPrismaDatabase(teams: any, matches: any, players: any) {
+export async function syncToPrismaDatabase(
+    teams: any,
+    matches: any,
+    players: any,
+    options?: { allowPurgePlayers?: boolean }
+) {
     if (!teams || typeof teams !== 'object') return;
 
     try {
@@ -370,12 +375,14 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
             }
         }
 
-        // 2b. Clean up deleted / mock players from database so only official tournament squad players remain
-        for (const dbp of existingDbPlayers) {
-            if (!validPlayerIds.includes(dbp.id)) {
-                await prisma.matchRoster.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
-                await prisma.playerSeasonFinance.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
-                await prisma.player.delete({ where: { id: dbp.id } }).catch(() => {});
+        // 2b. Only purge database players if explicitly requested (never on automatic startup or score sync)
+        if (options?.allowPurgePlayers === true) {
+            for (const dbp of existingDbPlayers) {
+                if (!validPlayerIds.includes(dbp.id)) {
+                    await prisma.matchRoster.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
+                    await prisma.playerSeasonFinance.deleteMany({ where: { playerId: dbp.id } }).catch(() => {});
+                    await prisma.player.delete({ where: { id: dbp.id } }).catch(() => {});
+                }
             }
         }
 
@@ -430,15 +437,15 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
                 }
             }
 
-            // Clean up matches for Season 1 that are not part of tournament
+            // Clean up only unplayed UPCOMING matches for Season 1 that are not part of tournament (never delete scored/completed matches)
             if (validMatchIds.length > 0) {
-                await prisma.matchRoster.deleteMany({
-                    where: { matchId: { notIn: validMatchIds } }
-                }).catch(() => {});
                 await prisma.match.deleteMany({
                     where: {
                         seasonId: 1,
-                        id: { notIn: validMatchIds }
+                        id: { notIn: validMatchIds },
+                        status: 'UPCOMING',
+                        homeScore: null,
+                        awayScore: null
                     }
                 }).catch(() => {});
             }
@@ -447,6 +454,60 @@ export async function syncToPrismaDatabase(teams: any, matches: any, players: an
         console.error('Error syncing Derby tournament to database:', syncErr);
         throw syncErr;
     }
+}
+
+async function mergeDatabasePlayersIntoTournamentState(currentData: any): Promise<boolean> {
+    if (!Array.isArray(currentData.players)) {
+        currentData.players = [];
+    }
+    const dbPlayers = await prisma.player.findMany({
+        where: { team: { managerContact: { endsWith: '@tournament.local' } } },
+        include: { team: true },
+        orderBy: { id: 'asc' }
+    });
+    if (dbPlayers.length === 0) {
+        return false;
+    }
+
+    const existingMap = new Map();
+    currentData.players.forEach((p: any) => {
+        if (p.teamKey && p.name) {
+            existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+        }
+    });
+
+    const teamCounts: Record<string, number> = {};
+    currentData.players.forEach((p: any) => {
+        teamCounts[p.teamKey] = Math.max(teamCounts[p.teamKey] || 0, p.jerseyNumber || 0);
+    });
+
+    let updatedFile = false;
+    dbPlayers.forEach((dbp) => {
+        const teamKey = dbp.team.managerContact.replace(/@tournament\.local$/, '');
+        const fullName = `${dbp.firstName} ${dbp.lastName === '-' ? '' : dbp.lastName}`.trim();
+        const key = `${teamKey}_${fullName.toLowerCase()}`;
+        const found = existingMap.get(key);
+
+        if (!found) {
+            teamCounts[teamKey] = (teamCounts[teamKey] || 0) + 1;
+            const newP = {
+                id: `p-${dbp.id}`,
+                teamKey,
+                name: fullName,
+                jerseyNumber: teamCounts[teamKey],
+                position: 'MID',
+                isCaptain: dbp.isCaptain === true
+            };
+            currentData.players.push(newP);
+            existingMap.set(key, newP);
+            updatedFile = true;
+        } else if (found.isCaptain !== (dbp.isCaptain === true)) {
+            found.isCaptain = dbp.isCaptain === true;
+            updatedFile = true;
+        }
+    });
+
+    return updatedFile;
 }
 
 export async function initDerbyTournament() {
@@ -464,13 +525,22 @@ export async function initDerbyTournament() {
             await writeTournamentData(currentData);
         }
 
-        if (migrateRequestedTournamentGroups(currentData.teams, currentData.matches || [])) {
+        let needsSave = migrateRequestedTournamentGroups(currentData.teams, currentData.matches || []);
+        try {
+            if (await mergeDatabasePlayersIntoTournamentState(currentData)) {
+                needsSave = true;
+            }
+        } catch (mergeErr) {
+            console.error('Notice merging DB players during init:', mergeErr);
+        }
+
+        if (needsSave) {
             currentData.updatedAt = new Date().toISOString();
             await writeTournamentData(currentData);
         }
 
         await syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []);
-        console.log('Dench Derby Tournament database sync complete - all mock teams purged.');
+        console.log('Dench Derby Tournament database sync complete - all existing data preserved.');
     } catch (e) {
         console.error('Failed to initialize Derby tournament:', e);
         throw e;
@@ -497,66 +567,23 @@ export const getDerbyData = async (req: Request, res: Response) => {
         if (!Array.isArray(currentData.goalEvents)) {
             currentData.goalEvents = [];
         }
-        if (migrateRequestedTournamentGroups(currentData.teams, currentData.matches)) {
-            currentData.updatedAt = new Date().toISOString();
-            await writeTournamentData(currentData);
-        }
+        const migrated = migrateRequestedTournamentGroups(currentData.teams, currentData.matches);
 
         // Merge DB players into currentData.players to keep squads completely unified
         try {
-            const dbPlayers = await prisma.player.findMany({
-                where: { team: { managerContact: { endsWith: '@tournament.local' } } },
-                include: { team: true },
-                orderBy: { id: 'asc' }
-            });
-
-            if (dbPlayers.length > 0) {
-                const existingMap = new Map();
-                currentData.players.forEach((p: any) => {
-                    if (p.teamKey && p.name) {
-                        existingMap.set(`${p.teamKey}_${p.name.trim().toLowerCase()}`, p);
+            const mergedPlayers = await mergeDatabasePlayersIntoTournamentState(currentData);
+            if (migrated || mergedPlayers) {
+                try {
+                    currentData.updatedAt = new Date().toISOString();
+                    await writeTournamentData(currentData);
+                    if (migrated) {
+                        syncToPrismaDatabase(currentData.teams, currentData.matches, currentData.players || []).catch(err => {
+                            console.error('Async DB sync notice on getDerbyData migration:', err);
+                        });
                     }
-                });
-
-                const teamCounts: Record<string, number> = {};
-                currentData.players.forEach((p: any) => {
-                    teamCounts[p.teamKey] = Math.max(teamCounts[p.teamKey] || 0, p.jerseyNumber || 0);
-                });
-
-                let updatedFile = false;
-                dbPlayers.forEach((dbp) => {
-                    const teamKey = dbp.team.managerContact.replace(/@tournament\.local$/, '');
-                    const fullName = `${dbp.firstName} ${dbp.lastName === '-' ? '' : dbp.lastName}`.trim();
-                    const key = `${teamKey}_${fullName.toLowerCase()}`;
-                    const found = existingMap.get(key);
-
-                    if (!found) {
-                        teamCounts[teamKey] = (teamCounts[teamKey] || 0) + 1;
-                        const newP = {
-                            id: `p-${dbp.id}`,
-                            teamKey,
-                            name: fullName,
-                            jerseyNumber: teamCounts[teamKey],
-                            position: 'MID',
-                            isCaptain: dbp.isCaptain === true
-                        };
-                        currentData.players.push(newP);
-                        existingMap.set(key, newP);
-                        updatedFile = true;
-                    } else if (found.isCaptain !== (dbp.isCaptain === true)) {
-                        found.isCaptain = dbp.isCaptain === true;
-                        updatedFile = true;
-                    }
-                });
-
-                if (updatedFile) {
-                    try {
-                        currentData.updatedAt = new Date().toISOString();
-                        await writeTournamentData(currentData);
-                    } catch (writeErr) {
-                        console.error('Failed to persist merged tournament players:', writeErr);
-                        throw writeErr;
-                    }
+                } catch (writeErr) {
+                    console.error('Failed to persist merged tournament players:', writeErr);
+                    throw writeErr;
                 }
             }
         } catch (dbErr) {
@@ -718,6 +745,10 @@ export const saveDerbyData = async (req: any, res: Response) => {
             ? req.body.activeReferees
             : (currentData.activeReferees || {});
 
+        if (finalTeams && Array.isArray(finalMatches)) {
+            migrateRequestedTournamentGroups(finalTeams, finalMatches);
+        }
+
         const payload = {
             teams: finalTeams,
             matches: finalMatches,
@@ -867,6 +898,9 @@ export const resetSingleMatch = async (req: Request, res: Response) => {
 
         // Purge any goal events for this specific match
         currentData.goalEvents = (currentData.goalEvents || []).filter((ev: any) => ev.matchId !== matchId);
+        if (currentData.teams && Array.isArray(currentData.matches)) {
+            migrateRequestedTournamentGroups(currentData.teams, currentData.matches);
+        }
         currentData.updatedAt = new Date().toISOString();
 
         await writeTournamentData(currentData);
@@ -938,10 +972,12 @@ export const resetDerbyData = async (req: Request, res: Response) => {
         }
 
         const purgePlayers = req.body?.purgePlayers === true || req.query?.purgePlayers === 'true';
+        const resetMatches = DEFAULT_DERBY_MATCHES.map(m => ({ ...m }));
+        migrateRequestedTournamentGroups(currentTeams, resetMatches);
 
         const payload = {
             teams: currentTeams,
-            matches: DEFAULT_DERBY_MATCHES,
+            matches: resetMatches,
             players: purgePlayers ? [] : currentPlayers,
             goalEvents: [],
             activeReferees: {},
@@ -950,7 +986,7 @@ export const resetDerbyData = async (req: Request, res: Response) => {
 
         await writeTournamentData(payload);
 
-        syncToPrismaDatabase(currentTeams, DEFAULT_DERBY_MATCHES, payload.players).catch(err => {
+        syncToPrismaDatabase(currentTeams, resetMatches, payload.players).catch(err => {
             console.error('Async DB sync notice on reset:', err);
         });
 

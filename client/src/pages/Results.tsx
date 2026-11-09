@@ -161,22 +161,27 @@ export const Results = () => {
                     Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
 
-                <footer style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
-                        <div className="flex-center gap-2">
-                            <div className="nav-logo-icon" style={{ padding: '0.2rem' }}><Trophy size={14} color="#050505" /></div>
-                            <strong style={{ color: 'white' }}>5-A-Side League</strong>
-                        </div>
-                        <NavLink to="/login" style={{ color: 'var(--color-text-muted)', textDecoration: 'none', fontSize: '0.8rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}>
-                            Referee Login
-                        </NavLink>
+                            <footer style={{ marginTop: 'auto', paddingTop: '2rem', paddingBottom: '1rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1.25rem', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', width: '100%' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                        <div className="flex-center gap-2">
+                                            <div className="nav-logo-icon" style={{ padding: '0.2rem' }}><Trophy size={14} color="#050505" /></div>
+                                            <strong style={{ color: 'white' }}>5-A-Side League</strong>
+                                        </div>
+                                        <NavLink to="/login" style={{ color: 'var(--color-text-muted)', textDecoration: 'none', fontSize: '0.8rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}>
+                                            Referee Login
+                                        </NavLink>
+                                    </div>
+                                    <div className="flex-center gap-4">
+                                        <span>Standings</span><span>Fixtures</span><span>Results</span><span>Teams</span>
+                                    </div>
+                                    <div>Season 2025/26</div>
+                                </div>
+                                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)', letterSpacing: '0.02em', textAlign: 'center' }}>
+                                        <span>© {new Date().getFullYear()} Five-A-Side League • Created by <strong style={{ color: 'var(--color-primary)', fontWeight: 700 }}>MoSoft Solutions™</strong></span>
+                                    </div>
+                            </footer>
+                        </main>
                     </div>
-                    <div className="flex-center gap-4">
-                        <span>Standings</span><span>Fixtures</span><span>Results</span><span>Teams</span>
-                    </div>
-                    <div>Season 2025/26</div>
-                </footer>
-            </main>
-        </div>
-    );
+                    );
 };

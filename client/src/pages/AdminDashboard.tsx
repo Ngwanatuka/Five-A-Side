@@ -993,6 +993,10 @@ export const AdminDashboard = () => {
                         )}
                     </div>
                 )}
+
+                <footer style={{ width: '100%', marginTop: '3rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)', letterSpacing: '0.02em', textAlign: 'center' }}>
+                    <span>© {new Date().getFullYear()} Five-A-Side League • Created by <strong style={{ color: 'var(--color-primary)', fontWeight: 700 }}>MoSoft Solutions™</strong></span>
+                </footer>
             </main>
         </div>
     );

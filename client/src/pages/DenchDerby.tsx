@@ -524,7 +524,7 @@ export const DenchDerby = () => {
                         if (rawTeams) localSavedTeams = JSON.parse(rawTeams);
                         const rawPlayers = localStorage.getItem('dench_derby_players_v4');
                         if (rawPlayers) localSavedPlayers = JSON.parse(rawPlayers);
-                    } catch {}
+                    } catch { }
 
                     // Server (MySQL TournamentState) is the single source of truth for teams
                     const effectiveTeams = data?.teams && Object.keys(data.teams).length > 0
@@ -538,7 +538,7 @@ export const DenchDerby = () => {
 
                     if (Object.keys(effectiveTeams).length > 0) {
                         setTeams(effectiveTeams);
-                        try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(effectiveTeams)); } catch {}
+                        try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(effectiveTeams)); } catch { }
                     }
 
                     const anyServerScored = effectiveMatches.some((m: any) => m.homeScore !== null || m.awayScore !== null || m.status === 'completed' || m.status === 'live');
@@ -554,7 +554,7 @@ export const DenchDerby = () => {
                                 }
                             }
                         }
-                    } catch {}
+                    } catch { }
 
                     // Server JSON is the single source of truth for players
                     let unifiedPlayers: TournamentPlayer[] = [];
@@ -569,7 +569,7 @@ export const DenchDerby = () => {
                     setPlayers(unifiedPlayers);
                     try {
                         localStorage.setItem('dench_derby_players_v4', JSON.stringify(unifiedPlayers));
-                    } catch {}
+                    } catch { }
 
                     if (Array.isArray(data?.goalEvents)) {
                         setGoalEvents(data.goalEvents);
@@ -593,7 +593,7 @@ export const DenchDerby = () => {
             }
             if (nextTeams) {
                 setTeams(nextTeams);
-                try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(nextTeams)); } catch {}
+                try { localStorage.setItem('dench_derby_teams_v4', JSON.stringify(nextTeams)); } catch { }
             }
             if (nextMatches) {
                 setMatches(nextMatches);
@@ -609,15 +609,15 @@ export const DenchDerby = () => {
                             }
                         }
                     }
-                } catch {}
+                } catch { }
             }
             if (Array.isArray(data.players)) {
                 setPlayers(data.players);
-                try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(data.players)); } catch {}
+                try { localStorage.setItem('dench_derby_players_v4', JSON.stringify(data.players)); } catch { }
             }
             if (Array.isArray(data.goalEvents)) {
                 setGoalEvents(data.goalEvents);
-                try { localStorage.setItem('dench_derby_events_v4', JSON.stringify(data.goalEvents)); } catch {}
+                try { localStorage.setItem('dench_derby_events_v4', JSON.stringify(data.goalEvents)); } catch { }
             }
         };
 
@@ -634,7 +634,7 @@ export const DenchDerby = () => {
                             ...(updatedMatch.status && { status: String(updatedMatch.status).toLowerCase() as any })
                         };
                     });
-                    try { localStorage.setItem('dench_derby_matches_v4', JSON.stringify(next)); } catch {}
+                    try { localStorage.setItem('dench_derby_matches_v4', JSON.stringify(next)); } catch { }
                     return next;
                 });
             } else {
@@ -1517,7 +1517,7 @@ export const DenchDerby = () => {
             if (localStorage.getItem('active_match_id') === matchId) {
                 localStorage.removeItem('active_match_id');
             }
-        } catch {}
+        } catch { }
 
         const updatedMatches = matches.map(m => {
             if (m.id === matchId) {
@@ -1586,7 +1586,7 @@ export const DenchDerby = () => {
                         localStorage.removeItem(key);
                     }
                 }
-            } catch {}
+            } catch { }
         } catch (err: any) {
             console.error('Failed to reset tournament:', err);
             toast.error(err.message || 'Failed to reset tournament. Make sure you are logged in as an Administrator.');
@@ -1875,7 +1875,7 @@ export const DenchDerby = () => {
                                     border: '1px solid rgba(245, 158, 11, 0.3)',
                                     padding: '0.75rem 1.25rem',
                                     borderRadius: 'var(--radius-lg)'
-                            }}>
+                                }}>
                                     <Award size={22} color="#f59e0b" />
                                     <div>
                                         <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 700, letterSpacing: '0.05em' }}>
@@ -4556,29 +4556,52 @@ export const DenchDerby = () => {
                 <footer style={{
                     marginTop: '4rem',
                     paddingTop: '2rem',
+                    paddingBottom: '1rem',
                     borderTop: '1px solid var(--color-border)',
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
+                    flexDirection: 'column',
+                    gap: '1.25rem',
                     color: 'var(--color-text-muted)',
                     fontSize: '0.9rem'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Trophy size={16} color="var(--color-primary)" />
-                        <strong style={{ color: 'white' }}>Dench Derby 2026</strong> — Five-A-Side Soccer Platform
-                    </div>
-                    <div style={{ display: 'flex', gap: '1.5rem' }}>
-                        <NavLink to="/" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Home</NavLink>
-                        <NavLink to="/standings" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>League Standings</NavLink>
-                        <NavLink to="/fixtures" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Fixtures</NavLink>
-                        <NavLink to="/teams" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Teams</NavLink>
-                    </div>
-                    <div>Taking place 28 October 2026</div>
-                </footer>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '1rem',
+                            width: '100%'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Trophy size={16} color="var(--color-primary)" />
+                                <strong style={{ color: 'white' }}>Dench Derby 2026</strong> — Five-A-Side Soccer Platform
+                            </div>
+                            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <NavLink to="/" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Home</NavLink>
+                                <NavLink to="/standings" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>League Standings</NavLink>
+                                <NavLink to="/fixtures" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Fixtures</NavLink>
+                                <NavLink to="/teams" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Teams</NavLink>
+                            </div>
+                            <div>Taking place 28 October 2026</div>
+                        </div>
+                            <div style={{
+                                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                                paddingTop: '1rem',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                fontSize: '0.82rem',
+                                color: 'var(--color-text-muted)',
+                                letterSpacing: '0.02em',
+                                textAlign: 'center'
+                            }}>
+                                <span>
+                                    © {new Date().getFullYear()} Five-A-Side League • Created by <strong style={{ color: 'var(--color-primary)', fontWeight: 700 }}>MoSoft Solutions™</strong>
+                                </span>
+                            </div>
+                        </footer>
 
-            </main>
-        </div>
-    );
+                    </main>
+                </div>
+                );
 };

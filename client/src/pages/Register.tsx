@@ -221,6 +221,10 @@ export const Register = () => {
                 <div style={{ marginTop: '2.5rem', fontSize: '0.95rem', color: 'var(--color-text-muted)' }}>
                     Already registered? <NavLink to="/teams" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500, marginLeft: '0.25rem' }}>View all teams</NavLink>
                 </div>
+
+                <footer style={{ width: '100%', marginTop: '3rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.82rem', color: 'var(--color-text-muted)', letterSpacing: '0.02em', textAlign: 'center' }}>
+                    <span>© {new Date().getFullYear()} Five-A-Side League • Created by <strong style={{ color: 'var(--color-primary)', fontWeight: 700 }}>MoSoft Solutions™</strong></span>
+                </footer>
             </main>
         </div>
     );
